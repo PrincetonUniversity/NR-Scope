@@ -113,6 +113,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
     return SRSRAN_ERROR;
   }
 
+  // [xuyang] done pointer determination
+
   if(bwp_dl_ded_s_ptr->pdcch_cfg.is_setup()){
     pdcch_cfg.search_space[0].id = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
                                    search_spaces_to_add_mod_list[0].search_space_id;
@@ -148,6 +150,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
     pdcch_cfg.search_space[0].nof_formats  = 2;
     pdcch_cfg.coreset[0] = coreset0_t; 
   }
+
+  // [xuyang] collect dci type to pdcch_cfg and dci_cfg
   
   // all the Coreset information is from RRCSetup
   for (uint32_t crst_id = 0; crst_id < bwp_dl_ded_s_ptr->pdcch_cfg.setup().
@@ -248,6 +252,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
       coreset1_t = coreset_n;
     }
   }
+
+  // [xuyang] get the first ue coreset details
   
   // For FR1 offset_to_point_a uses prbs with 15kHz scs. 
   srsran_searcher_cfg_t = task_scheduler_nrscope->srsran_searcher_cfg_t;
@@ -262,6 +268,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   std::cout << "previous offset: " << arg_scs.coreset_offset_scs << std::endl;
   arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - coreset1_center_freq_hz) / cell.abs_pdcch_scs;
   std::cout << "current offset: " << arg_scs.coreset_offset_scs << std::endl;
+
+  // [xuyang] done deriving the abs coreset central freq 
   
    // set ra search space directly from the RRC Setup
   pdcch_cfg.search_space[0].nof_candidates[0] = bwp_dl_ded_s_ptr->
@@ -292,6 +300,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
     dci_cfg.enable_hopping = true;
   }
 
+  // [xuyang] done collecting nof candidates for each aggregation level 
+
   /// Format 0_1 specific configuration (for PUSCH only)
   ///< Number of UL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
   dci_cfg.nof_ul_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list.size(); 
@@ -313,6 +323,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   } else {
     dci_cfg.nof_ul_layers = 1;
   }
+
+  // [xuyang] done collecting bwp size, pusch time allocation, max rank...
   
   ///< determined by maxCodeBlockGroupsPerTransportBlock for PUSCH
   if(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.pdsch_serving_cell_cfg.setup().code_block_group_tx_present){
@@ -338,6 +350,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   } else {
     dci_cfg.pusch_nof_cbg = 0;
   }
+
+  // [xuyang] done maxCodeBlockGroupsPerTransportBlock for pusch (why from pdsch)
   
   if(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.csi_meas_cfg_present){
     dci_cfg.report_trigger_size = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.csi_meas_cfg.setup().report_trigger_size;
@@ -441,6 +455,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
     dci_cfg.pusch_dmrs_type = srsran_dmrs_sch_type_1;  ///< PUSCH DMRS type
     dci_cfg.pusch_dmrs_max_len = srsran_dmrs_sch_len_1; ///< PUSCH DMRS maximum length
   }
+
+  // [xuyang] all the pusch setting 
 
   /// Format 1_1 specific configuration (for PDSCH only)
   switch (master_cell_group.phys_cell_group_cfg.pdsch_harq_ack_codebook){
