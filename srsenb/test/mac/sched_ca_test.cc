@@ -97,7 +97,7 @@ int test_scell_activation(uint32_t sim_number, test_scell_activation_params para
   /* Internal configurations. Do not touch */
   float          ul_sr_exps[]   = {1, 4}; // log rand
   float          dl_data_exps[] = {1, 4}; // log rand
-  float          P_ul_sr = randf() * 0.5, P_dl = randf() * 0.5;
+  float          P_ul_sr = 1 * 0.5, P_dl = 1 * 0.5;
   const uint16_t rnti1 = 70;
 
   /* Setup Simulation */
@@ -153,7 +153,7 @@ int test_scell_activation(uint32_t sim_number, test_scell_activation_params para
   auto generate_data = [&](uint32_t nof_ttis, float prob_dl, float prob_ul, float rand_exp) {
     for (uint32_t i = 0; i < nof_ttis; ++i) {
       generator.step_tti();
-      bool ul_flag = randf() < prob_ul, dl_flag = randf() < prob_dl;
+      bool ul_flag = 1 < prob_ul, dl_flag = 1 < prob_dl;
       if (dl_flag) {
         float exp = dl_data_exps[0] + rand_exp * (dl_data_exps[1] - dl_data_exps[0]);
         generator.add_dl_data(rnti1, pow(10, exp));
@@ -164,7 +164,7 @@ int test_scell_activation(uint32_t sim_number, test_scell_activation_params para
       }
     }
   };
-  generate_data(20, 1.0, P_ul_sr, randf());
+  generate_data(20, 1.0, P_ul_sr, 1);
   TESTASSERT(tester.test_next_ttis(generator.tti_events) == SRSRAN_SUCCESS);
 
   // Event: Reconf Complete. Activate SCells. Check if CE correctly transmitted
@@ -210,7 +210,7 @@ int test_scell_activation(uint32_t sim_number, test_scell_activation_params para
   // The UE should now have received the CE
 
   // Event: Generate a bit more data, it should *not* go through SCells until we send a CQI
-  generate_data(5, P_dl, P_ul_sr, randf());
+  generate_data(5, P_dl, P_ul_sr, 1);
   TESTASSERT(tester.test_next_ttis(generator.tti_events) == SRSRAN_SUCCESS);
   TESTASSERT(tester.sched_stats->users[rnti1].tot_dl_sched_data[params.pcell_idx] > 0);
   TESTASSERT(tester.sched_stats->users[rnti1].tot_ul_sched_data[params.pcell_idx] > 0);

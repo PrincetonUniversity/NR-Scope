@@ -13,6 +13,12 @@
 #include "nrscope/hdr/nrscope_logger.h"
 #include "nrscope/hdr/to_google.h"
 
+#include <semaphore>
+#include <liquid/liquid.h>
+#include <chrono>
+
+#define RESAMPLE_WORKER_NUM 4
+
 class Radio{
   public:
     int                                           rf_index;
@@ -24,7 +30,9 @@ class Radio{
 
     srsran::rf_buffer_t                           rf_buffer_t;
     cf_t*                                         rx_buffer;
+    cf_t*                                         pre_resampling_rx_buffer;
     uint32_t                                      slot_sz;
+    uint32_t                                      pre_resampling_slot_sz;
     srsran::rf_timestamp_t                        last_rx_time;
 
     cell_searcher_args_t                          args_t;
@@ -61,6 +69,13 @@ class Radio{
     uint32_t nof_rnti_worker_groups;
     uint8_t nof_bwps;
     std::vector<std::unique_ptr <DCIDecoder> > dci_decoders;
+
+    // a better coordination between producer (fetch) and consumer (resample and decode)
+    sem_t smph_sf_data_prod_cons;
+
+    bool resample_needed;
+    resampler_kit rk[RESAMPLE_WORKER_NUM];
+    bool rk_initialized = false;
 
     std::string log_name;
     bool local_log;
@@ -119,6 +134,7 @@ class Radio{
     int SyncandDownlinkInit();
 
     /**
+    * (TASKS HAVE BEEN DELEGATED TO FetchAndResample AND DecodeAndProcess) 
     * After MIB decoding and synchronization, the USRP grabs 1ms data every time and dispatches the raw radio 
     * samples among SIB, RACH and DCI decoding threads. Also initialize these threads if they are not.
     * 
@@ -126,7 +142,23 @@ class Radio{
     * NR_FAILURE (-1) if something goes wrong.
     */
     int RadioCapture();
-};
+  
+  private:
+    /**
+    * sync, track sync, and grab 1ms raw samples from USRP continuously 
+    * 
+    * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run infinitely. 
+    * NR_FAILURE (-1) if something goes wrong.
+    */
+    int FetchAndResample();
 
+    /**
+    * resample and decode the signals
+    * 
+    * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run infinitely. 
+    * NR_FAILURE (-1) if something goes wrong.
+    */
+    int DecodeAndProcess();
+};
 
 #endif

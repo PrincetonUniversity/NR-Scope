@@ -57,7 +57,8 @@ class RachDecoder{
                             cf_t* input[SRSRAN_MAX_PORTS]);
 
     int decode_and_parse_msg4_from_slot(srsran_slot_cfg_t* slot,
-                                        TaskSchedulerNRScope* task_scheduler_nrscope);
+                                        TaskSchedulerNRScope* task_scheduler_nrscope,
+                                        cf_t * raw_buffer);
     
     // int rach_thread(TaskSchedulerNRScope* task_scheduler_nrscope);
 };

@@ -1,6 +1,8 @@
 #ifndef TASK_SCHEDULER_H
 #define TASK_SCHEDULER_H
 
+#include <liquid/liquid.h>
+
 /* A class that stores some intermediate results and schedules the SIB, RACH and DCI loops. */
 
 #include "nrscope/hdr/nrscope_def.h"
@@ -59,7 +61,9 @@ class TaskSchedulerNRScope{
 
     int decode_mib(cell_searcher_args_t* args_t_, 
                    srsue::nr::cell_search::ret_t* cs_ret_,
-                   srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t);
+                   srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t,
+                   float resample_ratio_,
+                   uint32_t raw_srate_);
 
     int merge_results();
 
@@ -71,6 +75,34 @@ class TaskSchedulerNRScope{
 
     // per bwp DCI decoding result for current TTI
     std::vector <DCIFeedback> results;
+
+    // resampler tools
+    float resample_ratio;
+    msresamp_crcf resampler;
+    float resampler_delay;
+    uint32_t temp_x_sz;
+    uint32_t temp_y_sz;
+    std::complex<float> * temp_x;
+    std::complex<float> * temp_y;
+    uint32_t pre_resampling_slot_sz;
+
+    static int copy_c_to_cpp_complex_arr_and_zero_padding(cf_t* src, std::complex<float>* dst, uint32_t sz1, uint32_t sz2) {
+      for (uint32_t i = 0; i < sz2; i++) {
+        // indeed copy right? https://en.cppreference.com/w/cpp/numeric/complex/operator%3D
+        dst[i] = i < sz1 ? src[i] : 0;
+      }
+
+      return 0;
+    }
+
+    static int copy_cpp_to_c_complex_arr(std::complex<float>* src, cf_t* dst, uint32_t sz) {
+      for (uint32_t i = 0; i < sz; i++) {
+        // https://en.cppreference.com/w/cpp/numeric/complex 
+        dst[i] = { src[i].real(), src[i].imag() };
+      }
+
+      return 0;
+    }
 };
 
 

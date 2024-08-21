@@ -297,7 +297,6 @@ bool radio::rx_now(rf_buffer_interface& buffer, rf_timestamp_interface& rxd_time
   std::unique_lock<std::mutex> lock(rx_mutex);
   bool                         ret = true;
   rf_buffer_t                  buffer_rx;
-  // std::cout << "Using radio.cc " << buffer.get_nof_samples() << std::endl;
 
   // Extract decimation ratio. As the decimation may take some time to set a new ratio, deactivate the decimation and
   // keep receiving samples to avoid stalling the RX stream

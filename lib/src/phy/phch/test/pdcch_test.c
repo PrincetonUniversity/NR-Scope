@@ -43,7 +43,7 @@ static srsran_random_t       random_gen                     = NULL;
 static srsran_pdcch_t        pdcch_tx                       = {};
 static srsran_pdcch_t        pdcch_rx                       = {};
 static srsran_chest_dl_res_t chest_dl_res                   = {};
-static srsran_channel_awgn_t awgn                           = {};
+static srsran_channel_awgn_t awgn1                           = {};
 static cf_t*                 slot_symbols[SRSRAN_MAX_PORTS] = {};
 
 static void usage(char* prog)
@@ -246,12 +246,12 @@ static int test_case1()
 
         // Set noise level according to aggregation level
         float n0_dB = -get_snr_dB(locations[loc].L);
-        TESTASSERT(srsran_channel_awgn_set_n0(&awgn, n0_dB) == SRSRAN_SUCCESS);
+        TESTASSERT(srsran_channel_awgn_set_n0(&awgn1, n0_dB) == SRSRAN_SUCCESS);
         chest_dl_res.noise_estimate = srsran_convert_dB_to_power(n0_dB);
 
         // Apply AWGN
         for (uint32_t p = 0; p < nof_ports; p++) {
-          srsran_channel_awgn_run_c(&awgn, slot_symbols[p], slot_symbols[p], nof_re);
+          srsran_channel_awgn_run_c(&awgn1, slot_symbols[p], slot_symbols[p], nof_re);
         }
 
         // Extract LLR
@@ -405,7 +405,7 @@ int main(int argc, char** argv)
     goto quit;
   }
 
-  if (srsran_channel_awgn_init(&awgn, 0x1234) < SRSRAN_SUCCESS) {
+  if (srsran_channel_awgn_init(&awgn1, 0x1234) < SRSRAN_SUCCESS) {
     ERROR("Error init AWGN");
     goto quit;
   }
@@ -424,7 +424,7 @@ quit:
   srsran_chest_dl_res_free(&chest_dl_res);
   srsran_regs_free(&regs);
   srsran_random_free(random_gen);
-  srsran_channel_awgn_free(&awgn);
+  srsran_channel_awgn_free(&awgn1);
 
   for (i = 0; i < SRSRAN_MAX_PORTS; i++) {
     if (slot_symbols[i]) {

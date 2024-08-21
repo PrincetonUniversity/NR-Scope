@@ -80,7 +80,9 @@ int SIBsDecoder::sib_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info ar
 }
 
 int SIBsDecoder::decode_and_parse_sib1_from_slot(srsran_slot_cfg_t* slot,
-                                                TaskSchedulerNRScope* task_scheduler_nrscope){
+                                                TaskSchedulerNRScope* task_scheduler_nrscope,
+                                                cf_t * raw_buffer){
+
   if(!task_scheduler_nrscope->sib1_inited){
     std::cout << "SIB decoder not initialized..." << std::endl;
     return SRSASN_SUCCESS;

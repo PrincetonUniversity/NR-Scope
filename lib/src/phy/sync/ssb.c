@@ -448,11 +448,11 @@ int srsran_ssb_set_cfg(srsran_ssb_t* q, const srsran_ssb_cfg_t* cfg)
   q->cp_sz = (144U * symbol_sz) / 2048U;
 
   // Calculate SSB sampling error and check
-  double ssb_srate_error_Hz = ((double)symbol_sz * q->scs_hz) - cfg->srate_hz;
-  if (fabs(ssb_srate_error_Hz) > SSB_SRATE_MAX_ERROR_HZ) {
-    ERROR("Invalid sampling rate (%.2f MHz)", cfg->srate_hz / 1e6);
-    return SRSRAN_ERROR;
-  }
+  // double ssb_srate_error_Hz = ((double)symbol_sz * q->scs_hz) - cfg->srate_hz;
+  // if (fabs(ssb_srate_error_Hz) > SSB_SRATE_MAX_ERROR_HZ) {
+  //   ERROR("Invalid sampling rate (%.2f MHz)", cfg->srate_hz / 1e6);
+  //   return SRSRAN_ERROR;
+  // }
 
   // printf("input ssb freq: %f\n", cfg->ssb_freq_hz);
   // printf("input center freq: %f\n", cfg->center_freq_hz);

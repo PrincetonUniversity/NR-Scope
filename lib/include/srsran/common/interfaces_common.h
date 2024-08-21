@@ -45,7 +45,8 @@ struct rf_args_band_t {
 struct rf_args_t {
   std::string type;
   std::string log_level;
-  double      srate_hz;
+  double      srate_hz; // the rx srate to usrp
+  double      srsran_srate_hz; // the rx srate fft will be based on (i.e., srate_hz to be down-resampled to srsran_srate_hz)
   float       dl_freq;
   float       ul_freq;
   float       freq_offset;

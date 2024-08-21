@@ -20,6 +20,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
                                                u_int8_t bwp_id){ 
   
   memcpy(&base_carrier, &task_scheduler_nrscope->args_t.base_carrier, sizeof(srsran_carrier_nr_t));
+
   arg_scs = arg_scs_; 
   cell = task_scheduler_nrscope->cell;
 
@@ -738,7 +739,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
 
 
 int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
-                                               TaskSchedulerNRScope* task_scheduler_nrscope){
+                                               TaskSchedulerNRScope* task_scheduler_nrscope,
+                                               cf_t * raw_buffer){
   if(!task_scheduler_nrscope->rach_found or !task_scheduler_nrscope->dci_inited){
     std::cout << "RACH not found or DCI decoder not initialized, quitting..." << std::endl;
     return SRSRAN_SUCCESS;

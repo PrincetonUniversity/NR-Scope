@@ -292,6 +292,15 @@ void srsran_vec_fprint_c(FILE* stream, const cf_t* x, const uint32_t len)
   fprintf(stream, "];\n");
 }
 
+void srsran_vec_fprint2_c(FILE* stream, const cf_t* x, const uint32_t len)
+{
+  int i;
+  for (i = 0; i < len; i++) {
+    fprintf(stream, "%+2.5f%+2.5fi, ", __real__ x[i], __imag__ x[i]);
+  }
+  fprintf(stream, "\n");
+}
+
 void srsran_vec_fprint_f(FILE* stream, const float* x, const uint32_t len)
 {
   int i;

@@ -22,8 +22,22 @@
 #include "srsran/phy/ue/ue_sync_nr.h"
 #include "srsran/phy/utils/vector.h"
 
+#include <liquid/liquid.h>
+#include <pthread.h>
+
 #define UE_SYNC_NR_DEFAULT_CFO_ALPHA 0.1
 pthread_mutex_t lock;
+
+int prepare_resampler(resampler_kit * q, float resample_ratio, uint32_t pre_resample_sf_sz, uint32_t resample_worker_num) {
+
+  for (uint8_t i = 0; i < resample_worker_num; ++i) {
+    q[i].resampler = msresamp_crcf_create(resample_ratio, 60.0f);
+    q[i].temp_y = SRSRAN_MEM_ALLOC(cf_t, (pre_resample_sf_sz + 20) * resample_ratio * 2);
+    // printf("[parallel resample] q[%u] initialized; &q[i]: %p\n", i, &q[i]);
+  }
+
+  return SRSRAN_SUCCESS;
+}
 
 int srsran_ue_sync_nr_init(srsran_ue_sync_nr_t* q, const srsran_ue_sync_nr_args_t* args)
 {
@@ -154,7 +168,7 @@ static int ue_sync_nr_update_ssb(srsran_ue_sync_nr_t*                 q,
   q->sfn     = mib.sfn;
 
   // Transition to track only if the measured delay is below 2.4 microseconds
-  if (measurements->delay_us < 2.4f) {
+  if (measurements->delay_us < 2.4f) { // <- should be abs(measurements->delay_us) < 2.4f
     printf("Transition to SRSRAN_UE_SYNC_NR_STATE_TRACK\n");
     printf("measurements->delay_us: %f\n", measurements->delay_us);
     q->state = SRSRAN_UE_SYNC_NR_STATE_TRACK;
@@ -238,7 +252,8 @@ static int ue_sync_nr_recv(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_timesta
 
   if (q->next_rf_sample_offset > 0) {
     // Discard a number of samples from RF
-    if (q->recv_callback(q->recv_obj, buffer, (uint32_t)q->next_rf_sample_offset, timestamp) < SRSRAN_SUCCESS) {
+    printf("discard rf samples (next_rf_sample_offset): %u\n", (uint32_t)q->next_rf_sample_offset);
+    if (q->recv_callback(q->recv_obj, buffer, (uint32_t)((float)q->next_rf_sample_offset/(float)q->resample_ratio), timestamp) < SRSRAN_SUCCESS) {
       return SRSRAN_ERROR;
     }
   } else {
@@ -266,7 +281,7 @@ static int ue_sync_nr_recv(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_timesta
   }
 
   // Receive
-  if (q->recv_callback(q->recv_obj, q->tmp_buffer, nof_samples, timestamp) < SRSRAN_SUCCESS) {
+  if (q->recv_callback(q->recv_obj, q->tmp_buffer, (uint32_t)((float)nof_samples/(float)q->resample_ratio), timestamp) < SRSRAN_SUCCESS) {
     return SRSRAN_ERROR;
   }
 
@@ -298,6 +313,117 @@ int srsran_ue_sync_nr_zerocopy(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_ue_
   if (ue_sync_nr_recv(q, buffer, &outcome->timestamp) < SRSRAN_SUCCESS) {
     ERROR("Error receiving baseband");
     return SRSRAN_ERROR;
+  }
+
+  // Run FSM
+  switch (q->state) {
+    case SRSRAN_UE_SYNC_NR_STATE_IDLE:
+      // Do nothing
+      break;
+    case SRSRAN_UE_SYNC_NR_STATE_FIND:  
+      if (ue_sync_nr_run_find(q, buffer[0]) < SRSRAN_SUCCESS) {
+        ERROR("Error running find");
+        return SRSRAN_ERROR;
+      }
+      break;
+    case SRSRAN_UE_SYNC_NR_STATE_TRACK:
+      if (ue_sync_nr_run_track(q, buffer[0]) < SRSRAN_SUCCESS) {
+        ERROR("Error running track");
+        return SRSRAN_ERROR;
+      }
+      break;
+  }
+
+  // moved to the end of this function, by Haoran
+  // Increment subframe counter
+  // q->sf_idx++;
+
+  // Increment SFN
+  if (q->sf_idx >= SRSRAN_NOF_SF_X_FRAME) {
+    q->sfn    = (q->sfn + 1) % 1024;
+    q->sf_idx = 0;
+  }
+
+  // Fill outcome
+  outcome->in_sync  = (q->state == SRSRAN_UE_SYNC_NR_STATE_TRACK);
+  outcome->sf_idx   = q->sf_idx;
+  outcome->sfn      = q->sfn;
+  outcome->cfo_hz   = q->cfo_hz;
+  outcome->delay_us = q->avg_delay_us;
+
+  // Increment subframe counter
+  q->sf_idx++;
+
+  return SRSRAN_SUCCESS;
+}
+
+void *resample_partially_nrscope(void * args) {
+  resample_partially_args_nrscope * my_args = (resample_partially_args_nrscope *)args;
+  resampler_kit *rk = my_args->rk;
+  cf_t *in = my_args->in;
+  uint32_t splitted_nx = my_args->splitted_nx;
+  uint32_t worker_idx = my_args->worker_idx;
+  uint32_t * actual_sf_sz_splitted = my_args->actual_sf_sz_splitted;
+  // printf("[parallel resample] rk: %p, in: %p, splitted_nx: %u, worker_idx: %u, actual_sf_sz_splitted: %p\n", rk, in, splitted_nx, worker_idx, actual_sf_sz_splitted);
+  msresamp_crcf_execute(rk->resampler, (in + splitted_nx * worker_idx), splitted_nx, rk->temp_y, actual_sf_sz_splitted);
+  // printf("resampled sf size (splitted) by worker %u: %u\n", worker_idx, *actual_sf_sz_splitted);
+
+  return NULL;
+}
+
+int srsran_ue_sync_nr_zerocopy_twinrx_nrscope(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_ue_sync_nr_outcome_t* outcome, resampler_kit * rk, bool resample_needed, uint32_t resample_worker_num)
+{
+  // Check inputs
+  if (q == NULL || buffer == NULL || outcome == NULL) {
+    return SRSRAN_ERROR_INVALID_INPUTS;
+  }
+
+  // Verify callback is valid
+  if (q->recv_callback == NULL) {
+    return SRSRAN_ERROR;
+  }
+
+  // Receive
+  if (ue_sync_nr_recv(q, buffer, &outcome->timestamp) < SRSRAN_SUCCESS) {
+    ERROR("Error receiving baseband");
+    return SRSRAN_ERROR;
+  }
+
+  // resample
+  if (resample_needed) {
+    uint32_t splitted_nx = (uint32_t)((float)q->sf_sz/q->resample_ratio/resample_worker_num);
+    pthread_t * tids = (pthread_t *) malloc(sizeof(pthread_t) * resample_worker_num);
+    uint32_t * actual_sf_szs_splitted = (uint32_t *) malloc(sizeof(uint32_t) * resample_worker_num);
+    resample_partially_args_nrscope * args_structs = (resample_partially_args_nrscope *) malloc(sizeof(resample_partially_args_nrscope) * resample_worker_num);;
+    for (uint8_t i = 0; i < resample_worker_num; i++) {
+      args_structs[i].rk = &rk[i];
+      args_structs[i].in = buffer[0];
+      args_structs[i].splitted_nx = splitted_nx;
+      args_structs[i].worker_idx = i;
+      args_structs[i].actual_sf_sz_splitted = &actual_sf_szs_splitted[i];
+      // printf("[parallel resample] i: %u\n", i);
+      int res = pthread_create(&tids[i], NULL, resample_partially_nrscope, (void *)&(args_structs[i]));
+      // printf("[parallel resample] pthread_create res: %d\n", res);
+    }
+    // u_int32_t actual_sf_sz = 0;
+    // msresamp_crcf_execute(rk->resampler, buffer[0], (uint32_t)((float)q->sf_sz/q->resample_ratio), rk->temp_y, &actual_sf_sz);
+    // printf("resampled sf size: %u\n", actual_sf_sz);
+    // srsran_vec_cf_copy(buffer[0], rk->temp_y, actual_sf_sz);
+
+    for (uint8_t i = 0; i < resample_worker_num; i++) {
+      pthread_join(tids[i], NULL);
+    }
+    
+    // sequentially merge back
+    cf_t * buf_split_ptr = buffer[0];
+    for (uint8_t i = 0; i < resample_worker_num; i++) {
+      srsran_vec_cf_copy(buf_split_ptr, rk[i].temp_y, actual_sf_szs_splitted[i]);
+      buf_split_ptr += actual_sf_szs_splitted[i];
+    }
+
+    free(tids);
+    free(actual_sf_szs_splitted);
+    free(args_structs);
   }
 
   // Run FSM

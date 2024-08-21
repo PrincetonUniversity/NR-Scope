@@ -3,3 +3,5 @@ build/
 .vscode/
 
 .DS_Store
+
+nrscope/twinrx_analysis/

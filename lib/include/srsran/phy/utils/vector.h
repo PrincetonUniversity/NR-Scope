@@ -155,6 +155,7 @@ SRSRAN_API void srsran_vec_i16_copy(int16_t* dst, const int16_t* src, uint32_t l
 
 /* print vectors */
 SRSRAN_API void     srsran_vec_fprint_c(FILE* stream, const cf_t* x, const uint32_t len);
+SRSRAN_API void     srsran_vec_fprint2_c(FILE* stream, const cf_t* x, const uint32_t len); // print with out '[' and ']'
 SRSRAN_API void     srsran_vec_fprint_f(FILE* stream, const float* x, const uint32_t len);
 SRSRAN_API void     srsran_vec_fprint_b(FILE* stream, const uint8_t* x, const uint32_t len);
 SRSRAN_API void     srsran_vec_fprint_bs(FILE* stream, const int8_t* x, const uint32_t len);

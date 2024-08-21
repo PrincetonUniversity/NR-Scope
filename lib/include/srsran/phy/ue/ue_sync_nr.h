@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <pthread.h>
+#include <liquid/liquid.h>
 
 #define SRSRAN_RECV_CALLBACK_TEMPLATE(NAME) int (*NAME)(void*, cf_t**, uint32_t, srsran_timestamp_t*)
 
@@ -99,7 +100,22 @@ typedef struct SRSRAN_API {
   // Metrics
   float cfo_hz;       ///< Current CFO in Hz
   float avg_delay_us; ///< Current average delay
+
+  float resample_ratio;
 } srsran_ue_sync_nr_t;
+
+typedef struct SRSRAN_API {
+  msresamp_crcf resampler;
+  cf_t * temp_y; // resampler will save result to temp_y; then copy temp_y result to place you want
+} resampler_kit;
+
+typedef struct SRSRAN_API {
+  resampler_kit *rk; // resampler kit
+  cf_t *in; // in buffer (no shift)
+  uint32_t splitted_nx; // resample amount for each worker
+  uint32_t worker_idx; // worker id (to determine which range)
+  uint32_t * actual_sf_sz_splitted; // resampled point num
+} resample_partially_args_nrscope;
 
 /**
  * @brief Describes a UE sync NR zerocopy outcome
@@ -112,6 +128,8 @@ typedef struct SRSRAN_API {
   float              cfo_hz;    ///< Current CFO in Hz
   float              delay_us;  ///< Current average delay in microseconds
 } srsran_ue_sync_nr_outcome_t;
+
+SRSRAN_API int prepare_resampler(resampler_kit * q, float resample_ratio, uint32_t pre_resample_sf_sz, uint32_t resample_worker_num);
 
 /**
  * @brief Initialises a UE sync NR object
@@ -144,6 +162,22 @@ SRSRAN_API int srsran_ue_sync_nr_set_cfg(srsran_ue_sync_nr_t* q, const srsran_ue
  * @return SRSRAN_SUCCESS if no error occurs, SRSRAN_ERROR code otherwise
  */
 SRSRAN_API int srsran_ue_sync_nr_zerocopy(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_ue_sync_nr_outcome_t* outcome);
+
+/**
+ * @brief Resample only part of the raw signals (thus should be collectively used by multiple threads)
+ */
+SRSRAN_API void *resample_partially_nrscope(void * args);
+
+/**
+ * @brief Runs the NR UE synchronization object, tries to find and track the configured SSB leaving in buffer the
+ * received baseband subframe
+ * @param q NR UE synchronization object
+ * @param buffer 2D complex buffer
+ * @param outcome zerocopy outcome
+ * @param rk resampler
+ * @return SRSRAN_SUCCESS if no error occurs, SRSRAN_ERROR code otherwise
+ */
+SRSRAN_API int srsran_ue_sync_nr_zerocopy_twinrx_nrscope(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_ue_sync_nr_outcome_t* outcome, resampler_kit * rk, bool resample_needed, uint32_t resample_worker_num);
 
 /**
  * @brief Runs the NR UE synchronization object, tries to find and track the configured SSB leaving in buffer the

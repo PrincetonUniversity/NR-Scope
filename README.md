@@ -135,3 +135,71 @@ There are some on-going plans for the near future:
 * Test the tool with different bandwidth, SCS, and different duplexing modes (TDD and FDD), with the help of Amarisoft. If decoding the DCIs for more UEs takes longer time than one TTI, we need to add multi-thread DCI decoding functionality.
 * Add carrier aggregation decoding function (multiple USRP to decode multiple cell towers that the UE is connected to).
 * Found cell searcher can mistakenly find cells in nearby frequency (e.g., GSCN -1/-2 steps). In other words, when cell searcher's to-search SSB central frequency is x, it can find SSB at x - 1/2 step. We guess it's because the coarse correlation. Investigate possibly later.
+
+## Resampling included for more USRPs
+
+* Create two sampling config parameters: `srsran_srate` and `srate`. `srsran_srate` is what the srsRAN signal processing saw, which should be in the 184.32MHz family (srsRAN process assumed). `srate` is what fed to the USRP RF, which should be compatible with your USRP hardware. Therefore, the resampling ratio will be `r = srsran_srate/srate` (see `config.yaml`).
+* Down-resample the raw signal with ratio `r`, using the [liquid-dsp](https://liquidsdr.org/) library. Please install following steps below (from their Github page).
+* As resampling takes non-trivial portion of time (based on our test machine), we optimize the "producer-consumer" coordination pattern in the time-critical baseband processing scenario. See more technical details below.
+
+### Install liquid-dsp (assume Debian)
+
+```
+sudo apt-get install automake autoconf
+
+# download source codes
+git clone git://github.com/jgaeddert/liquid-dsp.git
+
+# go to the repo
+
+# Building and installing the main library
+./bootstrap.sh
+./configure
+make
+sudo make install
+sudo ldconfig
+# to double check, libs should appear at /usr/local/lib and header liquid.h should appear at /usr/local/include/liquid/
+```
+
+
+**Therefore, to run with different USRPs you will have the following `config.yaml`(s):**
+
+for CBX:
+
+```
+......
+rf_args: "clock=external,type=x300,sampling_rate=23040000" #"type=x300" #"clock=external"
+rx_gain: 30 # for x310, max rx gain is 31.5, for b210, it's around 80
+srate_hz: 23040000 #11520000 #11520000 #23040000
+srsran_srate_hz: 23040000
+......
+```
+
+for TwinRX (note TwinRX has a significantly higher rx gain limit):
+
+```
+......
+rf_args: "clock=external,type=x300,master_clock_rate=200000000,sampling_rate=25000000" #"type=x300" #"clock=external"
+rx_gain: 90 # for x310, max rx gain is 31.5, for b210, it's around 80
+srate_hz: 25000000 #11520000 #11520000 #23040000
+srsran_srate_hz: 23040000
+......
+```
+
+### producer-consumer coordination pattern (TLDR)
+
+Producer is codes fetching samples from USRP. Consumer is codes processing (e.g., fft and decoding). Previously, the pattern (a loop) looks like the following:
+
+```
+    start --> producer (subframe sample fetching) --> consumer (subframe processing) --> back to start
+```
+
+The constraint is you should finish an iteration within 1ms, otherwise you don't fetch the samples timely and overflow occurs. This means sync drift and monitoring no longer works. Without resampling, the whole iteration finish within 1ms robustly in our test machine. With resampling, it exceeds 1ms (on our test machine).
+
+Therefore, we have the variant pattern B:
+
+```
+    initialize some semaphore S (resource produced/consumed indicator)
+    (thread 1) start --> producer (subframe sample fetching, resampling, and buffering) --> S signal up --> back to start
+    (thread 2) start --> S signal down --> consumer (subframe processing) --> back to start
+```

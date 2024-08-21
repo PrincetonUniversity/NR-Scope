@@ -249,7 +249,8 @@ int RachDecoder::rach_reception_init(srsran_ue_dl_nr_sratescs_info arg_scs_,
 
 
 int RachDecoder::decode_and_parse_msg4_from_slot(srsran_slot_cfg_t* slot,
-                                                 TaskSchedulerNRScope* task_scheduler_nrscope){
+                                                 TaskSchedulerNRScope* task_scheduler_nrscope,
+                                                 cf_t * raw_buffer){
   if(!task_scheduler_nrscope->sib1_found or !task_scheduler_nrscope->rach_inited){
     // If the SIB 1 is not detected or the RACH decoder is not initialized.
     std::cout << "SIB 1 not found or decoder not initialized, quitting..." << std::endl;

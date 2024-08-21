@@ -19,7 +19,9 @@ TaskSchedulerNRScope::~TaskSchedulerNRScope(){
 
 int TaskSchedulerNRScope::decode_mib(cell_searcher_args_t* args_t_, 
                               srsue::nr::cell_search::ret_t* cs_ret_,
-                              srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t_){
+                              srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t_,
+                              float resample_ratio_,
+                              uint32_t raw_srate_){
   args_t_->base_carrier.pci = cs_ret_->ssb_res.N_id;
 
   if(srsran_pbch_msg_nr_mib_unpack(&(cs_ret_->ssb_res.pbch_msg), &cell.mib) < SRSRAN_SUCCESS){
@@ -111,6 +113,18 @@ int TaskSchedulerNRScope::decode_mib(cell_searcher_args_t* args_t_,
   cs_ret = *cs_ret_;
   memcpy(&srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
   // std::cout << "After memcpy" << std::endl;
+
+  // initiate resampler here
+  resample_ratio = resample_ratio_;
+  float As=60.0f;
+  resampler = msresamp_crcf_create(resample_ratio,As);
+  resampler_delay = msresamp_crcf_get_delay(resampler);
+  pre_resampling_slot_sz = raw_srate_ / 1000 / SRSRAN_NOF_SLOTS_PER_SF_NR(args_t_->ssb_scs); // don't hardcode it; change later
+  temp_x_sz = pre_resampling_slot_sz + (int)ceilf(resampler_delay) + 10;
+  temp_y_sz = (uint32_t)(temp_x_sz * resample_ratio * 2);
+  temp_x = SRSRAN_MEM_ALLOC(std::complex<float>, temp_x_sz);
+  temp_y = SRSRAN_MEM_ALLOC(std::complex<float>, temp_y_sz);
+
   return SRSRAN_SUCCESS;
 }
 

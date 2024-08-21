@@ -60,7 +60,8 @@ class DCIDecoder{
                                        u_int8_t bwp_id);
 
     int decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
-                                       TaskSchedulerNRScope* task_scheduler_nrscope);
+                                       TaskSchedulerNRScope* task_scheduler_nrscope,
+                                       cf_t * raw_buffer);
 
     // int dci_thread(TaskSchedulerNRScope* task_scheduler_nrscope);
 };

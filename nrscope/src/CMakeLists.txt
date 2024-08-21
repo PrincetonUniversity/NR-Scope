@@ -29,7 +29,9 @@ target_link_libraries(nrscope   srsue_phy
                                 ${SRSRAN_SOURCES}
                                 ${CMAKE_THREAD_LIBS_INIT}
                                 ${Boost_LIBRARIES}
-                                ${YAML_CPP_LIBRARIES})
+                                ${YAML_CPP_LIBRARIES}
+                                "/usr/local/lib/libliquid.so"
+                                "/usr/local/lib/libliquid.a")
 
 target_link_libraries(nrscan   srsue_phy
                                 srsran_common
@@ -41,7 +43,9 @@ target_link_libraries(nrscan   srsue_phy
                                 ${SRSRAN_SOURCES}
                                 ${CMAKE_THREAD_LIBS_INIT}
                                 ${Boost_LIBRARIES}
-                                ${YAML_CPP_LIBRARIES})
+                                ${YAML_CPP_LIBRARIES}
+                                "/usr/local/lib/libliquid.so"
+                                "/usr/local/lib/libliquid.a")
 
 if(PUSH_TO_GOOGLE)
   target_link_libraries(nrscope ${PYTHON_LIBRARIES})

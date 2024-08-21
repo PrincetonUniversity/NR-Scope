@@ -835,6 +835,7 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
     }
   }
 
+
   handler->nof_rx_channels = nof_channels;
   handler->nof_tx_channels = nof_channels;
 
@@ -842,9 +843,11 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
   if (handler->uhd->set_rx_rate(handler->rx_rate) != UHD_ERROR_NONE) {
     return SRSRAN_ERROR;
   }
-  if (handler->uhd->set_tx_rate(handler->tx_rate) != UHD_ERROR_NONE) {
-    return SRSRAN_ERROR;
-  }
+
+  // skip TX initialization (bypass error)
+  // if (handler->uhd->set_tx_rate(handler->tx_rate) != UHD_ERROR_NONE) {
+  //   return SRSRAN_ERROR;
+  // }
 
   // Reset timestamps
   if (nof_channels > 1 and clock_src != "gpsdo") {
@@ -855,9 +858,13 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
     return SRSRAN_ERROR;
   }
 
-  if (handler->uhd->get_tx_stream(handler->tx_nof_samples) != UHD_ERROR_NONE) {
-    return SRSRAN_ERROR;
-  }
+  // if (true) {
+  //   uint32_t uhd_err_code = handler->uhd->get_tx_stream(handler->tx_nof_samples);
+  //   if (uhd_err_code != UHD_ERROR_NONE) {
+  //     printf("error 3: %u\n", uhd_err_code);
+  //     return SRSRAN_ERROR;
+  //   }
+  // }
 
   // Tune LOs if the default frequency is provided
   bool require_wait_rx_lock = false;
@@ -870,27 +877,35 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
       require_wait_rx_lock = true;
     }
   }
-  for (uint32_t i = 0; i < nof_channels; i++) {
-    if (std::isnormal(handler->tx_freq[i])) {
-      if (handler->uhd->set_tx_freq(i, handler->tx_freq[i], handler->tx_freq[i]) != UHD_ERROR_NONE) {
-        return SRSRAN_ERROR;
-      }
-    }
-  }
+  // for (uint32_t i = 0; i < nof_channels; i++) {
+  //   if (std::isnormal(handler->tx_freq[i])) {
+  //     if (handler->uhd->set_tx_freq(i, handler->tx_freq[i], handler->tx_freq[i]) != UHD_ERROR_NONE) {
+  //       return SRSRAN_ERROR;
+  //     }
+  //   }
+  // }
 
   // Populate RF device info
-  uhd::gain_range_t tx_gain_range;
-  uhd::gain_range_t rx_gain_range;
-  if (handler->uhd->get_gain_range(tx_gain_range, rx_gain_range) != UHD_ERROR_NONE) {
-    return SRSRAN_ERROR;
-  }
-  handler->info.min_tx_gain = tx_gain_range.start();
-  handler->info.max_tx_gain = tx_gain_range.stop();
-  handler->info.min_rx_gain = rx_gain_range.start();
-  handler->info.max_rx_gain = rx_gain_range.stop();
+  // uhd::gain_range_t tx_gain_range;
+  // uhd::gain_range_t rx_gain_range;
+  if (true) {
+    // uint32_t uhd_err_code = handler->uhd->get_gain_range(tx_gain_range, rx_gain_range);
+    // if (uhd_err_code != UHD_ERROR_NONE) {
+    //   printf("error 4.1: %u\n", uhd_err_code);
+    //   return SRSRAN_ERROR;
+    // }
 
-  // Set starting gain to half maximum in case of using AGC
-  rf_uhd_set_rx_gain(handler, handler->info.max_rx_gain * 0.7);
+    // handler->info.min_tx_gain = tx_gain_range.start();
+    // handler->info.max_tx_gain = tx_gain_range.stop();
+    // handler->info.min_rx_gain = rx_gain_range.start();
+    // handler->info.max_rx_gain = rx_gain_range.stop();
+
+    // Set starting gain to half maximum in case of using AGC
+    // rf_uhd_set_rx_gain(handler, handler->info.max_rx_gain * 0.7);
+    
+    rf_uhd_set_rx_gain(handler, 30);
+  }
+  
 
 #if HAVE_ASYNC_THREAD
   if (start_async_thread) {
