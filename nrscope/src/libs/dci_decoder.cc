@@ -752,6 +752,7 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
 
   if (hidden_bwp) {
     std::cout << "[hidden bwp] Currently disable hidden bwp operations." << std::endl;
+    return SRSRAN_SUCCESS;
   }
 
   uint32_t n_rntis = (uint32_t) ceil((float) task_scheduler_nrscope->nof_known_rntis / (float) task_scheduler_nrscope->nof_rnti_worker_groups);
@@ -801,6 +802,18 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
     memset(&dci_ul[idx], 0, sizeof(srsran_dci_dl_nr_t));
   }
   
+  uint16_t cbw_total = 0;
+  if (task_scheduler_nrscope->sib1.serving_cell_cfg_common_present) {
+    asn1::rrc_nr::freq_info_dl_sib_s::scs_specific_carrier_list_l_ scs_spec_carr_list =
+    task_scheduler_nrscope->sib1.serving_cell_cfg_common.dl_cfg_common.freq_info_dl.scs_specific_carrier_list;
+
+    if (scs_spec_carr_list.size > 0) {
+      // assume only 1 carrier and it's representative
+      cbw_total = scs_spec_carr_list[0].carrier_bw;
+    }
+  }
+  std::cout << "[hidden bwp] cbw_total: " << cbw_total << std::endl;
+
   srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
 
   int total_dl_dci = 0;
