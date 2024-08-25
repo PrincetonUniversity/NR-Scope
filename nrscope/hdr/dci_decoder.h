@@ -33,6 +33,8 @@ class DCIDecoder{
     uint32_t rnti_worker_group_id;
     uint8_t bwp_worker_id;
 
+    bool hidden_bwp = false; 
+
     // std::vector<float> dl_prb_rate;
     // std::vector<float> ul_prb_rate;
 

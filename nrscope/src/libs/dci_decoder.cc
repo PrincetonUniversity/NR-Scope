@@ -110,8 +110,12 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   }
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
-    ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume now only checking in RRCSetup). Currently please bring back nof_bwps back to 1 in config.yaml as we are working on encrypted RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
-    return SRSRAN_ERROR;
+    // ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume now only checking in RRCSetup). Currently please bring back nof_bwps back to 1 in config.yaml as we are working on encrypted RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
+    INFO("bwp id %d config not appear in RRCSetup. Assume it's hidden. Will monitor it heuristically");
+    hidden_bwp = true;
+    // copy bwp0 setting first
+    bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
+    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
   }
 
   // [xuyang] done pointer determination
@@ -744,6 +748,10 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
   if(!task_scheduler_nrscope->rach_found or !task_scheduler_nrscope->dci_inited){
     std::cout << "RACH not found or DCI decoder not initialized, quitting..." << std::endl;
     return SRSRAN_SUCCESS;
+  }
+
+  if (hidden_bwp) {
+    std::cout << "[hidden bwp] Currently disable hidden bwp operations." << std::endl;
   }
 
   uint32_t n_rntis = (uint32_t) ceil((float) task_scheduler_nrscope->nof_known_rntis / (float) task_scheduler_nrscope->nof_rnti_worker_groups);
