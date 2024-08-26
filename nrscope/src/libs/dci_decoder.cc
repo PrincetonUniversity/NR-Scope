@@ -1,4 +1,5 @@
 #include "nrscope/hdr/dci_decoder.h"
+#include <numeric>
 
 // Borrow from https://stackoverflow.com/questions/35833360/get-the-average-value-from-a-vector-of-integers
 double avg_uint32(std::vector<uint32_t> const& v) {
@@ -120,7 +121,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
     // ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume now only checking in RRCSetup). Currently please bring back nof_bwps back to 1 in config.yaml as we are working on encrypted RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
-    INFO("bwp id %d config not appear in RRCSetup. Assume it's hidden. Will monitor it heuristically");
+    INFO("bwp id %d config not appear in RRCSetup. Assume it's hidden. Will monitor it heuristically", bwp_id);
     hidden_bwp = true;
     // copy bwp0 setting first
     bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
@@ -284,6 +285,8 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   std::cout << "current offset: " << arg_scs.coreset_offset_scs << std::endl;
 
   if (hidden_bwp) {
+    std::cout << "[hidden bwp] groundtruth coreset1_center_freq_hz: " << coreset1_center_freq_hz << std::endl;
+
     // Get the carrier bw in "6-1"-type REG unit (i.e., 6 RB)
     uint16_t cbw_total = 0;
     uint16_t cbw_total_reg = 0;
@@ -292,7 +295,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
       asn1::rrc_nr::freq_info_dl_sib_s::scs_specific_carrier_list_l_ scs_spec_carr_list =
       task_scheduler_nrscope->sib1.serving_cell_cfg_common.dl_cfg_common.freq_info_dl.scs_specific_carrier_list;
 
-      if (scs_spec_carr_list.size > 0) {
+      if (scs_spec_carr_list.size() > 0) {
         // assume only 1 carrier and it's representative
         cbw_total = scs_spec_carr_list[0].carrier_bw; // here carrier_bw should be in RB unit
         carr_scs_hz = SRSRAN_SUBC_SPACING_NR(scs_spec_carr_list[0].subcarrier_spacing);
@@ -325,6 +328,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
         // central freq
         coreset_central_freqs[current_hidden_coreset_idx] = 
         coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz;
+        std::cout << "[hidden bwp] : coreset_central_freqs[" << current_hidden_coreset_idx << "]: " << coreset_central_freqs[current_hidden_coreset_idx] << std::endl;
         current_hidden_coreset_idx++;
       }
       else {
@@ -332,6 +336,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
       }
     }
     possible_coreset_total_num = current_hidden_coreset_idx;
+    std::cout << "[hidden bwp] possible_coreset_total_num: " << possible_coreset_total_num << std::endl;
 
     // Initialize the tracker for possible CORESETs
     dl_dci_num_1000_tracker.resize(possible_coreset_total_num);
