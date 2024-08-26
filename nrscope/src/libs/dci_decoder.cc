@@ -1,5 +1,14 @@
 #include "nrscope/hdr/dci_decoder.h"
 
+// Borrow from https://stackoverflow.com/questions/35833360/get-the-average-value-from-a-vector-of-integers
+double avg_uint32(std::vector<uint32_t> const& v) {
+    return 1.0 * std::accumulate(v.begin(), v.end(), 0LL) / v.size();
+}
+
+double sum_uint32(std::vector<uint32_t> const& v) {
+    return 1.0 * std::accumulate(v.begin(), v.end(), 0LL);
+}
+
 DCIDecoder::DCIDecoder(uint32_t max_nof_rntis){
 
   ue_dl_tmp = (srsran_ue_dl_nr_t*) malloc(sizeof(srsran_ue_dl_nr_t));
@@ -273,6 +282,65 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   std::cout << "previous offset: " << arg_scs.coreset_offset_scs << std::endl;
   arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - coreset1_center_freq_hz) / cell.abs_pdcch_scs;
   std::cout << "current offset: " << arg_scs.coreset_offset_scs << std::endl;
+
+  if (hidden_bwp) {
+    // Get the carrier bw in "6-1"-type REG unit (i.e., 6 RB)
+    uint16_t cbw_total = 0;
+    uint16_t cbw_total_reg = 0;
+    double carr_scs_hz = 0;
+    if (task_scheduler_nrscope->sib1.serving_cell_cfg_common_present) {
+      asn1::rrc_nr::freq_info_dl_sib_s::scs_specific_carrier_list_l_ scs_spec_carr_list =
+      task_scheduler_nrscope->sib1.serving_cell_cfg_common.dl_cfg_common.freq_info_dl.scs_specific_carrier_list;
+
+      if (scs_spec_carr_list.size > 0) {
+        // assume only 1 carrier and it's representative
+        cbw_total = scs_spec_carr_list[0].carrier_bw; // here carrier_bw should be in RB unit
+        carr_scs_hz = SRSRAN_SUBC_SPACING_NR(scs_spec_carr_list[0].subcarrier_spacing);
+        cbw_total_reg = cbw_total / NUM_RB_PER_REG; // in REG unit
+        coreset_central_freqs.resize(cbw_total_reg);
+      }
+    }
+    std::cout << "[hidden bwp] cbw_total: " << cbw_total << std::endl;
+    std::cout << "[hidden bwp] cbw_total_reg: " << cbw_total_reg << std::endl;
+
+    // Get all possible CORESET central freq offset location (relative to SSB central freq)
+    // Currently assume the lower bound of carrier bw aligns with point A (no offset)
+    // TODO: investigate whether assumption above resonable
+    // Therefore, we have the following 2 restrictions
+    // (1) lower bound of the CORESET >= point A
+    // (2) upper bound of the CORESET <= point A + carrier bw
+    
+    // Get total number of possible CORESETs
+    uint8_t current_hidden_coreset_idx = 0;
+    double channel_upper_bound = pointA + cbw_total * NRSCOPE_NSC_PER_RB_NR * carr_scs_hz;
+    while (current_hidden_coreset_idx < coreset_central_freqs.size()) {
+      // offset
+      double extra_offset_to_coreset1_center_freq_hz = 
+      current_hidden_coreset_idx * (cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR * NUM_RB_PER_REG);
+      // coreset upper
+      double current_coreset_upper_hz = coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz + 
+      (srsran_coreset_get_bw(&coreset1_t) / 2 * cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR);
+      if (current_coreset_upper_hz <= channel_upper_bound) {
+        // accept this possible CORESET for later processing
+        // central freq
+        coreset_central_freqs[current_hidden_coreset_idx] = 
+        coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz;
+        current_hidden_coreset_idx++;
+      }
+      else {
+        break;
+      }
+    }
+    possible_coreset_total_num = current_hidden_coreset_idx;
+
+    // Initialize the tracker for possible CORESETs
+    dl_dci_num_1000_tracker.resize(possible_coreset_total_num);
+    ul_dci_num_1000_tracker.resize(possible_coreset_total_num);
+    for (uint8_t i = 0; i < possible_coreset_total_num; i++) {
+      dl_dci_num_1000_tracker[i].resize(1000);
+      ul_dci_num_1000_tracker[i].resize(1000);
+    }
+  }
 
   // [xuyang] done deriving the abs coreset central freq 
   
@@ -796,149 +864,165 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
   }
   // std::cout << std::endl;
 
-  // Set the buffer to 0s
-  for(uint32_t idx = 0; idx < n_rntis; idx++){
-    memset(&dci_dl[idx], 0, sizeof(srsran_dci_dl_nr_t));
-    memset(&dci_ul[idx], 0, sizeof(srsran_dci_dl_nr_t));
-  }
-  
-  uint16_t cbw_total = 0;
-  if (task_scheduler_nrscope->sib1.serving_cell_cfg_common_present) {
-    asn1::rrc_nr::freq_info_dl_sib_s::scs_specific_carrier_list_l_ scs_spec_carr_list =
-    task_scheduler_nrscope->sib1.serving_cell_cfg_common.dl_cfg_common.freq_info_dl.scs_specific_carrier_list;
+  for (uint8_t i = 0; !hidden_bwp || i < possible_coreset_total_num; i++) {
 
-    if (scs_spec_carr_list.size > 0) {
-      // assume only 1 carrier and it's representative
-      cbw_total = scs_spec_carr_list[0].carrier_bw;
+    if (hidden_bwp) {
+      arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - coreset_central_freqs[i]) / cell.abs_pdcch_scs;
     }
-  }
-  std::cout << "[hidden bwp] cbw_total: " << cbw_total << std::endl;
 
-  srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
+    // Set the buffer to 0s
+    for(uint32_t idx = 0; idx < n_rntis; idx++){
+      memset(&dci_dl[idx], 0, sizeof(srsran_dci_dl_nr_t));
+      memset(&dci_ul[idx], 0, sizeof(srsran_dci_dl_nr_t));
+    }
 
-  int total_dl_dci = 0;
-  int total_ul_dci = 0;  
+    srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
 
-  for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++){
+    int total_dl_dci = 0;
+    int total_ul_dci = 0;  
+
+    for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++){
+      
+      memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
+      memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
+
+      int nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(ue_dl_tmp, slot_tmp, task_scheduler_nrscope->sharded_rntis[dci_decoder_id][rnti_idx], 
+                      srsran_rnti_type_c, dci_dl_tmp, 4);
+
+      if (nof_dl_dci < SRSRAN_SUCCESS) {
+        ERROR("Error in blind search");
+      }
+
+      int nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(ue_dl_tmp, slot_tmp, task_scheduler_nrscope->sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
+
+      if(nof_dl_dci > 0){
+        dci_dl[rnti_idx] = dci_dl_tmp[0];
+        total_dl_dci += nof_dl_dci;
+      }
+
+      if(nof_ul_dci > 0){
+        dci_ul[rnti_idx] = dci_ul_tmp[0];
+        total_ul_dci += nof_ul_dci;
+      }
+    }
+
+    // Record found dci num for this possible CORESET
+    dl_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_dl_dci;
+    ul_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_ul_dci;
+
+    if(!hidden_bwp && total_dl_dci > 0){
+      for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++){
+        // the rnti will not be copied if no dci found
+        if(dci_dl[dci_idx_dl].ctx.rnti == task_scheduler_nrscope->sharded_rntis[dci_decoder_id][dci_idx_dl]){
+          task_scheduler_nrscope->sharded_results[dci_decoder_id].dl_dcis[dci_idx_dl] = dci_dl[dci_idx_dl];
+          char str[1024] = {};
+          srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[dci_idx_dl], str, (uint32_t)sizeof(str));
+          printf("DCIDecoder -- Found DCI: %s\n", str);
+          // The grant may not be decoded correctly, since srsRAN's code is not complete.
+          // We can calculate the DL bandwidth for this subframe by ourselves.
+          if(dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {
+            srsran_sch_cfg_nr_t pdsch_cfg = {};
+            pdsch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
+            // printf("pdsch_hl_cfg.dmrs_typeA.additional_pos: %d\n", pdsch_hl_cfg.dmrs_typeA.additional_pos);
+
+            if (srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[dci_idx_dl], 
+                                            &pdsch_cfg, &pdsch_cfg.grant) < SRSRAN_SUCCESS) {
+              ERROR("Error decoding PDSCH search");
+              // return result;
+            }
+            srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
+            printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
+
+            task_scheduler_nrscope->sharded_results[dci_decoder_id].dl_grants[dci_idx_dl] = pdsch_cfg;
+            task_scheduler_nrscope->sharded_results[dci_decoder_id].nof_dl_used_prbs += pdsch_cfg.grant.nof_prb * pdsch_cfg.grant.L;
+
+            task_scheduler_nrscope->dl_prb_rate[dci_idx_dl+rnti_s] = (float)(pdsch_cfg.grant.tb[0].tbs + 
+              pdsch_cfg.grant.tb[1].tbs) / (float)pdsch_cfg.grant.nof_prb / (float)pdsch_cfg.grant.L;
+            task_scheduler_nrscope->dl_prb_bits_rate[dci_idx_dl+rnti_s] = (float)(pdsch_cfg.grant.tb[0].nof_bits + 
+              pdsch_cfg.grant.tb[1].nof_bits) / (float)pdsch_cfg.grant.nof_prb / (float)pdsch_cfg.grant.L;
+          }
+        }
+      }
+      // task_scheduler_nrscope->result.nof_dl_spare_prbs = carrier_dl.nof_prb * (14 - 2) - task_scheduler_nrscope->result.nof_dl_used_prbs;
+      // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
+      //   task_scheduler_nrscope->result.spare_dl_prbs[idx] = task_scheduler_nrscope->result.nof_dl_spare_prbs / task_scheduler_nrscope->nof_known_rntis;
+      //   if(abs(task_scheduler_nrscope->result.spare_dl_prbs[idx]) > carrier_dl.nof_prb * (14 - 2)){
+      //     task_scheduler_nrscope->result.spare_dl_prbs[idx] = 0;
+      //   }
+      //   task_scheduler_nrscope->result.spare_dl_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_rate[idx]);
+      //   task_scheduler_nrscope->result.spare_dl_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_bits_rate[idx]);
+      // }
+    }else{
+      // task_scheduler_nrscope->result.nof_dl_spare_prbs = carrier_dl.nof_prb * (14 - 2);
+      // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx++){
+      //   task_scheduler_nrscope->result.spare_dl_prbs[idx] = (int)((float)task_scheduler_nrscope->result.nof_dl_spare_prbs / (float)task_scheduler_nrscope->nof_known_rntis);
+      //   task_scheduler_nrscope->result.spare_dl_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_rate[idx]);
+      //   task_scheduler_nrscope->result.spare_dl_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_bits_rate[idx]);
+      // }
+    }
     
-    memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-    memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-
-    int nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(ue_dl_tmp, slot_tmp, task_scheduler_nrscope->sharded_rntis[dci_decoder_id][rnti_idx], 
-                     srsran_rnti_type_c, dci_dl_tmp, 4);
-
-    if (nof_dl_dci < SRSRAN_SUCCESS) {
-      ERROR("Error in blind search");
-    }
-
-    int nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(ue_dl_tmp, slot_tmp, task_scheduler_nrscope->sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
-
-    if(nof_dl_dci > 0){
-      dci_dl[rnti_idx] = dci_dl_tmp[0];
-      total_dl_dci += nof_dl_dci;
-    }
-
-    if(nof_ul_dci > 0){
-      dci_ul[rnti_idx] = dci_ul_tmp[0];
-      total_ul_dci += nof_ul_dci;
-    }
-  }  
-
-  if(total_dl_dci > 0){
-    for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++){
-      // the rnti will not be copied if no dci found
-      if(dci_dl[dci_idx_dl].ctx.rnti == task_scheduler_nrscope->sharded_rntis[dci_decoder_id][dci_idx_dl]){
-        task_scheduler_nrscope->sharded_results[dci_decoder_id].dl_dcis[dci_idx_dl] = dci_dl[dci_idx_dl];
-        char str[1024] = {};
-        srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[dci_idx_dl], str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- Found DCI: %s\n", str);
-        // The grant may not be decoded correctly, since srsRAN's code is not complete.
-        // We can calculate the DL bandwidth for this subframe by ourselves.
-        if(dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {
-          srsran_sch_cfg_nr_t pdsch_cfg = {};
-          pdsch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
-          // printf("pdsch_hl_cfg.dmrs_typeA.additional_pos: %d\n", pdsch_hl_cfg.dmrs_typeA.additional_pos);
-
-          if (srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[dci_idx_dl], 
-                                          &pdsch_cfg, &pdsch_cfg.grant) < SRSRAN_SUCCESS) {
-            ERROR("Error decoding PDSCH search");
+    if(!hidden_bwp && total_ul_dci > 0){
+      for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++){
+        if(dci_ul[dci_idx_ul].ctx.rnti == task_scheduler_nrscope->sharded_rntis[dci_decoder_id][dci_idx_ul]){
+          task_scheduler_nrscope->sharded_results[dci_decoder_id].ul_dcis[dci_idx_ul] = dci_ul[dci_idx_ul];
+          char str[1024] = {};
+          srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, (uint32_t)sizeof(str));
+          printf("DCIDecoder -- Found DCI: %s\n", str);
+          // The grant may not be decoded correctly, since srsRAN's code is not complete. 
+          // We can calculate the UL bandwidth for this subframe by ourselves.
+          srsran_sch_cfg_nr_t pusch_cfg = {};
+          pusch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
+          if (srsran_ra_ul_dci_to_grant_nr(&carrier_ul, slot, &pusch_hl_cfg, &dci_ul[dci_idx_ul], 
+                                          &pusch_cfg, &pusch_cfg.grant) < SRSRAN_SUCCESS) {
+            ERROR("Error decoding PUSCH search");
             // return result;
           }
-          srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-          printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
+          srsran_sch_cfg_nr_info(&pusch_cfg, str, (uint32_t)sizeof(str));
+          printf("DCIDecoder -- PUSCH_cfg:\n%s", str);
 
-          task_scheduler_nrscope->sharded_results[dci_decoder_id].dl_grants[dci_idx_dl] = pdsch_cfg;
-          task_scheduler_nrscope->sharded_results[dci_decoder_id].nof_dl_used_prbs += pdsch_cfg.grant.nof_prb * pdsch_cfg.grant.L;
-
-          task_scheduler_nrscope->dl_prb_rate[dci_idx_dl+rnti_s] = (float)(pdsch_cfg.grant.tb[0].tbs + 
-            pdsch_cfg.grant.tb[1].tbs) / (float)pdsch_cfg.grant.nof_prb / (float)pdsch_cfg.grant.L;
-          task_scheduler_nrscope->dl_prb_bits_rate[dci_idx_dl+rnti_s] = (float)(pdsch_cfg.grant.tb[0].nof_bits + 
-            pdsch_cfg.grant.tb[1].nof_bits) / (float)pdsch_cfg.grant.nof_prb / (float)pdsch_cfg.grant.L;
+          task_scheduler_nrscope->sharded_results[dci_decoder_id].ul_grants[dci_idx_ul] = pusch_cfg;
+          task_scheduler_nrscope->sharded_results[dci_decoder_id].nof_ul_used_prbs += pusch_cfg.grant.nof_prb * pusch_cfg.grant.L;
+          
+          task_scheduler_nrscope->ul_prb_rate[dci_idx_ul+rnti_s] = (float)(pusch_cfg.grant.tb[0].tbs + 
+            pusch_cfg.grant.tb[1].tbs) / (float)pusch_cfg.grant.nof_prb / (float)pusch_cfg.grant.L;
+          task_scheduler_nrscope->ul_prb_bits_rate[dci_idx_ul+rnti_s] = (float)(pusch_cfg.grant.tb[0].nof_bits + 
+            pusch_cfg.grant.tb[1].nof_bits) / (float)pusch_cfg.grant.nof_prb / (float)pusch_cfg.grant.L;
         }
       }
+      // task_scheduler_nrscope->result.nof_ul_spare_prbs = carrier_dl.nof_prb * (14 - 2) - task_scheduler_nrscope->result.nof_ul_used_prbs;
+      // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
+      //   task_scheduler_nrscope->result.spare_ul_prbs[idx] = task_scheduler_nrscope->result.nof_ul_spare_prbs / task_scheduler_nrscope->nof_known_rntis;
+      //   task_scheduler_nrscope->result.spare_ul_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_rate[idx]);
+      //   task_scheduler_nrscope->result.spare_ul_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_bits_rate[idx]);
+      // }
+    }else{
+      // task_scheduler_nrscope->result.nof_ul_spare_prbs = carrier_dl.nof_prb * (14 - 2);
+      // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
+      //   task_scheduler_nrscope->result.spare_ul_prbs[idx] = (int)((float)task_scheduler_nrscope->result.nof_ul_spare_prbs / (float)task_scheduler_nrscope->nof_known_rntis);
+      //   if(abs(task_scheduler_nrscope->result.spare_ul_prbs[idx]) > carrier_dl.nof_prb * (14 - 2)){
+      //     task_scheduler_nrscope->result.spare_ul_prbs[idx] = 0;
+      //   }
+      //   task_scheduler_nrscope->result.spare_ul_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_rate[idx]);
+      //   task_scheduler_nrscope->result.spare_ul_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_bits_rate[idx]);
+      // }
     }
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs = carrier_dl.nof_prb * (14 - 2) - task_scheduler_nrscope->result.nof_dl_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] = task_scheduler_nrscope->result.nof_dl_spare_prbs / task_scheduler_nrscope->nof_known_rntis;
-    //   if(abs(task_scheduler_nrscope->result.spare_dl_prbs[idx]) > carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_dl_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_bits_rate[idx]);
-    // }
-  }else{
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs = carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] = (int)((float)task_scheduler_nrscope->result.nof_dl_spare_prbs / (float)task_scheduler_nrscope->nof_known_rntis);
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] * dl_prb_bits_rate[idx]);
-    // }
+
+    // A clear BWP case, so the 0th-index holds the right location and we have examined and thus terminate
+    if(!hidden_bwp) {
+      break;
+    }
+    
+  } // end for loop for hidden CORESET traversal
+
+  // hidden BWP statistics
+  for (uint8_t j = 0; j < possible_coreset_total_num; j++) {
+    double avg = avg_uint32(dl_dci_num_1000_tracker[j]);
+    double sum = sum_uint32(dl_dci_num_1000_tracker[j]);
+    printf("%uth possible CORESET has avg %.2f and total %.2f DCI found in last 1000 slots\n", j, avg, sum);
   }
-  
-  if(total_ul_dci > 0){
-    for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++){
-      if(dci_ul[dci_idx_ul].ctx.rnti == task_scheduler_nrscope->sharded_rntis[dci_decoder_id][dci_idx_ul]){
-        task_scheduler_nrscope->sharded_results[dci_decoder_id].ul_dcis[dci_idx_ul] = dci_ul[dci_idx_ul];
-        char str[1024] = {};
-        srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- Found DCI: %s\n", str);
-        // The grant may not be decoded correctly, since srsRAN's code is not complete. 
-        // We can calculate the UL bandwidth for this subframe by ourselves.
-        srsran_sch_cfg_nr_t pusch_cfg = {};
-        pusch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
-        if (srsran_ra_ul_dci_to_grant_nr(&carrier_ul, slot, &pusch_hl_cfg, &dci_ul[dci_idx_ul], 
-                                        &pusch_cfg, &pusch_cfg.grant) < SRSRAN_SUCCESS) {
-          ERROR("Error decoding PUSCH search");
-          // return result;
-        }
-        srsran_sch_cfg_nr_info(&pusch_cfg, str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- PUSCH_cfg:\n%s", str);
 
-        task_scheduler_nrscope->sharded_results[dci_decoder_id].ul_grants[dci_idx_ul] = pusch_cfg;
-        task_scheduler_nrscope->sharded_results[dci_decoder_id].nof_ul_used_prbs += pusch_cfg.grant.nof_prb * pusch_cfg.grant.L;
-        
-        task_scheduler_nrscope->ul_prb_rate[dci_idx_ul+rnti_s] = (float)(pusch_cfg.grant.tb[0].tbs + 
-          pusch_cfg.grant.tb[1].tbs) / (float)pusch_cfg.grant.nof_prb / (float)pusch_cfg.grant.L;
-        task_scheduler_nrscope->ul_prb_bits_rate[dci_idx_ul+rnti_s] = (float)(pusch_cfg.grant.tb[0].nof_bits + 
-          pusch_cfg.grant.tb[1].nof_bits) / (float)pusch_cfg.grant.nof_prb / (float)pusch_cfg.grant.L;
-      }
-    }
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs = carrier_dl.nof_prb * (14 - 2) - task_scheduler_nrscope->result.nof_ul_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] = task_scheduler_nrscope->result.nof_ul_spare_prbs / task_scheduler_nrscope->nof_known_rntis;
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_bits_rate[idx]);
-    // }
-  }else{
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs = carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] = (int)((float)task_scheduler_nrscope->result.nof_ul_spare_prbs / (float)task_scheduler_nrscope->nof_known_rntis);
-    //   if(abs(task_scheduler_nrscope->result.spare_ul_prbs[idx]) > carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_ul_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] = (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] * ul_prb_bits_rate[idx]);
-    // }
+  if (hidden_bwp) {
+    cur_tracker_idx++;
   }
 
   return SRSRAN_SUCCESS;

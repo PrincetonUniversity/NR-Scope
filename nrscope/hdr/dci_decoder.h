@@ -33,7 +33,16 @@ class DCIDecoder{
     uint32_t rnti_worker_group_id;
     uint8_t bwp_worker_id;
 
+    // Hidden bwp search data structures (will be actively used only if hidden_bwp == true)
     bool hidden_bwp = false; 
+    uint8_t possible_coreset_total_num;
+    // Each possible hidden coreset central freq location
+    std::vector <int> coreset_central_freqs;
+    // Ring buf for each possible coreset that track decoded dci num for last 1000 slots
+    std::vector <std::vector <uint32_t>> dl_dci_num_1000_tracker;
+    std::vector <std::vector <uint32_t>> ul_dci_num_1000_tracker;
+    // for the above ring buf
+    uint32_t cur_tracker_idx = 0;
 
     // std::vector<float> dl_prb_rate;
     // std::vector<float> ul_prb_rate;

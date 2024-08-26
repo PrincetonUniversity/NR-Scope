@@ -438,6 +438,11 @@ typedef struct SRSRAN_API {
 #define SRSRAN_CORESET_SHIFT_INDEX_MAX (SRSRAN_CORESET_NOF_PRB_MAX - 1)
 
 /**
+ * @brief Number of RB per REG
+ */
+#define NUM_RB_PER_REG 6
+
+/**
  * @brief CORESET parameters as defined in TS 38.331 V15.10.0 - ControlResourceSet
  */
 typedef struct SRSRAN_API {
