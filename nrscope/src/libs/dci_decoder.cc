@@ -823,10 +823,10 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
     return SRSRAN_SUCCESS;
   }
 
-  if (hidden_bwp) {
-    std::cout << "[hidden bwp] Currently disable hidden bwp operations." << std::endl;
-    return SRSRAN_SUCCESS;
-  }
+  // if (hidden_bwp) {
+  //   std::cout << "[hidden bwp] Currently disable hidden bwp operations." << std::endl;
+  //   return SRSRAN_SUCCESS;
+  // }
 
   uint32_t n_rntis = (uint32_t) ceil((float) task_scheduler_nrscope->nof_known_rntis / (float) task_scheduler_nrscope->nof_rnti_worker_groups);
   uint32_t rnti_s = rnti_worker_group_id * n_rntis;
