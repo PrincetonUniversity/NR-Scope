@@ -85,6 +85,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   if (bwp_id == 0) {
     bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
     bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
+    printf("[hidden bwp] bwp 0 set\n");
   }
   else if (bwp_id <= 3) {
     for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list.size(); i++) {
@@ -121,11 +122,13 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
     // ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume now only checking in RRCSetup). Currently please bring back nof_bwps back to 1 in config.yaml as we are working on encrypted RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
-    INFO("bwp id %d config not appear in RRCSetup. Assume it's hidden. Will monitor it heuristically", bwp_id);
+    printf("[hidden bwp] bwp id %d config not appear in RRCSetup. Assume it's hidden. Will monitor it heuristically\n", bwp_id);
     hidden_bwp = true;
     // copy bwp0 setting first
     bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
     bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
+  } else {
+    hidden_bwp = false;
   }
 
   // [xuyang] done pointer determination
@@ -909,16 +912,7 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
 
       if(nof_dl_dci > 0){
         dci_dl[rnti_idx] = dci_dl_tmp[0];
-        total_dl_dci += nof_dl_dci;
-      }
-
-      if(nof_ul_dci > 0){
-        dci_ul[rnti_idx] = dci_ul_tmp[0];
-        total_ul_dci += nof_ul_dci;
-      }
-    }
-
-    printf("[hidden bwp] trigger 3\n");
+        total_dl_dci += nof_dl_dci;return SRSRAN_SUCCESS;
 
     // Record found dci num for this possible CORESET
     dl_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_dl_dci;
