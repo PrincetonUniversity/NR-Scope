@@ -869,6 +869,7 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
   }
   // std::cout << std::endl;
 
+  printf("[hidden bwp] trigger 1\n");
   for (uint8_t i = 0; !hidden_bwp || i < possible_coreset_total_num; i++) {
 
     if (hidden_bwp) {
@@ -884,7 +885,9 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
     srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
 
     int total_dl_dci = 0;
-    int total_ul_dci = 0;  
+    int total_ul_dci = 0;
+
+    printf("[hidden bwp] trigger 2\n");  
 
     for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++){
       
@@ -910,6 +913,8 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
         total_ul_dci += nof_ul_dci;
       }
     }
+
+    printf("[hidden bwp] trigger 3\n");
 
     // Record found dci num for this possible CORESET
     dl_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_dl_dci;
@@ -1019,14 +1024,13 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
     
   } // end for loop for hidden CORESET traversal
 
-  // hidden BWP statistics
-  for (uint8_t j = 0; j < possible_coreset_total_num; j++) {
-    double avg = avg_uint32(dl_dci_num_1000_tracker[j]);
-    double sum = sum_uint32(dl_dci_num_1000_tracker[j]);
-    printf("%uth possible CORESET has avg %.2f and total %.2f DCI found in last 1000 slots\n", j, avg, sum);
-  }
-
   if (hidden_bwp) {
+    // hidden BWP statistics
+    for (uint8_t j = 0; j < possible_coreset_total_num; j++) {
+      double avg = avg_uint32(dl_dci_num_1000_tracker[j]);
+      double sum = sum_uint32(dl_dci_num_1000_tracker[j]);
+      printf("[hidden bwp] %uth possible CORESET has avg %.2f and total %.2f DCI found in last 1000 slots\n", j, avg, sum);
+    }
     cur_tracker_idx++;
   }
 
