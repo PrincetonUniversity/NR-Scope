@@ -874,7 +874,7 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
 
     if (hidden_bwp) {
       arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - coreset_central_freqs[i]) / cell.abs_pdcch_scs;
-      printf("[hidden bwp] %u current offset to ssb: %d\n", arg_scs.coreset_offset_scs);
+      printf("[hidden bwp] %u current offset to ssb: %d\n", i, arg_scs.coreset_offset_scs);
     }
     printf("[hidden bwp] trigger 1.1\n");
 
