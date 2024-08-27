@@ -912,7 +912,7 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
 
       if(nof_dl_dci > 0){
         dci_dl[rnti_idx] = dci_dl_tmp[0];
-        total_dl_dci += nof_dl_dci;return SRSRAN_SUCCESS;
+        total_dl_dci += nof_dl_dci;
       }
 
       if(nof_ul_dci > 0){
