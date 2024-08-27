@@ -913,10 +913,19 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
       if(nof_dl_dci > 0){
         dci_dl[rnti_idx] = dci_dl_tmp[0];
         total_dl_dci += nof_dl_dci;return SRSRAN_SUCCESS;
+      }
 
-    // Record found dci num for this possible CORESET
-    dl_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_dl_dci;
-    ul_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_ul_dci;
+      if(nof_ul_dci > 0){
+        dci_ul[rnti_idx] = dci_ul_tmp[0];
+        total_ul_dci += nof_ul_dci;
+      }
+    }
+
+    if (hidden_bwp) {
+      // Record found dci num for this possible CORESET
+      dl_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_dl_dci;
+      ul_dci_num_1000_tracker[i][cur_tracker_idx % 1000] = (uint32_t)total_ul_dci;
+    }
 
     if(!hidden_bwp && total_dl_dci > 0){
       for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++){
