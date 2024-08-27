@@ -315,20 +315,20 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
     
     // Get total number of possible CORESETs
     uint8_t current_hidden_coreset_idx = 0;
-    double channel_upper_bound = pointA + cbw_total * NRSCOPE_NSC_PER_RB_NR * carr_scs_hz;
+    long double channel_upper_bound = pointA + cbw_total * NRSCOPE_NSC_PER_RB_NR * carr_scs_hz;
     while (current_hidden_coreset_idx < coreset_central_freqs.size()) {
       // offset
-      double extra_offset_to_coreset1_center_freq_hz = 
+      long double extra_offset_to_coreset1_center_freq_hz = 
       current_hidden_coreset_idx * (cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR * NUM_RB_PER_REG);
       // coreset upper
-      double current_coreset_upper_hz = coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz + 
+      long double current_coreset_upper_hz = coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz + 
       (srsran_coreset_get_bw(&coreset1_t) / 2 * cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR);
       if (current_coreset_upper_hz <= channel_upper_bound) {
         // accept this possible CORESET for later processing
         // central freq
         coreset_central_freqs[current_hidden_coreset_idx] = 
         coreset1_center_freq_hz + extra_offset_to_coreset1_center_freq_hz;
-        std::cout << "[hidden bwp] : coreset_central_freqs[" << current_hidden_coreset_idx << "]: " << coreset_central_freqs[current_hidden_coreset_idx] << std::endl;
+        std::cout << "[hidden bwp] : coreset_central_freqs[" << (uint32_t)current_hidden_coreset_idx << "]: " << coreset_central_freqs[current_hidden_coreset_idx] << std::endl;
         current_hidden_coreset_idx++;
       }
       else {
@@ -336,7 +336,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
       }
     }
     possible_coreset_total_num = current_hidden_coreset_idx;
-    std::cout << "[hidden bwp] possible_coreset_total_num: " << possible_coreset_total_num << std::endl;
+    std::cout << "[hidden bwp] possible_coreset_total_num: " << (uint32_t)possible_coreset_total_num << std::endl;
 
     // Initialize the tracker for possible CORESETs
     dl_dci_num_1000_tracker.resize(possible_coreset_total_num);
