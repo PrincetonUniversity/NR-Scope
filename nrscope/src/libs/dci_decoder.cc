@@ -874,15 +874,19 @@ int DCIDecoder::decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
 
     if (hidden_bwp) {
       arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - coreset_central_freqs[i]) / cell.abs_pdcch_scs;
+      printf("[hidden bwp] %u current offset to ssb: %d\n", arg_scs.coreset_offset_scs);
     }
+    printf("[hidden bwp] trigger 1.1\n");
 
     // Set the buffer to 0s
     for(uint32_t idx = 0; idx < n_rntis; idx++){
       memset(&dci_dl[idx], 0, sizeof(srsran_dci_dl_nr_t));
       memset(&dci_ul[idx], 0, sizeof(srsran_dci_dl_nr_t));
     }
+    printf("[hidden bwp] trigger 1.2\n");
 
     srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
+    printf("[hidden bwp] trigger 1.3\n");
 
     int total_dl_dci = 0;
     int total_ul_dci = 0;
