@@ -386,6 +386,7 @@ int DCIDecoder::dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg
   /// Format 0_1 specific configuration (for PUSCH only)
   ///< Number of UL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
   dci_cfg.nof_ul_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list.size(); 
+  dci_cfg.nof_ul_bwp = 1; // [hidden bwp danger] for experiment
   ///< Number of dedicated PUSCH time domain resource assigment, set to 0 for default
   dci_cfg.nof_ul_time_res = bwp_ul_ded_s_ptr->pusch_cfg.setup().
                             pusch_time_domain_alloc_list_present ? 
