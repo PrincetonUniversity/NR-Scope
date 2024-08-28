@@ -1071,8 +1071,8 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
         if (ue_dl_nr_find_dci_ncce_nrscope_dciloop(q, &dci_msg, &res, coreset_id, rnti) < SRSRAN_SUCCESS) {
           return SRSRAN_ERROR;
         }
-        // printf("res.crc: %u\n", res.crc);
-        // printf("dci_msg_rnti: %u\n", dci_msg.ctx.rnti);
+        printf("[hidden bwp debug r3] res.crc: %u\n", res.crc);
+        printf("[hidden bwp debug r3] dci_msg_rnti: %u\n", dci_msg.ctx.rnti);
 
         // If the CRC was not match, move to next candidate
         if (!res.crc) {
@@ -1101,7 +1101,7 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
               dci_msg.ctx.format = srsran_dci_format_nr_0_1;
               break;
             default:
-              // printf("unknown format type, continue...\n");
+              printf("[hidden bwp debug r3] unknown format type, continue...\n");
               continue;
           }
         }
