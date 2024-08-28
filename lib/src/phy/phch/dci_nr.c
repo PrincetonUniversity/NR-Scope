@@ -1739,7 +1739,7 @@ dci_nr_format_1_1_to_str(const srsran_dci_nr_t* q, const srsran_dci_dl_nr_t* dci
   }
 
   // Bandwidth part indicator – 0, 1 or 2 bits
-  if (dci_nr_bwp_id_size(cfg->nof_dl_bwp) > 0) {
+  if (true || dci_nr_bwp_id_size(cfg->nof_dl_bwp) > 0) {
     len = srsran_print_check(str, str_len, len, "bwp=%d ", dci->bwp_id);
   }
 

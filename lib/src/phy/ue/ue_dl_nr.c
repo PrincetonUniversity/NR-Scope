@@ -596,7 +596,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
          m->rsrp_dBfs);
     return SRSRAN_SUCCESS;
   } else {
-    printf("[hidden bwp debug pass] Passed DMRS corr PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;\n",
+    printf("[hidden bwp debug pass] Passed DMRS corr PDCCH candidate L=%d;ncce=%d; Correlation and threshold (%.1f, %.1f); EPRE=%+.2f; RSRP=%+.2f;\n",
          location.L,
          location.ncce,
          m->norm_corr,
