@@ -558,18 +558,18 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
 
   // If measured correlation is invalid, early return
   if (!isnormal(m->norm_corr)) {
-    // printf("Discarded PDCCH candidate L=%d;ncce=%d; Invalid measurement;\n", location.L, location.ncce);
+    printf("[hidden bwp debug] Discarded PDCCH candidate L=%d;ncce=%d; Invalid measurement;\n", location.L, location.ncce);
     INFO("Discarded PDCCH candidate L=%d;ncce=%d; Invalid measurement;", location.L, location.ncce);
     return SRSRAN_SUCCESS;
   }
 
   // Compare EPRE with threshold
   if (m->epre_dBfs < q->pdcch_dmrs_epre_thr) {
-    // printf("Discarded PDCCH candidate L=%d;ncce=%d; EPRE is too weak (%.1f<%.1f);\n",
-    //      location.L,
-    //      location.ncce,
-    //      m->epre_dBfs,
-    //      q->pdcch_dmrs_epre_thr);
+    printf("[hidden bwp debug] Discarded PDCCH candidate L=%d;ncce=%d; EPRE is too weak (%.1f<%.1f);\n",
+         location.L,
+         location.ncce,
+         m->epre_dBfs,
+         q->pdcch_dmrs_epre_thr);
     INFO("Discarded PDCCH candidate L=%d;ncce=%d; EPRE is too weak (%.1f<%.1f);",
          location.L,
          location.ncce,
@@ -580,13 +580,13 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
 
   // Compare DMRS correlation with threshold
   if (m->norm_corr < q->pdcch_dmrs_corr_thr) {
-    // printf("Discarded PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;\n",
-    //      location.L,
-    //      location.ncce,
-    //      m->norm_corr,
-    //      q->pdcch_dmrs_corr_thr,
-    //      m->epre_dBfs,
-    //      m->rsrp_dBfs);
+    printf("[hidden bwp debug] Discarded PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;\n",
+         location.L,
+         location.ncce,
+         m->norm_corr,
+         q->pdcch_dmrs_corr_thr,
+         m->epre_dBfs,
+         m->rsrp_dBfs);
     INFO("Discarded PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;",
          location.L,
          location.ncce,
@@ -1032,6 +1032,8 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
         ERROR("Error calculating DCI candidate location");
         return SRSRAN_ERROR;
       }
+
+      printf("[hidden bwp debug] for agg level %u, there are %d candidates\n", L, nof_candidates);
 
       // Iterate over the candidates
       for (int ncce_idx = 0; ncce_idx < nof_candidates && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR; ncce_idx++) {
