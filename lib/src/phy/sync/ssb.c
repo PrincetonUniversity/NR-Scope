@@ -349,6 +349,8 @@ static int ssb_setup_corr(srsran_ssb_t* q)
   // Compute new correlation size
   uint32_t corr_sz = SSB_CORR_SZ(q->symbol_sz);
 
+  printf("[hidden bwp] corr_sz: %u\n", corr_sz);
+
   // Skip if the symbol size is unchanged
   if (q->corr_sz == corr_sz) {
     return SRSRAN_SUCCESS;
