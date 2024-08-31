@@ -185,6 +185,7 @@ static int ue_sync_nr_run_find(srsran_ue_sync_nr_t* q, cf_t* buffer)
   srsran_csi_trs_measurements_t measurements = {};
   srsran_pbch_msg_nr_t          pbch_msg     = {};
 
+  printf("[hidden bwp] 111here corr size is %u\n", q->ssb.corr_sz);
   // Find SSB, measure PSS/SSS and decode PBCH
   if (srsran_ssb_find(&q->ssb, buffer, q->N_id, &measurements, &pbch_msg) < SRSRAN_SUCCESS) {
     ERROR("Error finding SSB");
@@ -383,6 +384,8 @@ int srsran_ue_sync_nr_zerocopy_twinrx_nrscope(srsran_ue_sync_nr_t* q, cf_t** buf
     return SRSRAN_ERROR;
   }
 
+  printf("[hidden bwp] 333here corr size is %u\n", q->ssb.corr_sz);
+
   // Receive
   if (ue_sync_nr_recv(q, buffer, &outcome->timestamp) < SRSRAN_SUCCESS) {
     ERROR("Error receiving baseband");
@@ -425,6 +428,8 @@ int srsran_ue_sync_nr_zerocopy_twinrx_nrscope(srsran_ue_sync_nr_t* q, cf_t** buf
     free(actual_sf_szs_splitted);
     free(args_structs);
   }
+
+  printf("[hidden bwp] 222here corr size is %u\n", q->ssb.corr_sz);
 
   // Run FSM
   switch (q->state) {
