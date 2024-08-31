@@ -1571,6 +1571,8 @@ int srsran_ssb_find(srsran_ssb_t*                  q,
 
   printf("[hidden bwp] 444here corr size is %u\n", q->corr_sz);
 
+  printf("[hidden bwp] 444q->ssb_sz: %u\n", q->ssb_sz);
+
   // Copy tail from previous execution into the start of this
   srsran_vec_cf_copy(q->sf_buffer, &q->sf_buffer[q->sf_sz], q->ssb_sz);
 
