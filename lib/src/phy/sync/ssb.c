@@ -1579,6 +1579,7 @@ int srsran_ssb_find(srsran_ssb_t*                  q,
   srsran_vec_cf_copy(q->sf_buffer, &q->sf_buffer[q->sf_sz], q->ssb_sz);
 
   printf("[hidden bwp] 666here corr size is %u\n", q->corr_sz);
+  printf("[hidden bwp] 666q->sf_sz: %u\n", q->sf_sz);
   // Append new samples
   srsran_vec_cf_copy(&q->sf_buffer[q->ssb_sz], sf_buffer, q->sf_sz);
 
