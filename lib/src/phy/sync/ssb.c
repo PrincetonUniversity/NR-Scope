@@ -66,6 +66,8 @@ static int ssb_init_corr(srsran_ssb_t* q)
     }
   }
 
+  printf("[hidden bwp] q->max_ssb_sz: %u\n", q->max_ssb_sz);
+  printf("[hidden bwp] q->max_sf_sz: %u\n", q->max_sf_sz);
   q->sf_buffer = srsran_vec_cf_malloc(q->max_ssb_sz + q->max_sf_sz);
   if (q->sf_buffer == NULL) {
     ERROR("Malloc");
