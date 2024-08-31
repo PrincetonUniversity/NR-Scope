@@ -1482,6 +1482,7 @@ static int ssb_pss_find(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, u
 {
   // verify it is initialised
   if (q->corr_sz == 0) {
+    printf("[hidden bwp] trigger here 123\n");
     return SRSRAN_ERROR;
   }
 
