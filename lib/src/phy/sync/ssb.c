@@ -1569,12 +1569,15 @@ int srsran_ssb_find(srsran_ssb_t*                  q,
   // Set the PBCH message result with default value (CRC unmatched), meaning no cell is found
   SRSRAN_MEM_ZERO(pbch_msg, srsran_pbch_msg_nr_t, 1);
 
+  printf("[hidden bwp] 444here corr size is %u\n", q->corr_sz);
+
   // Copy tail from previous execution into the start of this
   srsran_vec_cf_copy(q->sf_buffer, &q->sf_buffer[q->sf_sz], q->ssb_sz);
 
   // Append new samples
   srsran_vec_cf_copy(&q->sf_buffer[q->ssb_sz], sf_buffer, q->sf_sz);
 
+  printf("[hidden bwp] 555here corr size is %u\n", q->corr_sz);
   // Search for PSS in time domain
   uint32_t t_offset = 0;
   if (ssb_pss_find(q, q->sf_buffer, q->sf_sz + q->ssb_sz, SRSRAN_NID_2_NR(N_id), &t_offset) < SRSRAN_SUCCESS) {
