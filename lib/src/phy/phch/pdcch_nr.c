@@ -1149,7 +1149,8 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
 
   // Copy DCI message
   srsran_vec_u8_copy(dci_msg->payload, c, dci_msg->nof_bits);
-  srsran_vec_fprint_hex2(stdout, q->c, q->K);
+  printf("[hidden bwp dci size] dci_msg->nof_bits: %u\n", dci_msg->nof_bits);
+  srsran_vec_fprint_hex2(stdout, c, dci_msg->nof_bits);
 
   if (q->meas_time_en) {
     gettimeofday(&t[2], NULL);

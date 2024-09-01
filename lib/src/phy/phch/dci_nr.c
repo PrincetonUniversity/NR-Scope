@@ -1620,11 +1620,15 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
     return SRSRAN_ERROR;
   }
 
+  printf("[hidden bwp dci struct] cfg->carrier_indicator_size: %u\n", cfg->carrier_indicator_size);
   // Carrier indicator – 0 or 3 bits
   dci->cc_id = srsran_bit_pack(&y, cfg->carrier_indicator_size);
+  printf("[hidden bwp dci struct] dci->cc_id: %u\n", dci->cc_id);
 
+  printf("[hidden bwp dci struct] dci_nr_bwp_id_size(cfg->nof_dl_bwp): %u\n", dci_nr_bwp_id_size(cfg->nof_dl_bwp));
   // Bandwidth part indicator – 0, 1 or 2 bits
   dci->bwp_id = srsran_bit_pack(&y, dci_nr_bwp_id_size(cfg->nof_dl_bwp));
+  printf("[hidden bwp dci struct] dci->bwp_id: %u\n", dci->bwp_id);
 
   // Frequency domain resource assignment
   dci->freq_domain_assigment =

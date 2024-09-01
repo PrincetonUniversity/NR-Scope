@@ -1081,7 +1081,7 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
 
         // Detect if the DCI is the right direction
         if (!srsran_dci_nr_valid_direction(&dci_msg)) {
-          // printf("not right direction, try to decode\n");
+          printf("[hidden bwp dci direction] not right direction, try to decode\n");
           // Change grant format direction
           switch (dci_msg.ctx.format) {
             case srsran_dci_format_nr_0_0:
