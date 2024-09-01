@@ -378,6 +378,23 @@ void srsran_vec_fprint_hex(FILE* stream, uint8_t* x, const uint32_t len)
   fprintf(stream, "];\n");
 }
 
+void srsran_vec_fprint_hex2(FILE* stream, uint8_t* x, const uint32_t len)
+{
+  uint32_t i, nbytes;
+  uint8_t  byte;
+  nbytes = len / 8;
+  fprintf(stream, "[hidden bwp dci check][");
+  for (i = 0; i < nbytes; i++) {
+    byte = (uint8_t)srsran_bit_pack(&x, 8);
+    fprintf(stream, "%02x ", byte);
+  }
+  if (len % 8) {
+    byte = (uint8_t)srsran_bit_pack(&x, len % 8) << (8 - (len % 8));
+    fprintf(stream, "%02x ", byte);
+  }
+  fprintf(stream, "];\n");
+}
+
 uint32_t srsran_vec_sprint_hex(char* str, const uint32_t max_str_len, uint8_t* x, const uint32_t len)
 {
   uint32_t i, nbytes;

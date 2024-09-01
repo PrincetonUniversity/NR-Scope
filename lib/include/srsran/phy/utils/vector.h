@@ -163,6 +163,7 @@ SRSRAN_API void     srsran_vec_fprint_byte(FILE* stream, const uint8_t* x, const
 SRSRAN_API void     srsran_vec_fprint_i(FILE* stream, const int* x, const uint32_t len);
 SRSRAN_API void     srsran_vec_fprint_s(FILE* stream, const int16_t* x, const uint32_t len);
 SRSRAN_API void     srsran_vec_fprint_hex(FILE* stream, uint8_t* x, const uint32_t len);
+SRSRAN_API void     srsran_vec_fprint_hex2(FILE* stream, uint8_t* x, const uint32_t len);
 SRSRAN_API uint32_t srsran_vec_sprint_hex(char* str, const uint32_t max_str_len, uint8_t* x, const uint32_t len);
 SRSRAN_API void     srsran_vec_sprint_bin(char* str, const uint32_t max_str_len, const uint8_t* x, const uint32_t len);
 
