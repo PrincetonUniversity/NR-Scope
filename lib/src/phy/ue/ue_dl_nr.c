@@ -611,6 +611,27 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
     return SRSRAN_ERROR;
   }
 
+  // dci size vary experiment here
+  uint32_t vary_size = 1;
+  uint32_t original_nof_bits = dci_msg->nof_bits;
+
+  // +
+  dci_msg->nof_bits = original_nof_bits + vary_size;
+  if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
+      q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
+  // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
+    ERROR("+Case: Error decoding PDCCH");
+  }
+
+  // -
+  dci_msg->nof_bits = original_nof_bits - vary_size;
+  if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
+      q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
+  // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
+    ERROR("-Case: Error decoding PDCCH");
+  }
+
+  dci_msg->nof_bits = original_nof_bits;
   // Decode PDCCH
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
