@@ -617,6 +617,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
 
   // +
   dci_msg->nof_bits = original_nof_bits + vary_size;
+  printf("[hidden bwp dci vary] vary_size: +%u; dci_msg->nof_bits: %u\n", vary_size, dci_msg->nof_bits);
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
   // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
@@ -625,6 +626,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
 
   // -
   dci_msg->nof_bits = original_nof_bits - vary_size;
+  printf("[hidden bwp dci vary] vary_size: -%u; dci_msg->nof_bits: %u\n", vary_size, dci_msg->nof_bits);
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
   // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
@@ -632,6 +634,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
   }
 
   dci_msg->nof_bits = original_nof_bits;
+  printf("[hidden bwp dci vary] normal case; dci_msg->nof_bits: %u\n", dci_msg->nof_bits);
   // Decode PDCCH
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
