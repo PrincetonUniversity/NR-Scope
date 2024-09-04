@@ -612,7 +612,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
   }
 
   // dci size vary experiment here
-  uint32_t vary_size = 2;
+  uint32_t vary_size = 3;
   uint32_t original_nof_bits = dci_msg->nof_bits;
 
   printf("[hidden bwp dci vary] original_nof_bits: %u\n", original_nof_bits);
