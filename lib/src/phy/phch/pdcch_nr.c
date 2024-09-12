@@ -1128,6 +1128,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   uint32_t checksum1 = srsran_crc_checksum(&q->crc24c, q->c, q->K);
   uint32_t checksum2 = srsran_bit_pack(&ptr, 24);
   res->crc           = checksum1 == checksum2;
+  printf("[hidden bwp crc check] res->crc: %u; dci size: %u\n", res->crc, dci_msg->nof_bits);
 
   // printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
   // srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
