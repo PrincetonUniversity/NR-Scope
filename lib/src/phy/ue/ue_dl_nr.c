@@ -609,7 +609,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
   uint32_t dci_size_guess_lb = 40;
   uint32_t dci_size_guess_ub = 50;
   printf("[hidden bwp] try dci size guess\n");
-  for (uint32_t i = dci_size_guess_lb; i < dci_size_guess_ub; ++i) {
+  for (uint32_t i = dci_size_guess_lb; i <= dci_size_guess_ub; ++i) {
     dci_msg->nof_bits = i;
     printf("[hidden bwp] try dci size %u\n", i);
     // Decode PDCCH
@@ -622,6 +622,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
   }
 
   printf("[hidden bwp] now the actually original_nof_bits: %u\n", original_nof_bits);
+  dci_msg->nof_bits = original_nof_bits;
   // Decode PDCCH
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
@@ -1043,6 +1044,12 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
         L < SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR;
         L++) {
     
+
+      // debug skip (MOSOLAB fault under 40MHz multi bwp where 36 cces have a level-8(3) candidate)
+      if (L == 3) {
+        continue;
+      }
+
       // Calculate possible PDCCH DCI candidates
       uint32_t candidates[SRSRAN_SEARCH_SPACE_MAX_NOF_CANDIDATES_NR] = {};
       int      nof_candidates                                        = srsran_pdcch_nr_locations_coreset(
@@ -1090,7 +1097,7 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
 
         // Detect if the DCI is the right direction
         if (!srsran_dci_nr_valid_direction(&dci_msg)) {
-          // printf("not right direction, try to decode\n");
+          printf("not right direction, try to decode\n");
           // Change grant format direction
           switch (dci_msg.ctx.format) {
             case srsran_dci_format_nr_0_0:

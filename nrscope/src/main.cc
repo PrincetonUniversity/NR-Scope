@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/load_config.h"
@@ -9,6 +11,7 @@
 #include "srsran/common/band_helper.h"
 #include "srsran/phy/common/phy_common_nr.h"
 
+using json = nlohmann::json;
 // void my_handler(int s){
 //   printf("Caught signal %d\n",s);
 //   exit(1); 
@@ -55,6 +58,18 @@ int main(int argc, char** argv){
     ToGoogle::init_to_google(radios[0].google_credential, radios[0].google_dataset_id, nof_usrp);
   }
 
+  std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
+  json data = json::parse(f);
+  if (data["downlinkBWP-ToAddModList"].is_object()) {
+    printf("is object.\n");
+  }
+  if (data.contains("downlinkBWP-ToAddModList")) {
+    printf("contains downlinkBWP-ToAddModList\n");
+  }
+  if (data.contains("haha")) {
+    printf("contains haha\n");
+  }
+  std::cout << std::setw(2) << data["downlinkBWP-ToAddModList"] << std::endl;
   std::vector<std::thread> radio_threads;
 
   for (auto& my_radio : radios) {

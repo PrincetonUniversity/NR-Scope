@@ -21,9 +21,13 @@
 
 #include "srsran/asn1/rrc_nr.h"
 #include <sstream>
+#include <nlohmann/json.hpp>
+#include <bitset>
+#include <iostream>
 
 using namespace asn1;
 using namespace asn1::rrc_nr;
+using json = nlohmann::json;
 
 /*******************************************************************************
  *                                Struct Methods
@@ -48625,6 +48629,206 @@ SRSASN_CODE cell_group_cfg_s::unpack(cbit_ref& bref)
   }
   return SRSASN_SUCCESS;
 }
+
+SRSASN_CODE cell_group_cfg_s::from_json(json js_in) {
+
+  // TO-DO: assume input only dl bwp list; write other part parsing of master cell group
+
+  // TO-DO: a lot of exists check needed before accessing fields
+  if (js_in["downlinkBWP-ToAddModList"].is_array()) {
+    printf("[9/16] trigger 1.1\n");
+    auto& dl_bwp_to_add_mod_list = sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list;
+    json js_dl_bwp_to_add_mod_list = js_in["downlinkBWP-ToAddModList"];
+    for (auto& js_cur_dl_bwp_el : js_dl_bwp_to_add_mod_list.items()) {
+      printf("[9/16] trigger 1.2\n");
+      json js_cur_dl_bwp = js_cur_dl_bwp_el.value();
+      bwp_dl_s cur_dl_bwp;
+      cur_dl_bwp.bwp_id = js_cur_dl_bwp["bwp-Id"];
+
+      /* bwp-Common */
+      cur_dl_bwp.bwp_common_present = js_cur_dl_bwp.contains("bwp-Common");
+
+      /* bwp-Common -- genericParameters */
+      json js_cur_dl_bwp_common_generic = js_cur_dl_bwp["bwp-Common"]["genericParameters"];
+      cur_dl_bwp.bwp_common.generic_params.location_and_bw = js_cur_dl_bwp_common_generic["locationAndBandwidth"];
+      assert(js_cur_dl_bwp_common_generic["subcarrierSpacing"].is_number());
+      cur_dl_bwp.bwp_common.generic_params.subcarrier_spacing = (asn1::rrc_nr::subcarrier_spacing_e)js_cur_dl_bwp_common_generic["subcarrierSpacing"];
+      printf("[9/16] trigger 1.3\n");
+      /* bwp-Common -- pdsch-ConfigCommon */
+      json js_cur_dl_bwp_common_pdsch_time_alloc_list = js_cur_dl_bwp["bwp-Common"]["pdsch-ConfigCommon"]["pdsch-TimeDomainAllocationList"];
+
+      assert(js_cur_dl_bwp_common_pdsch_time_alloc_list.is_array());
+
+      for (auto& js_cur_dl_bwp_common_pdsch_time_alloc_el : js_cur_dl_bwp_common_pdsch_time_alloc_list.items()) {
+        printf("[9/16] trigger 1.4\n");
+        json js_cur_dl_bwp_common_pdsch_time_alloc = js_cur_dl_bwp_common_pdsch_time_alloc_el.value()["PDSCH-TimeDomainResourceAllocation"];
+        printf("[9/16] trigger 1.41\n");
+        pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+        cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_common_pdsch_time_alloc.contains("k0");
+        if (cur_pdsch_time_alloc.k0_present) {
+          cur_pdsch_time_alloc.k0 = js_cur_dl_bwp_common_pdsch_time_alloc["k0"];
+        }
+        cur_pdsch_time_alloc.map_type = (asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_)js_cur_dl_bwp_common_pdsch_time_alloc["mappingType"];
+        cur_pdsch_time_alloc.start_symbol_and_len = js_cur_dl_bwp_common_pdsch_time_alloc["startSymbolAndLength"];
+        
+        cur_dl_bwp.bwp_common.pdsch_cfg_common.set_setup().pdsch_time_domain_alloc_list.push_back(cur_pdsch_time_alloc);
+      }
+
+      printf("[9/16] trigger 1.5\n");
+
+      /* bwp-Dedicated */
+      cur_dl_bwp.bwp_ded_present = js_cur_dl_bwp.contains("bwp-Dedicated");
+
+      /* bwp-Dedicated -- pdcch-Config */
+      json js_cur_dl_bwp_dedicated_pdcch = js_cur_dl_bwp["bwp-Dedicated"]["pdcch-Config"];
+
+      /* bwp-Dedicated -- pdcch-Config -- controlResourceSetToAddModList */
+      json js_cur_dl_bwp_dedicated_pdcch_coreset_list = js_cur_dl_bwp_dedicated_pdcch["controlResourceSetToAddModList"];
+      printf("[9/16] trigger 1.6\n");
+      for (auto& js_cur_dl_bwp_dedicated_pdcch_coreset_el : js_cur_dl_bwp_dedicated_pdcch_coreset_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdcch_coreset = js_cur_dl_bwp_dedicated_pdcch_coreset_el.value();
+        ctrl_res_set_s cur_dl_bwp_dedicated_pdcch_coreset;
+
+        cur_dl_bwp_dedicated_pdcch_coreset.ctrl_res_set_id = js_cur_dl_bwp_dedicated_pdcch_coreset["controlResourceSetId"];
+
+        // str format: "FF FF 80 00 00 00"
+        std::string hex_space_str = js_cur_dl_bwp_dedicated_pdcch_coreset["frequencyDomainResources"];
+        hex_space_str.erase(remove_if(hex_space_str.begin(), hex_space_str.end(), isspace), hex_space_str.end());
+        std::cout << "hex_space_str: " << hex_space_str << std::endl;
+        std::stringstream ss_helper;
+        ss_helper << std::hex << hex_space_str;
+        unsigned long val;
+        ss_helper >> val;
+        std::bitset<45> b(val);
+        cur_dl_bwp_dedicated_pdcch_coreset.freq_domain_res.from_string(b.to_string());
+        std::cout << "b.to_string(): " << b.to_string() << "; and size: " << b.to_string().size() << std::endl;
+
+        cur_dl_bwp_dedicated_pdcch_coreset.dur = js_cur_dl_bwp_dedicated_pdcch_coreset["duration"];
+
+        // Assume cce_reg_map_type is null (default) now; TO-DO: implement this
+
+        cur_dl_bwp_dedicated_pdcch_coreset.precoder_granularity = (asn1::rrc_nr::ctrl_res_set_s::precoder_granularity_e_)js_cur_dl_bwp_dedicated_pdcch_coreset["precoderGranularity"];
+
+        cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present = js_cur_dl_bwp_dedicated_pdcch_coreset.contains("pdcch-DMRS-ScramblingID");
+        if (cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present) {
+          cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id = js_cur_dl_bwp_dedicated_pdcch_coreset["pdcch-DMRS-ScramblingID"];
+        }
+
+        // Ignore TCI-related setup now
+
+        cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().ctrl_res_set_to_add_mod_list.push_back(cur_dl_bwp_dedicated_pdcch_coreset);
+      }
+      printf("[9/16] trigger 1.7\n");
+      /* bwp-Dedicated -- pdcch-Config -- searchSpacesToAddModList */
+      json js_cur_dl_bwp_dedicated_pdcch_searchspace_list = js_cur_dl_bwp_dedicated_pdcch["searchSpacesToAddModList"];
+
+      for (auto& js_cur_dl_bwp_dedicated_pdcch_searchspace_el : js_cur_dl_bwp_dedicated_pdcch_searchspace_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdcch_searchspace = js_cur_dl_bwp_dedicated_pdcch_searchspace_el.value();
+        search_space_s cur_dl_bwp_dedicated_pdcch_searchspace;
+
+        cur_dl_bwp_dedicated_pdcch_searchspace.search_space_id = js_cur_dl_bwp_dedicated_pdcch_searchspace["searchSpaceId"];
+        cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("controlResourceSetId");
+        if (cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present) {
+          cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id = js_cur_dl_bwp_dedicated_pdcch_searchspace["controlResourceSetId"];
+        }
+
+        // Since we monitor every slot, looks like duration, monitoringSymbolsWithinSlot don't matter, so skip
+
+        /* nrofCandidates */
+        cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates");
+        if (js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates")) {
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level1 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel1"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level2 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel2"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level4 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel4"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level8 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel8"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level16 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel16"];
+        }
+
+
+        cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("searchSpaceType");
+        if (cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present) {
+          // Assume only ue-specific is possible
+          cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type.set_ue_specific();
+        }
+
+
+        cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().search_spaces_to_add_mod_list.push_back(cur_dl_bwp_dedicated_pdcch_searchspace);
+      }
+
+      printf("[9/16] trigger 1.8\n");
+
+      /* bwp-Dedicated -- pdsch-Config */
+      cur_dl_bwp.bwp_ded.pdsch_cfg_present = js_cur_dl_bwp["bwp-Dedicated"].contains("pdsch-Config");
+      json js_cur_dl_bwp_dedicated_pdsch = js_cur_dl_bwp["bwp-Dedicated"]["pdsch-Config"];
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch_present = js_cur_dl_bwp_dedicated_pdsch.contains("dataScramblingIdentityPDSCH");
+
+      if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().data_scrambling_id_pdsch_present) {
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch = js_cur_dl_bwp_dedicated_pdsch["dataScramblingIdentityPDSCH"];
+      }
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a_present = js_cur_dl_bwp_dedicated_pdsch.contains("dmrs-DownlinkForPDSCH-MappingTypeA");
+      if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a_present) {
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a.set_setup().dmrs_add_position_present = 
+        js_cur_dl_bwp_dedicated_pdsch["dmrs-DownlinkForPDSCH-MappingTypeA"].contains("dmrs-AdditionalPosition");
+
+        if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a.setup().dmrs_add_position_present) {
+          cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a.set_setup().dmrs_add_position = 
+          (asn1::rrc_nr::dmrs_dl_cfg_s::dmrs_add_position_e_)js_cur_dl_bwp_dedicated_pdsch["dmrs-DownlinkForPDSCH-MappingTypeA"]["dmrs-AdditionalPosition"];
+        }
+      }
+
+      printf("[9/16] trigger 1.9\n");
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().res_alloc = (asn1::rrc_nr::pdsch_cfg_s::res_alloc_e_)js_cur_dl_bwp_dedicated_pdsch["resourceAllocation"];
+      
+      /* pdsch-TimeDomainAllocationList */
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list_present = js_cur_dl_bwp_dedicated_pdsch.contains("pdsch-TimeDomainAllocationList");
+      json js_cur_dl_bwp_dedicated_pdsch_time_alloc_list = js_cur_dl_bwp_dedicated_pdsch["pdsch-TimeDomainAllocationList"];
+      for (auto& js_cur_dl_bwp_dedicated_pdsch_time_alloc_el : js_cur_dl_bwp_dedicated_pdsch_time_alloc_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdsch_time_alloc = js_cur_dl_bwp_dedicated_pdsch_time_alloc_el.value()["PDSCH-TimeDomainResourceAllocation"];
+        pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+        cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_dedicated_pdsch_time_alloc.contains("k0");
+        if (cur_pdsch_time_alloc.k0_present) {
+          cur_pdsch_time_alloc.k0 = js_cur_dl_bwp_dedicated_pdsch_time_alloc["k0"];
+        }
+
+        cur_pdsch_time_alloc.map_type = (asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_)js_cur_dl_bwp_dedicated_pdsch_time_alloc["mappingType"];
+        cur_pdsch_time_alloc.start_symbol_and_len = js_cur_dl_bwp_dedicated_pdsch_time_alloc["startSymbolAndLength"];
+
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list.set_setup().push_back(cur_pdsch_time_alloc);
+      }
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().rbg_size = (asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_)js_cur_dl_bwp_dedicated_pdsch["rbg-Size"];
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().mcs_table = (asn1::rrc_nr::pdsch_cfg_s::mcs_table_e_)js_cur_dl_bwp_dedicated_pdsch["mcs-Table"];
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().max_nrof_code_words_sched_by_dci = 
+      (asn1::rrc_nr::pdsch_cfg_s::max_nrof_code_words_sched_by_dci_e_)js_cur_dl_bwp_dedicated_pdsch["maxNrofCodeWordsScheduledByDCI"];
+
+      // Assume only static type now; seems no option for bundle size
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().prb_bundling_type.set_static_bundling();
+
+
+      /* Done processing this new dl bwp; store... */
+      dl_bwp_to_add_mod_list.push_back(cur_dl_bwp);
+
+      printf("[9/16] trigger 1.10\n");
+    }
+  }
+
+  return SRSASN_SUCCESS;
+}
+
 void cell_group_cfg_s::to_json(json_writer& j) const
 {
   j.start_obj();

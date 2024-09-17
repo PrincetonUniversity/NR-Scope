@@ -1,0 +1,107 @@
+{
+  "downlinkBWP-ToAddModList": [
+    {
+      "bwp-Id": 1,
+      "bwp-Common": {
+        "genericParameters": {
+          "locationAndBandwidth": 28875,
+          "subcarrierSpacing": 1
+        },
+        "pdsch-ConfigCommon": {
+          "pdsch-TimeDomainAllocationList": [
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 40
+              }
+            },
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 54
+              }
+            },
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 57
+              }
+            }
+          ]
+        }
+      },
+      "bwp-Dedicated": {
+        "pdcch-Config": {
+          "controlResourceSetToAddModList": [
+            {
+              "controlResourceSetId": 2,
+              "frequencyDomainResources": "FF FF 80 00 00 00",
+              "duration": 1,
+              "cce-REG-MappingType": "NULL",
+              "precoderGranularity": 1,
+              "tci-StatesPDCCH-ToAddList": [0],
+              "pdcch-DMRS-ScramblingID": 369
+            }
+          ],
+          "searchSpacesToAddModList": [
+            {
+              "searchSpaceId": 3,
+              "controlResourceSetId": 2,
+              "monitoringSlotPeriodicityAndOffset": "sl1 NULL",
+              "monitoringSymbolsWithinSlot": "80 00",
+              "nrofCandidates": {
+                "aggregationLevel1": 4,
+                "aggregationLevel2": 4,
+                "aggregationLevel4": 2,
+                "aggregationLevel8": 1,
+                "aggregationLevel16": 0
+              },
+              "searchSpaceType": {
+                "dci-Formats": 1
+              }
+            }
+          ]
+        },
+        "pdsch-Config": {
+          "dataScramblingIdentityPDSCH": 369,
+          "dmrs-DownlinkForPDSCH-MappingTypeA": {
+            "dmrs-AdditionalPosition": 1
+          },
+          "resourceAllocation": 1,
+          "pdsch-TimeDomainAllocationList": [
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 40
+              }
+            },
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 54
+              }
+            },
+            {
+              "PDSCH-TimeDomainResourceAllocation": {
+                "k0": 0,
+                "mappingType": 0,
+                "startSymbolAndLength": 57
+              }
+            }
+          ],
+          "rbg-Size": 0,
+          "mcs-Table": 0,
+          "maxNrofCodeWordsScheduledByDCI": 0,
+          "prb-BundlingType": {
+            "bundleSize": 1
+          }
+        }
+      }
+    }
+  ]
+}
