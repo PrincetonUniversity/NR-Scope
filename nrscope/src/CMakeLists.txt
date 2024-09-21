@@ -33,7 +33,7 @@ target_link_libraries(nrscope   srsue_phy
                                 "/usr/local/lib/libliquid.so"
                                 "/usr/local/lib/libliquid.a")
 
-target_link_libraries(nrscan   srsue_phy
+target_link_libraries(nrscan    srsue_phy
                                 srsran_common
                                 srsran_phy
                                 srsran_radio

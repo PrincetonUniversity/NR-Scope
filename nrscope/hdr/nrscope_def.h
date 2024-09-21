@@ -75,13 +75,15 @@ struct cell_searcher_args_t {
     srsran::srsran_band_helper bands;
 
     // Deduce band number
-    uint16_t band = bands.get_band_from_dl_freq_Hz_and_scs(base_carrier.dl_center_frequency_hz, scs_input);
+    uint16_t band = bands.get_band_from_dl_freq_Hz_and_scs(
+      base_carrier.dl_center_frequency_hz, scs_input);
 
     srsran_assert(band != UINT16_MAX, "Invalid band");
     
     // Deduce point A in Hz
     double pointA_Hz =
-        bands.get_abs_freq_point_a_from_center_freq(base_carrier.nof_prb, base_carrier.dl_center_frequency_hz);
+      bands.get_abs_freq_point_a_from_center_freq(
+      base_carrier.nof_prb, base_carrier.dl_center_frequency_hz);
 
     // Deduce DL center frequency ARFCN
     uint32_t pointA_arfcn = bands.freq_to_nr_arfcn(pointA_Hz);
@@ -92,7 +94,8 @@ struct cell_searcher_args_t {
     // ssb_scs = srsran_subcarrier_spacing_30kHz;
 
     // Deduce SSB center frequency ARFCN
-    // uint32_t ssb_arfcn = bands.get_abs_freq_ssb_arfcn(band, ssb_scs, pointA_arfcn);
+    // uint32_t ssb_arfcn = 
+    //    bands.get_abs_freq_ssb_arfcn(band, ssb_scs, pointA_arfcn);
     // srsran_assert(ssb_arfcn, "Invalid SSB center frequency");
 
     duplex_mode                     = bands.get_duplex_mode(band);
@@ -163,18 +166,106 @@ typedef struct ScanLogNode_ ScanLogNode;
     uint32 pci;
   };
 
-struct sib1_task_element{
-  srsran_ue_sync_nr_outcome_t outcome;
-  srsran_slot_cfg_t slot;
-};
+typedef struct WorkState_ WorkState;
+  struct WorkState_{
+    uint32_t nof_threads;
+    uint32_t nof_rnti_worker_groups;
+    uint8_t nof_bwps;
+    bool cpu_affinity;
 
-struct rach_task_element{
+    uint32_t slot_sz;
 
-};
+    cell_searcher_args_t args_t;
+    cell_search_result_t cell;
+    srsue::nr::cell_search::ret_t cs_ret;
+    srsue::nr::cell_search::cfg_t srsran_searcher_cfg_t;
+    coreset0_args coreset0_args_t;
+    srsran_coreset_t coreset0_t;
 
-struct dci_task_element{
+    srsran_ue_dl_nr_sratescs_info arg_scs;
 
-};
+    asn1::rrc_nr::sib1_s sib1;
+    std::vector<asn1::rrc_nr::sys_info_s> sibs;
+    std::vector<int> found_sib; 
+    std::vector<int> sibs_to_be_found;
+
+    asn1::rrc_nr::rrc_setup_s rrc_setup;
+    asn1::rrc_nr::cell_group_cfg_s master_cell_group;
+    asn1::rrc_nr::rrc_recfg_s rrc_recfg;
+
+    bool sib1_found; // SIB 1 decoded, we can start the RACH thread
+    bool rach_found;
+
+    bool all_sibs_found; // All SIBs are decoded, stop the SIB thread now.
+
+    bool sib1_inited; // SIBsDecoder is initialized.
+    bool rach_inited; // RACHDecoder is initialized.
+    bool dci_inited; // DCIDecoder is initialized.
+
+    uint32_t nof_known_rntis;
+    std::vector<uint16_t> known_rntis;
+  };
+
+typedef struct SlotResult_ SlotResult;
+  struct SlotResult_{
+    /* 3GPP only marks system frame up to 10.24 seconds, 0-1023.
+     We want to also capture the level above that. */
+    uint64_t sf_round;
+    /* slot and system frame information */
+    srsran_slot_cfg_t slot;
+    srsran_ue_sync_nr_outcome_t outcome;
+
+    /* The worker works on SIBs decoding */
+    bool sib_result;
+    bool found_sib1;
+    asn1::rrc_nr::sib1_s sib1;
+    std::vector<asn1::rrc_nr::sys_info_s> sibs;
+    std::vector<int> found_sib; 
+
+    /* The worker works on RACH decoding */
+    bool rach_result;
+    bool found_rach;
+    asn1::rrc_nr::rrc_setup_s rrc_setup;
+    asn1::rrc_nr::cell_group_cfg_s master_cell_group;
+    uint32_t new_rnti_number;
+    std::vector<uint16_t> new_rntis_found;
+
+    /* The worker works on DCI decoding */
+    bool dci_result;
+    std::vector <DCIFeedback> dci_feedback_results;    
+
+    /* Define the compare operator between structure by sf_round, 
+      sfn and slot idx */
+    bool operator<(const SlotResult& other) const {
+      /* If the sf_round is different */
+      if (sf_round < other.sf_round) return true;
+      if (sf_round > other.sf_round) return false;
+
+      /* If the sfn is different */
+      if (outcome.sfn < other.outcome.sfn) return true;
+      if (outcome.sfn > other.outcome.sfn) return false;
+      
+      /* If the sfn is the same */
+      return slot.idx < other.slot.idx;
+    }
+
+    bool operator==(const SlotResult& other) const {
+      return sf_round == other.sf_round && outcome.sfn == other.outcome.sfn &&
+        slot.idx == other.slot.idx;
+    }
+
+    /* The + operator depends on the SCS, so it's not defined here. */
+  };
+
+bool CompareSlotResult (SlotResult a, SlotResult b);
+
+namespace NRScopeTask{
+  extern std::vector<SlotResult> global_slot_results;
+  extern std::mutex queue_lock;
+  extern std::mutex task_scheduler_lock;
+  extern std::mutex worker_locks[128];
+}
+
 
 /**
  * @brief Function brought from phch_cfg_nr.c
@@ -215,5 +306,6 @@ uint32_t get_P(uint32_t bwp_nof_prb, bool config_1_or_2);
 /**
   * Calculate nof_rbgs, from sched_nr_rb.cc
   */
-uint32_t get_nof_rbgs(uint32_t bwp_nof_prb, uint32_t bwp_start, bool config1_or_2);
+uint32_t get_nof_rbgs(uint32_t bwp_nof_prb, uint32_t bwp_start, 
+  bool config1_or_2);
 #endif

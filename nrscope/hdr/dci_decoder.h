@@ -2,7 +2,7 @@
 #define DCI_DECODER_H
 
 #include "nrscope/hdr/nrscope_def.h"
-#include "nrscope/hdr/task_scheduler.h"
+// #include "nrscope/hdr/task_scheduler.h"
 
 class DCIDecoder{
   public:
@@ -54,14 +54,19 @@ class DCIDecoder{
     DCIDecoder(uint32_t max_nof_rntis);
     ~DCIDecoder();
 
-    int dci_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg_scs_,
-                                       TaskSchedulerNRScope* task_scheduler_nrscope,
-                                       cf_t* input[SRSRAN_MAX_PORTS],
-                                       u_int8_t bwp_id);
+    int DCIDecoderandReceptionInit(WorkState* state,
+                                   int bwp_id,
+                                   cf_t* input[SRSRAN_MAX_PORTS]);
 
-    int decode_and_parse_dci_from_slot(srsran_slot_cfg_t* slot,
-                                       TaskSchedulerNRScope* task_scheduler_nrscope,
-                                       cf_t * raw_buffer);
+    int DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
+                        WorkState* state,
+                        std::vector <DCIFeedback>& sharded_results,
+                        std::vector <std::vector <uint16_t> >& sharded_rntis,
+                        std::vector<uint32_t>& nof_sharded_rntis,
+                        std::vector <float>& dl_prb_rate,
+                        std::vector <float>& dl_prb_bits_rate,
+                        std::vector <float>& ul_prb_rate,
+                        std::vector <float>& ul_prb_bits_rate);
 
     // int dci_thread(TaskSchedulerNRScope* task_scheduler_nrscope);
 };

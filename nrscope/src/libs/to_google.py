@@ -12,14 +12,18 @@ def create_table_with_position_and_time(credential, dataset_id_input, nof_usrp):
     print(geo_loc)
     geo_str = ""
     if(float(geo_loc[0]) >= 0):
-      geo_str += "P_" + str(int(geo_loc[0])) + "_" + "{:.4f}".format(geo_loc[0] - int(geo_loc[0]))[2:]
+      geo_str += "P_" + str(int(geo_loc[0])) + "_" + "{:.4f}".format(
+        geo_loc[0] - int(geo_loc[0]))[2:]
     else:
-      geo_str += "N_" + str(int(abs(geo_loc[0]))) + "_" + "{:.4f}".format(abs(geo_loc[0] - int(geo_loc[0])))[2:]
+      geo_str += "N_" + str(int(abs(geo_loc[0]))) + "_" + "{:.4f}".format(
+        abs(geo_loc[0] - int(geo_loc[0])))[2:]
 
     if(geo_loc[1] >= 0):
-      geo_str += "_P_" + str(int(geo_loc[1])) + "_" + "{:.4f}".format(geo_loc[1] - int(geo_loc[1]))[2:]
+      geo_str += "_P_" + str(int(geo_loc[1])) + "_" + "{:.4f}".format(
+        geo_loc[1] - int(geo_loc[1]))[2:]
     else:
-      geo_str += "_N_" + str(int(abs(geo_loc[1]))) + "_" + "{:.4f}".format(abs(geo_loc[1] - int(geo_loc[1])))[2:]
+      geo_str += "_N_" + str(int(abs(geo_loc[1]))) + "_" + "{:.4f}".format(
+        abs(geo_loc[1] - int(geo_loc[1])))[2:]
     print("Current location is: ", geo_str)
 
     # Get current datetime
@@ -88,7 +92,8 @@ def create_table_with_position_and_time(credential, dataset_id_input, nof_usrp):
       clients.append(client)
 
       print(
-          "Create table {}.{}.{}".format(table.project, table.dataset_id, table.table_id)
+        "Create table {}.{}.{}".format(table.project, table.dataset_id, 
+                                       table.table_id)
       )
       rows = []
     return clients, tables, schema, rows, nof_usrp
@@ -104,7 +109,8 @@ def push_data_to_table(clients, tables, schema, rows_input, rf_index):
     clients[rf_index].insert_rows(tables[rf_index], rows_input, schema)
       
     toc = time.perf_counter()
-    print("Pushed {} entries to the google storage, taking {} s.".format(len(rows_input), toc-tic))
+    print("Pushed {} entries to the google storage, taking {} s.".format(
+      len(rows_input), toc-tic))
  
   except:
     print('Caught exceptions.')

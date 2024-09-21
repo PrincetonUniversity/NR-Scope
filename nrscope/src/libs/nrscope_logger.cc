@@ -20,10 +20,13 @@ namespace NRScopeLog{
       // log_queue.emplace_back(log_queue_empty);
       FILE* pFile = fopen(filename[f_id].c_str(), "a");
       // Transform the input_node into one log entry row.
-      fprintf(pFile, "%s\n", "timestamp,system_frame_index,slot_index,rnti,rnti_type,dci_format,k,mapping,time_start,time_length,"
-        "frequency_start,frequency_length,nof_dmrs_cdm_groups,beta_dmrs,nof_layers,n_scid,tb_scaling_field,"
-        "modulation,mcs_index,transport_block_size,code_rate,redundancy_version,new_data_indicator,"
-        "nof_re,nof_bits,mcs_table,xoverhead,harq_id,downlink_assignment_index,tpc,pucch_resource,harq_feedback,bwp");
+      fprintf(pFile, "%s\n", "timestamp,system_frame_index,slot_index,rnti,"
+        "rnti_type,dci_format,k,mapping,time_start,time_length,frequency_start,"
+        "frequency_length,nof_dmrs_cdm_groups,beta_dmrs,nof_layers,n_scid,"
+        "tb_scaling_field,modulation,mcs_index,transport_block_size,code_rate,"
+        "redundancy_version,new_data_indicator,nof_re,nof_bits,mcs_table,"
+        "xoverhead,harq_id,downlink_assignment_index,tpc,pucch_resource,"
+        "harq_feedback,bwp");
       fclose(pFile);
     }
     run_log = true;
@@ -68,7 +71,8 @@ namespace NRScopeLog{
       }
     }
 
-    snprintf(buff, sizeof(buff), "%f,%d,%d,%d,%s,%s,%d,%s,%d,%d,%d,%d,%d,%f,%d,%d,%d,%s,%d,%d,%f,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%d", 
+    snprintf(buff, sizeof(buff), "%f,%d,%d,%d,%s,%s,%d,%s,%d,%d,%d,%d,%d,%f,%d,"
+            "%d,%d,%s,%d,%d,%f,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%d", 
             input_node.timestamp,
             input_node.system_frame_idx,
             input_node.slot_idx,
@@ -96,11 +100,16 @@ namespace NRScopeLog{
             input_node.grant.grant.tb[0].nof_bits,
             srsran_mcs_table_to_str(input_node.grant.sch_cfg.mcs_table),
             sch_xoverhead_to_str(input_node.grant.sch_cfg.xoverhead),
-            input_node.dci_format == "1_1" ? input_node.dl_dci.pid : input_node.ul_dci.pid,
-            input_node.dci_format == "1_1" ? input_node.dl_dci.dai : input_node.ul_dci.dai1,
-            input_node.dci_format == "1_1" ? input_node.dl_dci.tpc : input_node.ul_dci.tpc,
-            input_node.dci_format == "1_1" ? input_node.dl_dci.pucch_resource : 0,
-            input_node.dci_format == "1_1" ? input_node.dl_dci.harq_feedback : 0,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.pid : input_node.ul_dci.pid,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.dai : input_node.ul_dci.dai1,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.tpc : input_node.ul_dci.tpc,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.pucch_resource : 0,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.harq_feedback : 0,
             input_node.bwp_id
     );
     FILE* pFile = fopen(filename[rf_index].c_str(), "a");

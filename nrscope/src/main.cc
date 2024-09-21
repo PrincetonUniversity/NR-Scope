@@ -18,16 +18,6 @@ using json = nlohmann::json;
 // }
 
 int main(int argc, char** argv){
-  // srsran_debug_handle_crash(argc, argv);
-
-  // struct sigaction sigIntHandler;
-
-  // sigIntHandler.sa_handler = my_handler;
-  // sigemptyset(&sigIntHandler.sa_mask);
-  // sigIntHandler.sa_flags = 0;
-
-  // sigaction(SIGINT, &sigIntHandler, NULL);
-
   /* Initialize ASN decoder */
   // init_asn_decoder("sample.sib");
 

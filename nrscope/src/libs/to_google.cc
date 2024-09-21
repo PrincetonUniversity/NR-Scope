@@ -16,7 +16,9 @@ namespace ToGoogle{
   std::string google_dataset_id;
 
 
-  void init_to_google(std::string google_credential_input, std::string google_dataset_id_input, int nof_usrp_input){
+  void init_to_google(std::string google_credential_input, 
+                      std::string google_dataset_id_input, 
+                      int nof_usrp_input){
     run_google = true;
     nof_usrp = nof_usrp_input;
     google_credential = google_credential_input;
@@ -44,7 +46,8 @@ namespace ToGoogle{
 
     PyObject *pName, *pModule, *pCreate, *pPush, *pNofUSRP;
     PyObject *pClient, *pDict, *pRFID;
-    PyObject *pInt, *pDouble, *pStr, *pCredential, *pProjectID, *pDatasetID, *pInput;
+    PyObject *pInt, *pDouble, *pStr, *pCredential, *pProjectID, *pDatasetID;
+    PyObject *pInput;
     std::vector<PyObject*> pList;
     setenv("PYTHONPATH", ".", 0);
     pList.resize(nof_usrp);
@@ -56,8 +59,10 @@ namespace ToGoogle{
     Py_DECREF(pName);
 
     if (pModule != NULL) {
-      pCreate = PyObject_GetAttrString(pModule, "create_table_with_position_and_time");
-      pPush = PyObject_GetAttrString(pModule, "push_data_to_table");
+      pCreate = PyObject_GetAttrString(pModule, 
+        "create_table_with_position_and_time");
+      pPush = PyObject_GetAttrString(pModule, 
+        "push_data_to_table");
       /* pFunc is a new reference */
 
       if (pCreate && PyCallable_Check(pCreate)) {
@@ -114,13 +119,15 @@ namespace ToGoogle{
           PyDict_SetItemString(pDict, "slot_index", pInt);
           pInt = PyLong_FromLong(new_entry.grant.grant.rnti);
           PyDict_SetItemString(pDict, "rnti", pInt);
-          pStr = PyUnicode_FromString(srsran_rnti_type_str(new_entry.grant.grant.rnti_type));
+          pStr = PyUnicode_FromString(
+            srsran_rnti_type_str(new_entry.grant.grant.rnti_type));
           PyDict_SetItemString(pDict, "rnti_type", pStr);
           pStr = PyUnicode_FromString(new_entry.dci_format.c_str());
           PyDict_SetItemString(pDict, "dci_format", pStr);
           pInt = PyLong_FromLong(new_entry.grant.grant.k);
           PyDict_SetItemString(pDict, "k", pInt);
-          pStr = PyUnicode_FromString(sch_mapping_to_str(new_entry.grant.grant.mapping));
+          pStr = PyUnicode_FromString(
+            sch_mapping_to_str(new_entry.grant.grant.mapping));
           PyDict_SetItemString(pDict, "mapping", pStr);
           pInt = PyLong_FromLong(new_entry.grant.grant.S);
           PyDict_SetItemString(pDict, "time_start", pInt);
@@ -130,7 +137,8 @@ namespace ToGoogle{
           PyDict_SetItemString(pDict, "frequency_start", pInt);
           pInt = PyLong_FromLong(new_entry.grant.grant.nof_prb);
           PyDict_SetItemString(pDict, "frequency_length", pInt);
-          pInt = PyLong_FromLong(new_entry.grant.grant.nof_dmrs_cdm_groups_without_data);
+          pInt = PyLong_FromLong(
+            new_entry.grant.grant.nof_dmrs_cdm_groups_without_data);
           PyDict_SetItemString(pDict, "nof_dmrs_cdm_groups", pInt);
           pDouble = PyFloat_FromDouble(new_entry.grant.grant.beta_dmrs);
           PyDict_SetItemString(pDict, "beta_dmrs", pDouble);
@@ -140,7 +148,8 @@ namespace ToGoogle{
           PyDict_SetItemString(pDict, "n_scid", pInt);
           pInt = PyLong_FromLong(new_entry.grant.grant.tb_scaling_field);
           PyDict_SetItemString(pDict, "tb_scaling_field", pInt);
-          pStr = PyUnicode_FromString(srsran_mod_string(new_entry.grant.grant.tb[0].mod));
+          pStr = PyUnicode_FromString(
+            srsran_mod_string(new_entry.grant.grant.tb[0].mod));
           PyDict_SetItemString(pDict, "modulation", pStr);
           pInt = PyLong_FromLong(new_entry.grant.grant.tb[0].mcs);
           PyDict_SetItemString(pDict, "mcs_index", pInt);
@@ -156,24 +165,32 @@ namespace ToGoogle{
           PyDict_SetItemString(pDict, "nof_re", pInt);
           pInt = PyLong_FromLong(new_entry.grant.grant.tb[0].nof_bits);
           PyDict_SetItemString(pDict, "nof_bits", pInt);
-          pStr = PyUnicode_FromString(srsran_mcs_table_to_str(new_entry.grant.sch_cfg.mcs_table));
+          pStr = PyUnicode_FromString(srsran_mcs_table_to_str(
+            new_entry.grant.sch_cfg.mcs_table));
           PyDict_SetItemString(pDict, "mcs_table", pStr);
-          pStr = PyUnicode_FromString(srsran_mcs_table_to_str(new_entry.grant.sch_cfg.mcs_table));
+          pStr = PyUnicode_FromString(srsran_mcs_table_to_str(
+            new_entry.grant.sch_cfg.mcs_table));
           PyDict_SetItemString(pDict, "xoverhead", pStr);
-          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? new_entry.dl_dci.pid : new_entry.ul_dci.pid),
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.pid : new_entry.ul_dci.pid),
           PyDict_SetItemString(pDict, "harq_id", pInt);
-          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? new_entry.dl_dci.dai : new_entry.ul_dci.dai1),
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.dai : new_entry.ul_dci.dai1),
           PyDict_SetItemString(pDict, "downlink_assignment_index", pInt);
-          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? new_entry.dl_dci.tpc : new_entry.ul_dci.tpc),
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.tpc : new_entry.ul_dci.tpc),
           PyDict_SetItemString(pDict, "tpc", pInt);
-          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? new_entry.dl_dci.pucch_resource : 0),
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.pucch_resource : 0),
           PyDict_SetItemString(pDict, "pucch_resource", pInt);
-          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? new_entry.dl_dci.harq_feedback : 0),
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.harq_feedback : 0),
           PyDict_SetItemString(pDict, "harq_feedback", pInt);
 
           PyList_SetItem(pList[rf_id], list_count[rf_id], pDict);
           list_count[rf_id] += 1;
-          std::cout << "Current list count of radio " << rf_id << ": " << list_count[rf_id] << std::endl;
+          std::cout << "Current list count of radio " << rf_id << ": " 
+            << list_count[rf_id] << std::endl;
 
           if(list_count[rf_id] == list_length){
             list_count[rf_id]= 0;

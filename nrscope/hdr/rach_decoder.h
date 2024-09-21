@@ -10,7 +10,7 @@
 #include "srsran/common/band_helper.h"
 
 #include "nrscope/hdr/nrscope_def.h"
-#include "nrscope/hdr/task_scheduler.h"
+// #include "nrscope/hdr/task_scheduler.h"
 
 class RachDecoder{
   public:
@@ -50,15 +50,14 @@ class RachDecoder{
     RachDecoder();
     ~RachDecoder();
 
-    int rach_decoder_init(TaskSchedulerNRScope* task_scheduler_nrscope);
+    int RACHDecoderInit(WorkState state);
 
-    int rach_reception_init(srsran_ue_dl_nr_sratescs_info arg_scs_,
-                            TaskSchedulerNRScope* task_scheduler_nrscope,
-                            cf_t* input[SRSRAN_MAX_PORTS]);
+    int RACHReceptionInit(WorkState* state,
+                          cf_t* input[SRSRAN_MAX_PORTS]);
 
-    int decode_and_parse_msg4_from_slot(srsran_slot_cfg_t* slot,
-                                        TaskSchedulerNRScope* task_scheduler_nrscope,
-                                        cf_t * raw_buffer);
+    int DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
+                          WorkState* state,
+                          SlotResult* result);
     
     // int rach_thread(TaskSchedulerNRScope* task_scheduler_nrscope);
 };

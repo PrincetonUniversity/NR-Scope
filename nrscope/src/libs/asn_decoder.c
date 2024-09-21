@@ -100,7 +100,8 @@ void * asn_processor(void * args)
                 free(node->payload);
                 free(node);
 #else
-                fprintf(decoder.file, "4G MIB message cannot be decoded: libasn4g is not installed\n");
+                fprintf(decoder.file, 
+                "4G MIB message cannot be decoded: libasn4g is not installed\n");
 #endif
                 break;
             case SIB_4G:
@@ -110,7 +111,8 @@ void * asn_processor(void * args)
                 free(node->payload);
                 free(node);
 #else
-                fprintf(decoder.file, "4G SIB message cannot be decoded: libasn4g is not installed\n");
+                fprintf(decoder.file, 
+                "4G SIB message cannot be decoded: libasn4g is not installed\n");
 #endif
                 break;
             case MIB_5G:
@@ -120,7 +122,8 @@ void * asn_processor(void * args)
                 free(node->payload);
                 free(node);
 #else
-                fprintf(decoder.file, "5G MIB message cannot be decoded: libasn5g is not installed\n");
+                fprintf(decoder.file, 
+                "5G MIB message cannot be decoded: libasn5g is not installed\n");
 #endif
                 break;
             case SIB_5G:
@@ -130,7 +133,8 @@ void * asn_processor(void * args)
                 free(node->payload);
                 free(node);
 #else
-                fprintf(decoder.file, "5G SIB message cannot be decoded: libasn5g is not installed\n");
+                fprintf(decoder.file, 
+                "5G SIB message cannot be decoded: libasn5g is not installed\n");
 #endif
                 break;
             
@@ -154,7 +158,8 @@ int init_asn_decoder(const char * path)
 
     if((decoder.file = fopen(path, "w")) == NULL) {
         decoder.file = NULL;
-        printf("Error openning SIB log file %s (%d): %s\n", path, errno, strerror(errno));
+        printf("Error openning SIB log file %s (%d): %s\n", 
+            path, errno, strerror(errno));
         return 1;
     }
 
@@ -171,7 +176,8 @@ int push_asn_payload(uint8_t * payload, int len, PayloadType type, uint32_t tti)
 {
     Node * node;
 
-    /* If the decoder initialization has failed, this fucntion does nothing and returns error */
+    /* If the decoder initialization has failed, 
+        this fucntion does nothing and returns error */
     if(decoder.file == NULL)
         return 1;
 

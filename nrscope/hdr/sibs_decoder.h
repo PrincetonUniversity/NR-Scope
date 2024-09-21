@@ -4,7 +4,7 @@
 #include "srsran/support/srsran_assert.h"
 
 #include "nrscope/hdr/nrscope_def.h"
-#include "nrscope/hdr/task_scheduler.h"
+// #include "nrscope/hdr/task_scheduler.h"
 
 class SIBsDecoder{
   public:
@@ -35,50 +35,49 @@ class SIBsDecoder{
     ~SIBsDecoder();
 
     /**
-    * This function initialize the decoder with the required context for SIB decoding, we can't decode SIB
-    * without these parameters.
+    * This function initialize the decoder with the required context for SIB 
+    * decoding, we can't decode SIB without these parameters.
     * 
-    * @param arg_scs_: it contains basic information about the radio and cell, such as sampling rate, 
-    * SCS and phase difference.
-    * @param base_carrier_: it contains the information about the carrier of the cell, such as how many
-    * PRBs are contained in the carrier and SSB center frequency.
+    * @param arg_scs_: it contains basic information about the radio and cell, 
+    * such as sampling rate, SCS and phase difference.
+    * @param base_carrier_: it contains the information about the carrier of 
+    * the cell, such as how many PRBs are contained in the carrier and SSB 
+    * center frequency.
     * @param cell_: cell search result, containing cell's SSB patterns, SCS, etc.
-    * @param input: the buffer's address, which the USRP use to store radio samples, and it's used for  
-    * setting the ue_dl object so that all thread shares the same buffer for processing.
-    * @param coreset0_t_: the parameters of CORESET 0, with which this function can localize SIB 1 
-    * in time and frequency.
+    * @param input: the buffer's address, which the USRP use to store radio 
+    * samples, and it's used for setting the ue_dl object so that all thread 
+    * shares the same buffer for processing.
+    * @param coreset0_t_: the parameters of CORESET 0, with which this function 
+    * can localize SIB 1 in time and frequency.
     * 
     * @return SRSRAN_SUCCESS (0) if everything goes well. 
     * SRSRAN_ERROR (-1) if something is wrong in the function.
     */
-    int sib_decoder_and_reception_init(srsran_ue_dl_nr_sratescs_info arg_scs_,
-                                       TaskSchedulerNRScope* task_scheduler_nrscope,
-                                       cf_t* input[SRSRAN_MAX_PORTS]);
+    int SIBDecoderandReceptionInit(WorkState* state,
+                                   cf_t* input[SRSRAN_MAX_PORTS]);
 
     /**
-    * This function decodes the current slot for SIB 1, and the result will reflect in the sib1 parameter.
+    * This function decodes the current slot for SIB 1, and the result will 
+    * reflect in the sib1 parameter.
     * 
-    * @param slot: current slot index within the system frame (1-20 for 30kHz SCS).
-    * @param sib1: the pointer to the address where the SIB 1 information should be stored.
-    * Maybe change this to a task_scheduler_ngscope object.
+    * @param slot: current slot index within the system frame (1-20 for 
+    * 30kHz SCS).
+    * @param sib1: the pointer to the address where the SIB 1 information 
+    * should be stored. Maybe change this to a task_scheduler_ngscope object.
     * 
     * @return SRSRAN_SUCCESS (0) if everything goes well. 
     * SRSRAN_ERROR (-1) if something is wrong in the function.
     */
-    int decode_and_parse_sib1_from_slot(srsran_slot_cfg_t* slot,
-                                        TaskSchedulerNRScope* task_scheduler_nrscope,
-                                        cf_t * raw_buffer);
+    int DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
+                                   WorkState* state,
+                                   SlotResult* result);
+                                  // srsran_slot_cfg_t* slot,
+                                  // bool* sibs_vec_inited,
+                                  // bool* all_sibs_found,
+                                  // std::vector<int>& found_sib,
+                                  // std::vector<asn1::rrc_nr::sys_info_s>& sibs,
+                                  // asn1::rrc_nr::sib1_s* sib1_);
 
-    // /**
-    // * A function that represents the SIB thread for a producer-consumer threading design,
-    // * but currently we don't adopt such design.
-    // * 
-    // * @return SRSRAN_SUCCESS (0) if everything goes well. 
-    // * SRSRAN_ERROR (-1) if something is wrong in the function.
-    // */
-    // int sibs_thread(srsran_ue_dl_nr_sratescs_info arg_scs_, 
-    //                 TaskSchedulerNRScope* task_scheduler_nrscope, 
-    //                 cf_t* input[SRSRAN_MAX_PORTS]);
 };
 
 #endif
