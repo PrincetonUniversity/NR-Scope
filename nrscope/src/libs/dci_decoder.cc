@@ -129,25 +129,18 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   }
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
-    // ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume now only checking in RRCSetup). Currently please bring back nof_bwps back to 1 in config.yaml as we are working on encrypted RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
-    // return SRSRAN_ERROR;
-
     // now use hidden bwp logic
     printf("bwp id %d ul or dl config never appears in RRCSetup; use hidden bwp detection logic\n", bwp_id);
 
-    std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
-    hidden_dl_bwp_json = json::parse(f);
+    // std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
+    // hidden_dl_bwp_json = json::parse(f);
     is_hidden_bwp = true;
-    
+    master_cell_group.from_json(state->js_hidden_bwp);
 
-    printf("[9/16] trigger 1\n");
-    master_cell_group.from_json(hidden_dl_bwp_json);
-    printf("[9/16] trigger 2\n");
-
-
-    // 9/16/2024 Only have hidden dl bwp 1 info, so dl use bwp1 and dl use bwp0 still
+    // 9/21/2024 Only have hidden dl bwp 1 and ul bwp 1 info, so dl use bwp1 and ul use bwp
+    // TO-DOs: we shall select the right hidden bwp config here whe
     bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list[0].bwp_ded);
-    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
+    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list[0].bwp_ded);
   }
 
   if(bwp_dl_ded_s_ptr->pdcch_cfg.is_setup()){

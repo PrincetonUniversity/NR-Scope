@@ -1,4 +1,7 @@
 #include "nrscope/hdr/task_scheduler.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 namespace NRScopeTask{
 
@@ -39,6 +42,8 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
     SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
   task_scheduler_state.cpu_affinity = cpu_affinity;
   nof_workers = nof_workers_;
+  std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
+  task_scheduler_state.js_hidden_bwp = json::parse(f);
   std::cout << "Starting workers..." << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
     NRScopeWorker *worker = new NRScopeWorker();

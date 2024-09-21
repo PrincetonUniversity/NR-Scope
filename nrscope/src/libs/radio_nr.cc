@@ -2,6 +2,9 @@
 #include <liquid/liquid.h>
 #include <semaphore>
 #include <chrono>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 #define RING_BUF_SIZE 10000
 #define RING_BUF_MODULUS (RING_BUF_SIZE - 1)
@@ -514,6 +517,32 @@ int Radio::RadioInitandStart(){
       RESAMPLE_WORKER_NUM);
     rk_initialized = true;
   }
+
+  /**
+   * Load the hidden bwp db early 
+   * 
+   * Currently in "proof-of-concept" mode, where the db contains just 
+   * the MOSOLAB 369 cell's hidden bwp info in 40 MHz mode. More specifically,
+   * 
+   * BWP0: start RB 0 and Num RB 78
+   * BWP1: start RB 0 and Num RB 106
+   * 
+   * TO-DOs: 
+   * (1) test on commerical/MOSOLAB cells where BWP1 may start at a higher location
+   * (so we need to guess the start which is multiple of 6 RB)
+   * 
+   * (2) interface with the actual db (ready)
+   * 
+   * (3) for more than one non-initial bwp, use energy detection method to map to the
+   * right hidden bwp config, as discussed in our meeting
+   * 
+   * Nice to have:
+   * (1) CRC check for different dci size(s) for cross-validation, where use the 
+   * dci size with CRC == 1 to serve as a target and maybe use dynamic programming
+   * to tune the dci-size parameters towards the target size
+   */
+  
+
 
   /* Initialize the task_scheduler and the workers in it.
      They will all remain inactive until the MIB is found. */
