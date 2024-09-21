@@ -1,7 +1,7 @@
 nof_usrp_dev: 1
 usrp_setting_0:
   ssb_freq: 3488160000 #1989850000 #1970450000 #3489600000 #3649440000 #3650880000 # 1970450000 #2600040000 #3488160000 #3685440000 #3561600000 #1842050000 #2528550000 #3565920000 #2524950000 #2523750000 # 3565920000 # 2527350000 #3408960000  # should be set to the ssb frequency of the cell
-  rf_args: "clock=external,type=x300,master_clock_rate=200000000,sampling_rate=25000000" #"type=x300" #"clock=external" for TwinRX
+  rf_args: "clock=external,serial=32B0F2F,type=x300,master_clock_rate=200000000,sampling_rate=25000000" #"type=x300" #"clock=external" for TwinRX
   # rf_args: "clock=external,type=x300,sampling_rate=23040000" #"type=x300" #"clock=external" for CBX
   rx_gain: 90 # for x310 CBX, max rx gain is 31.5, for b210, it's around 80, for x310 TwinRX, max rx gain is 90
   srate_hz: 25000000 #11520000 #11520000 #23040000 (CBX)
