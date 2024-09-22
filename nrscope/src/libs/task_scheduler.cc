@@ -66,7 +66,7 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
    * dci size with CRC == 1 to serve as a target and maybe use dynamic programming
    * to tune the dci-size parameters towards the target size
    */
-  std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
+  std::ifstream f("369.txt");
   task_scheduler_state.js_hidden_bwp = json::parse(f);
   std::cout << "Starting workers..." << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
