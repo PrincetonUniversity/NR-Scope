@@ -129,15 +129,18 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
     // now use hidden bwp logic
-    printf("bwp id %d ul or dl config never appears in RRCSetup; use hidden bwp detection logic\n", bwp_id);
+    printf("bwp id %d ul or dl config never appears in "
+    "RRCSetup; use hidden bwp detection logic\n", bwp_id);
 
     is_hidden_bwp = true;
     master_cell_group.from_json(state->js_hidden_bwp);
 
     // 9/21/2024 Only have hidden dl bwp 1 and ul bwp 1 info, so dl use bwp1 and ul use bwp
     // TO-DOs: we shall select the right hidden bwp config here whe
-    bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list[0].bwp_ded);
-    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list[0].bwp_ded);
+    bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      dl_bwp_to_add_mod_list[0].bwp_ded);
+    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      ul_cfg.ul_bwp_to_add_mod_list[0].bwp_ded);
   }
 
   if(bwp_dl_ded_s_ptr->pdcch_cfg.is_setup()){
@@ -539,24 +542,24 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   ///< Set to true if HARQ-ACK codebook is set to dynamic with 2 sub-codebooks
   dci_cfg.dynamic_dual_harq_ack_codebook = false;
 
-  dci_cfg.nof_dl_bwp             = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+  dci_cfg.nof_dl_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
     dl_bwp_to_add_mod_list.size();
-  dci_cfg.nof_dl_time_res        = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   pdsch_time_domain_alloc_list_present ? 
-                                   bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   pdsch_time_domain_alloc_list.setup()
-                                   .size() : ( sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.
-                                   pdsch_cfg_common_present ? sib1.serving_cell_cfg_common.dl_cfg_common.
-                                   init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0
-                                   );
-  dci_cfg.nof_aperiodic_zp       = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   aperiodic_zp_csi_rs_res_sets_to_add_mod_list.size();
-  dci_cfg.pdsch_nof_cbg          = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   max_nrof_code_words_sched_by_dci_present ? 
-                                   bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   max_nrof_code_words_sched_by_dci : 0;
-  dci_cfg.nof_dl_to_ul_ack       = bwp_ul_ded_s_ptr->pucch_cfg.setup().
-                                   dl_data_to_ul_ack.size();
+  dci_cfg.nof_dl_time_res = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    pdsch_time_domain_alloc_list_present ? 
+    bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    pdsch_time_domain_alloc_list.setup().
+    size() : ( sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.
+    pdsch_cfg_common_present ? sib1.serving_cell_cfg_common.dl_cfg_common.
+    init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0
+    );
+  dci_cfg.nof_aperiodic_zp = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    aperiodic_zp_csi_rs_res_sets_to_add_mod_list.size();
+  dci_cfg.pdsch_nof_cbg = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    max_nrof_code_words_sched_by_dci_present ? 
+    bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    max_nrof_code_words_sched_by_dci : 0;
+  dci_cfg.nof_dl_to_ul_ack = bwp_ul_ded_s_ptr->pucch_cfg.setup().
+    dl_data_to_ul_ack.size();
   dci_cfg.pdsch_inter_prb_to_prb = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
     vrb_to_prb_interleaver_present;
   dci_cfg.pdsch_rm_pattern1 = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
