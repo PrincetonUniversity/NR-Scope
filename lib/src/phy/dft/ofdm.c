@@ -1136,8 +1136,12 @@ static void ofdm_rx_slot_nrscope_15khz(srsran_ofdm_t* q, int slot_in_sf, int cor
     // Perform FFT shift
     // the position of CORESET 0's center is not on current radio's center frequency
     // coreset_offset_scs = (ssb_center_freq - coreset_center_freq) / scs, all in hz
-    memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * (nof_re / 2 + coreset_offset_scs));
-    memcpy(output + (nof_re / 2 + coreset_offset_scs), &tmp[dc], sizeof(cf_t) * (nof_re / 2 - coreset_offset_scs));
+    if ((nof_re / 2 + coreset_offset_scs) > nof_re) {
+      memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * nof_re);
+    } else {
+      memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * (nof_re / 2 + coreset_offset_scs));
+      memcpy(output + (nof_re / 2 + coreset_offset_scs), &tmp[dc], sizeof(cf_t) * (nof_re / 2 - coreset_offset_scs));
+    }
     // memcpy(output, tmp + symbol_sz - nof_re / 2, sizeof(cf_t) * nof_re / 2);
     // memcpy(output + nof_re / 2, &tmp[dc], sizeof(cf_t) * nof_re / 2);
 
@@ -1235,8 +1239,14 @@ static void ofdm_rx_slot_nrscope_30khz(srsran_ofdm_t* q, int slot_in_sf, int cor
     // Perform FFT shift
     // the position of CORESET 0's center is not on current radio's center frequency
     // coreset_offset_scs = (ssb_center_freq - coreset_center_freq) / scs, all in hz
-    memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * (nof_re / 2 + coreset_offset_scs));
-    memcpy(output + (nof_re / 2 + coreset_offset_scs), &tmp[dc], sizeof(cf_t) * (nof_re / 2 - coreset_offset_scs));
+    printf("coreset_offset_scs: %d\n", coreset_offset_scs);
+    printf("nof_re: %d\n", nof_re);
+    if ((nof_re / 2 + coreset_offset_scs) > nof_re) {
+      memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * nof_re);
+    } else {
+      memcpy(output, tmp + symbol_sz - (nof_re / 2 + coreset_offset_scs), sizeof(cf_t) * (nof_re / 2 + coreset_offset_scs));
+      memcpy(output + (nof_re / 2 + coreset_offset_scs), &tmp[dc], sizeof(cf_t) * (nof_re / 2 - coreset_offset_scs));
+    }
     // memcpy(output, tmp + symbol_sz - nof_re / 2, sizeof(cf_t) * nof_re / 2);
     // memcpy(output + nof_re / 2, &tmp[dc], sizeof(cf_t) * nof_re / 2);
 
