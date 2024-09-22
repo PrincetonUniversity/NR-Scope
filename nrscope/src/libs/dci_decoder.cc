@@ -77,7 +77,6 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   asn1::rrc_nr::bwp_dl_ded_s * bwp_dl_ded_s_ptr = NULL;
   asn1::rrc_nr::bwp_ul_ded_s * bwp_ul_ded_s_ptr = NULL;
 
-  json hidden_dl_bwp_json;
   bool is_hidden_bwp = false;
 
   // assume ul bwp n and dl bwp n should be activated and used at the same time (lso for sure for TDD)
@@ -132,8 +131,6 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     // now use hidden bwp logic
     printf("bwp id %d ul or dl config never appears in RRCSetup; use hidden bwp detection logic\n", bwp_id);
 
-    // std::ifstream f("/home/xyc/hidden_bwp_40/NG-Scope-5G/nrscope/hidden_bwp_db/369.txt");
-    // hidden_dl_bwp_json = json::parse(f);
     is_hidden_bwp = true;
     master_cell_group.from_json(state->js_hidden_bwp);
 
@@ -346,8 +343,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
 
   /// Format 0_1 specific configuration (for PUSCH only)
   ///< Number of UL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
-  dci_cfg.nof_ul_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list.size();
-  // dci_cfg.nof_ul_bwp = 1; // [hidden bwp experiment]
+  dci_cfg.nof_ul_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+    ul_bwp_to_add_mod_list.size();
   ///< Number of dedicated PUSCH time domain resource assigment, set to 0 for default
   dci_cfg.nof_ul_time_res = bwp_ul_ded_s_ptr->pusch_cfg.setup().
     pusch_time_domain_alloc_list_present ? 
@@ -542,13 +539,15 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   ///< Set to true if HARQ-ACK codebook is set to dynamic with 2 sub-codebooks
   dci_cfg.dynamic_dual_harq_ack_codebook = false;
 
-  dci_cfg.nof_dl_bwp             = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list.size();
-  // dci_cfg.nof_dl_bwp             = 1; // [hidden bwp experiment]
+  dci_cfg.nof_dl_bwp             = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+    dl_bwp_to_add_mod_list.size();
   dci_cfg.nof_dl_time_res        = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
                                    pdsch_time_domain_alloc_list_present ? 
                                    bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-                                   pdsch_time_domain_alloc_list.setup().size() : ( sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.pdsch_cfg_common_present ? 
-                                   sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0
+                                   pdsch_time_domain_alloc_list.setup()
+                                   .size() : ( sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.
+                                   pdsch_cfg_common_present ? sib1.serving_cell_cfg_common.dl_cfg_common.
+                                   init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0
                                    );
   dci_cfg.nof_aperiodic_zp       = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
                                    aperiodic_zp_csi_rs_res_sets_to_add_mod_list.size();
