@@ -39,6 +39,7 @@ int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_){
   worker_state.args_t = task_scheduler_state.args_t;
   worker_state.slot_sz = task_scheduler_state.slot_sz;
   worker_state.cpu_affinity = task_scheduler_state.cpu_affinity;
+  worker_state.js_hidden_bwp = task_scheduler_state.js_hidden_bwp;
   /* Size of one subframe */
   rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(
     worker_state.args_t.ssb_scs) * worker_state.slot_sz);

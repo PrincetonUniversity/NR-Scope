@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <complex>
 #include <sys/time.h>
+#include <nlohmann/json.hpp>
 
 #include "srsran/common/band_helper.h"
 #include "srsran/common/band_helper.h"
@@ -51,6 +52,8 @@
 
 #define NR_FAILURE -1
 #define NR_SUCCESS 0
+
+using json = nlohmann::json;
 
 struct cell_searcher_args_t {
   // Generic parameters
@@ -204,6 +207,11 @@ typedef struct WorkState_ WorkState;
 
     uint32_t nof_known_rntis;
     std::vector<uint16_t> known_rntis;
+    
+    // Ground-truth config for hidden bwp
+    // TO-DO: this will be an array alike when interface with the real db
+    // so we will search the right hidden bwp based on PCI or alike. 
+    json js_hidden_bwp;
   };
 
 typedef struct SlotResult_ SlotResult;

@@ -51,6 +51,19 @@ sudo ldconfig
 # to double check, libs should appear at /usr/local/lib and header liquid.h should appear at /usr/local/include/liquid/
 ```
 
+[Currently Internal] We need [json](https://github.com/nlohmann/json) for accessing our database for hidden BWP detection:
+```
+# download source codes
+git clone https://github.com/nlohmann/json.git
+cd json
+mkdir build
+cd build
+cmake ../
+make
+sudo make install
+# to double check, nlohmann should appear at /usr/local/include/
+```
+
 For different USRP daughterboard, different `config.yaml` should be used. Please refer to the sample `config.yaml` in `./nrscope/config/config.yaml` and the explanatory comment in it.
 
 

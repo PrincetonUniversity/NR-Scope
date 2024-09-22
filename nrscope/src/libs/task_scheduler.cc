@@ -1,4 +1,7 @@
 #include "nrscope/hdr/task_scheduler.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 namespace NRScopeTask{
 
@@ -39,6 +42,32 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
     SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
   task_scheduler_state.cpu_affinity = cpu_affinity;
   nof_workers = nof_workers_;
+
+  /**
+   * Load the hidden bwp db early 
+   * 
+   * Currently in "proof-of-concept" mode, where the db contains just 
+   * the MOSOLAB 369 cell's hidden bwp info in 40 MHz mode. More specifically,
+   * 
+   * BWP0: start RB 0 and Num RB 78
+   * BWP1: start RB 0 and Num RB 106
+   * 
+   * TO-DOs: 
+   * (1) test on commerical/MOSOLAB cells where BWP1 may start at a higher location
+   * (so we need to guess the start which is multiple of 6 RB)
+   * 
+   * (2) interface with the actual db (ready)
+   * 
+   * (3) for more than one non-initial bwp, use energy detection method to map to the
+   * right hidden bwp config, as discussed in our meeting
+   * 
+   * Nice to have:
+   * (1) CRC check for different dci size(s) for cross-validation, where use the 
+   * dci size with CRC == 1 to serve as a target and maybe use dynamic programming
+   * to tune the dci-size parameters towards the target size
+   */
+  std::ifstream f("369.txt");
+  task_scheduler_state.js_hidden_bwp = json::parse(f);
   std::cout << "Starting workers..." << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
     NRScopeWorker *worker = new NRScopeWorker();

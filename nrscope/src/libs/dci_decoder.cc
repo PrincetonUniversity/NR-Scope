@@ -1,4 +1,7 @@
 #include "nrscope/hdr/dci_decoder.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 DCIDecoder::DCIDecoder(uint32_t max_nof_rntis){
 
@@ -74,6 +77,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   asn1::rrc_nr::bwp_dl_ded_s * bwp_dl_ded_s_ptr = NULL;
   asn1::rrc_nr::bwp_ul_ded_s * bwp_ul_ded_s_ptr = NULL;
 
+  bool is_hidden_bwp = false;
+
   // assume ul bwp n and dl bwp n should be activated and used at the same time (lso for sure for TDD)
   if (bwp_id == 0) {
     bwp_dl_ded_s_ptr = 
@@ -123,11 +128,19 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   }
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
-    ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume "
-          "now only checking in RRCSetup). Currently please bring back nof_bwps"
-          " back to 1 in config.yaml as we are working on encrypted"
-          "RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
-    return SRSRAN_ERROR;
+    // now use hidden bwp logic
+    printf("bwp id %d ul or dl config never appears in "
+    "RRCSetup; use hidden bwp detection logic\n", bwp_id);
+
+    is_hidden_bwp = true;
+    master_cell_group.from_json(state->js_hidden_bwp);
+
+    // 9/21/2024 Only have hidden dl bwp 1 and ul bwp 1 info, so dl use bwp1 and ul use bwp
+    // TO-DOs: we shall select the right hidden bwp config here whe
+    bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      dl_bwp_to_add_mod_list[0].bwp_ded);
+    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      ul_cfg.ul_bwp_to_add_mod_list[0].bwp_ded);
   }
 
   if(bwp_dl_ded_s_ptr->pdcch_cfg.is_setup()){
@@ -334,7 +347,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   /// Format 0_1 specific configuration (for PUSCH only)
   ///< Number of UL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
   dci_cfg.nof_ul_bwp = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-    ul_bwp_to_add_mod_list.size(); 
+    ul_bwp_to_add_mod_list.size();
   ///< Number of dedicated PUSCH time domain resource assigment, set to 0 for default
   dci_cfg.nof_ul_time_res = bwp_ul_ded_s_ptr->pusch_cfg.setup().
     pusch_time_domain_alloc_list_present ? 
@@ -533,7 +546,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     dl_bwp_to_add_mod_list.size();
   dci_cfg.nof_dl_time_res = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
     pdsch_time_domain_alloc_list_present ? 
-    bwp_dl_ded_s_ptr->pdsch_cfg.setup().pdsch_time_domain_alloc_list.setup().
+    bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    pdsch_time_domain_alloc_list.setup().
     size() : ( sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.
     pdsch_cfg_common_present ? sib1.serving_cell_cfg_common.dl_cfg_common.
     init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0

@@ -1128,6 +1128,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   uint32_t checksum1 = srsran_crc_checksum(&q->crc24c, q->c, q->K);
   uint32_t checksum2 = srsran_bit_pack(&ptr, 24);
   res->crc           = checksum1 == checksum2;
+  // printf("[hidden bwp crc check] res->crc: %u; dci size: %u\n", res->crc, dci_msg->nof_bits);
 
   // printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
   // srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
@@ -1149,6 +1150,11 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
 
   // Copy DCI message
   srsran_vec_u8_copy(dci_msg->payload, c, dci_msg->nof_bits);
+  // printf("[hidden bwp dci bits]: ");
+  // srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
+  // if (res->crc) {
+  //   printf("[hidden bwp dci dir and bwp val] dir: %u; bwp: %u\n", c[0], c[1]);
+  // }
 
   if (q->meas_time_en) {
     gettimeofday(&t[2], NULL);
