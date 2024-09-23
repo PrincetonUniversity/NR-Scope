@@ -1153,7 +1153,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   if (res->crc) {
     printf("[rnti %u| dci bits]: ", dci_msg->ctx.rnti);
     srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
-    printf("[rnti %u| crc cross validation] dir: %u; bwp: %u\n", dci_msg->ctx.rnti, c[0], c[1]);
+    // printf("[rnti %u| crc cross validation] dir: %u; bwp: %u\n", dci_msg->ctx.rnti, c[0], c[1]);
   }
 
   if (q->meas_time_en) {
