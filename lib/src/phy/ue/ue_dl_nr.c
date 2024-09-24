@@ -610,7 +610,7 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
    */
   uint32_t original_nof_bits = dci_msg->nof_bits;
 
-  uint32_t dci_size_guess_lb = 40;
+  uint32_t dci_size_guess_lb = 30;
   uint32_t dci_size_guess_ub = 50;
   for (uint32_t i = dci_size_guess_lb; i <= dci_size_guess_ub; ++i) {
     dci_msg->nof_bits = i;
@@ -1369,6 +1369,7 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
   for (uint32_t i = 0; i < dci_msg_count; i++) {
     if (srsran_dci_nr_dl_unpack(&q->dci, &q->dl_dci_msg[i], &dci_dl_list[i]) < SRSRAN_SUCCESS) {
       ERROR("Error unpacking grant %d;", i);
+      printf("Error unpacking grant %d;", i);
       return SRSRAN_ERROR;
     }
 

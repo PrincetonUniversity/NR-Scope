@@ -295,7 +295,7 @@ void NRScopeWorker::Run() {
 
     std::thread sibs_thread;
     /* If sib1 is not found, we run the sibs_thread; if it's found, we skip. */
-    if (worker_state.sib1_inited) {
+    if (worker_state.sib1_inited && !worker_state.sib1_found) {
       if (worker_state.cpu_affinity){
         cpu_set_t cpu_set_sib;
         CPU_ZERO(&cpu_set_sib);

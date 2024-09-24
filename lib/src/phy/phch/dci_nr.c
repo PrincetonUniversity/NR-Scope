@@ -52,6 +52,7 @@ static uint32_t dci_nr_freq_resource_size(srsran_resource_alloc_t alloc_type, ui
       return SRSRAN_MAX(N_RBG, dci_nr_freq_resource_size_type1(N_BWP_RB)) + 1;
     default:
       ERROR("Unhandled case");
+      printf("Unhandled case");
   }
 
   return 0;
@@ -1604,12 +1605,14 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
 
   if (rnti_type != srsran_rnti_type_c && rnti_type != srsran_rnti_type_cs && rnti_type != srsran_rnti_type_mcs_c) {
     ERROR("Invalid RNTI (%s) for format 1_1", srsran_rnti_type_str(rnti_type));
+    printf("Invalid RNTI (%s) for format 1_1", srsran_rnti_type_str(rnti_type));
     return SRSRAN_ERROR;
   }
 
   uint32_t nof_bits = srsran_dci_nr_size(q, msg->ctx.ss_type, srsran_dci_format_nr_1_1);
   if (msg->nof_bits != nof_bits) {
     ERROR("Invalid number of bits %d, expected %d", msg->nof_bits, nof_bits);
+    printf("Invalid number of bits %d, expected %d", msg->nof_bits, nof_bits);
     return SRSRAN_ERROR;
   }
 
@@ -1617,6 +1620,7 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
   // The value of this bit field is always set to 1, indicating a DL DCI format
   if (*(y++) != 1) {
     ERROR("Wrond DCI format");
+    printf("Wrond DCI format");
     return SRSRAN_ERROR;
   }
 
@@ -1718,11 +1722,12 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
   // DMRS sequence initialization – 1 bit
   dci->dmrs_id = srsran_bit_pack(&y, 1);
 
-  uint32_t nof_unpacked_bits = (uint32_t)(y - msg->payload);
-  if (nof_unpacked_bits != nof_bits) {
-    ERROR("Unpacked bits read (%d) do NOT match payload size (%d)", nof_unpacked_bits, nof_bits);
-    return SRSRAN_ERROR;
-  }
+  // uint32_t nof_unpacked_bits = (uint32_t)(y - msg->payload);
+  // if (nof_unpacked_bits != nof_bits) {
+  //   ERROR("Unpacked bits read (%d) do NOT match payload size (%d)", nof_unpacked_bits, nof_bits);
+  //   printf("Unpacked bits read (%d) do NOT match payload size (%d)", nof_unpacked_bits, nof_bits);
+  //   return SRSRAN_ERROR;
+  // }
 
   return SRSRAN_SUCCESS;
 }
@@ -1954,7 +1959,9 @@ int srsran_dci_nr_set_cfg(srsran_dci_nr_t* q, const srsran_dci_cfg_nr_t* cfg)
   }
 
   q->dci_0_1_size = size_dci_0_1 + q->dci_0_1_padd;
+  q->dci_1_1_padd = 2;
   q->dci_1_1_size = size_dci_1_1 + q->dci_1_1_padd;
+  // q->dci_1_1_size = size_dci_1_1 + 2;
 
   // Step 3
   // If both of the following conditions are fulfilled the size alignment procedure is complete:

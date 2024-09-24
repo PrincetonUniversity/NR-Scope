@@ -75,7 +75,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   asn1::rrc_nr::bwp_ul_ded_s * bwp_ul_ded_s_ptr = NULL;
 
   // assume ul bwp n and dl bwp n should be activated and used at the same time (lso for sure for TDD)
-  if (bwp_id == 0) {
+  if (false && bwp_id == 0) {
     bwp_dl_ded_s_ptr = 
       &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
     bwp_ul_ded_s_ptr = 
@@ -84,7 +84,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   else if (bwp_id <= 3) {
     for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
         dl_bwp_to_add_mod_list.size(); i++) {
-      if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      if (bwp_id + 1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
           dl_bwp_to_add_mod_list[i].bwp_id) {
         if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
             dl_bwp_to_add_mod_list[i].bwp_ded_present) {
@@ -101,7 +101,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
       for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
           ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
-        if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+        if (bwp_id + 1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
             ul_bwp_to_add_mod_list[i].bwp_id) {
           if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
               ul_bwp_to_add_mod_list[i].bwp_ded_present) {
