@@ -354,6 +354,14 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     printf("RACHDecoder -- Found DCI: %s\n", str);
     tc_rnti = dci_rach[dci_id].ctx.rnti;
 
+    if (state->rach_found) {
+      result->found_rach = true;
+      result->new_rnti_number += 1;
+      result->new_rntis_found.emplace_back(tc_rnti);
+      std::cout << "rach skip." << std::endl;
+      continue;
+    }
+
     srsran_sch_cfg_nr_t pdsch_cfg = {};
     dci_rach[dci_id].ctx.coreset_start_rb = start_rb;
 
@@ -471,15 +479,16 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
       return SRSRAN_ERROR;
     }        
     
-    // asn1::json_writer js;
-    // task_scheduler_nrscope->master_cell_group.to_json(js);
-    // printf("masterCellGroup: %s\n", js.to_string().c_str());
+    asn1::json_writer js;
+    result->master_cell_group.to_json(js);
+    printf("masterCellGroup: %s\n", js.to_string().c_str());
 
     if (!(result->master_cell_group).sp_cell_cfg.recfg_with_sync.new_ue_id){
       c_rnti = tc_rnti;
     }else{
       c_rnti = result->master_cell_group.sp_cell_cfg.recfg_with_sync.new_ue_id;
     }
+    // c_rnti = tc_rnti;
     std::cout << "c-rnti: " << c_rnti << std::endl;
 
     /* Add the new rntis into a different list and update the 

@@ -336,10 +336,12 @@ int srsran_ra_dl_nr_freq(const srsran_carrier_nr_t*    carrier,
   // Otherwise the UE shall use the downlink frequency resource allocation type as defined by the higher layer parameter
   // resourceAllocation.
   if (cfg->alloc == srsran_resource_alloc_type1) {
+    printf("[crc check] freq ra type1\n");
     return ra_helper_freq_type1(type1_bwp_sz, start_rb, dci_dl->freq_domain_assigment, grant);
   }
 
   if (cfg->alloc == srsran_resource_alloc_type0) {
+    printf("[crc check] freq ra type0\n");
     return ra_helper_freq_type0(carrier, cfg, dci_dl->freq_domain_assigment, grant);
   }
 

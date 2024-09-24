@@ -241,10 +241,19 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         task_scheduler_state.rach_found = true;
       } else {
         /* We already found the RACH, we just append the new RNTIs */
-        task_scheduler_state.nof_known_rntis += now_result.new_rnti_number;
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-          task_scheduler_state.known_rntis.push_back(
-            now_result.new_rntis_found[i]);
+          bool is_in = false;
+          for (unsigned long int j = 0; j < task_scheduler_state.known_rntis.size(); j ++) {
+            if (task_scheduler_state.known_rntis[j] == now_result.new_rntis_found[i]) {
+              is_in = true;
+              break;
+            }
+          }
+          if (!is_in){
+            task_scheduler_state.known_rntis.push_back(
+              now_result.new_rntis_found[i]);
+            task_scheduler_state.nof_known_rntis += 1;
+          }
         }
       }
 

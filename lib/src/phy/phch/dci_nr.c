@@ -1959,7 +1959,7 @@ int srsran_dci_nr_set_cfg(srsran_dci_nr_t* q, const srsran_dci_cfg_nr_t* cfg)
   }
 
   q->dci_0_1_size = size_dci_0_1 + q->dci_0_1_padd;
-  q->dci_1_1_padd = 2;
+  // q->dci_1_1_padd = 2;
   q->dci_1_1_size = size_dci_1_1 + q->dci_1_1_padd;
   // q->dci_1_1_size = size_dci_1_1 + 2;
 
