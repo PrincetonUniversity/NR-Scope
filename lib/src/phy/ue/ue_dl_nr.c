@@ -1363,7 +1363,7 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
   for (uint32_t i = 0; i < dci_msg_count; i++) {
     if (srsran_dci_nr_dl_unpack(&q->dci, &q->dl_dci_msg[i], &dci_dl_list[i]) < SRSRAN_SUCCESS) {
       ERROR("[ue activity error skip] Error unpacking grant %d;", i);
-      ERROR("[ue activity error skip] Error unpacking grant %d;", i);
+      printf("[ue activity error skip] Error unpacking grant %d\n;", i);
       // return SRSRAN_ERROR;
     }
 

@@ -1610,7 +1610,7 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
   uint32_t nof_bits = srsran_dci_nr_size(q, msg->ctx.ss_type, srsran_dci_format_nr_1_1);
   if (msg->nof_bits != nof_bits) {
     ERROR("[ue activity error skip] Invalid number of bits %d, expected %d", msg->nof_bits, nof_bits);
-    printf("[ue activity error skip] Invalid number of bits %d, expected %d", msg->nof_bits, nof_bits);
+    printf("[ue activity error skip] Invalid number of bits %d, expected %d\n", msg->nof_bits, nof_bits);
     // return SRSRAN_ERROR;
   }
 
@@ -1722,7 +1722,7 @@ static int dci_nr_format_1_1_unpack(const srsran_dci_nr_t* q, srsran_dci_msg_nr_
   uint32_t nof_unpacked_bits = (uint32_t)(y - msg->payload);
   if (nof_unpacked_bits != nof_bits) {
     ERROR("[ue activity error skip] Unpacked bits read (%d) do NOT match payload size (%d)", nof_unpacked_bits, nof_bits);
-    ERROR("[ue activity error skip] Unpacked bits read (%d) do NOT match payload size (%d)", nof_unpacked_bits, nof_bits);
+    printf("[ue activity error skip] Unpacked bits read (%d) do NOT match payload size (%d)\n", nof_unpacked_bits, nof_bits);
     // return SRSRAN_ERROR;
   }
 

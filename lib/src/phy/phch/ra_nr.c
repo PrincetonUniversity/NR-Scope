@@ -794,14 +794,14 @@ int srsran_ra_dl_dci_to_grant_nr(const srsran_carrier_nr_t*    carrier,
                            dci_dl->time_domain_assigment,
                            pdsch_grant) < SRSRAN_SUCCESS) {
     ERROR("[ue activity error skip] Error computing time domain resource allocation");
-    printf("[ue activity error skip] Error computing time domain resource allocation");
+    printf("[ue activity error skip] Error computing time domain resource allocation\n");
     // return SRSRAN_ERROR;
   }
 
   // 5.1.2.2 Resource allocation in frequency domain
   if (srsran_ra_dl_nr_freq(carrier, pdsch_hl_cfg, dci_dl, pdsch_grant) < SRSRAN_SUCCESS) {
     ERROR("[ue activity error skip] Error computing frequency domain resource allocation");
-    printf("[ue activity error skip] Error computing frequency domain resource allocation");
+    printf("[ue activity error skip] Error computing frequency domain resource allocation\n");
     // return SRSRAN_ERROR;
   }
 
@@ -820,14 +820,14 @@ int srsran_ra_dl_dci_to_grant_nr(const srsran_carrier_nr_t*    carrier,
   // 5.1.4 PDSCH resource mapping
   if (ra_dl_resource_mapping(carrier, slot, pdsch_hl_cfg, pdsch_cfg) < SRSRAN_SUCCESS) {
     ERROR("[ue activity error skip] Error in resource mapping");
-    printf("[ue activity error skip] Error in resource mapping");
+    printf("[ue activity error skip] Error in resource mapping\n");
     // return SRSRAN_ERROR;
   }
 
   // 5.1.6.2 DM-RS reception procedure
   if (ra_dl_dmrs(pdsch_hl_cfg, dci_dl, pdsch_cfg) < SRSRAN_SUCCESS) {
     ERROR("[ue activity error skip] Error selecting DMRS configuration");
-    printf("[ue activity error skip] Error selecting DMRS configuration");
+    printf("[ue activity error skip] Error selecting DMRS configuration\n");
     // return SRSRAN_ERROR;
   }
   // printf("pdsch_cfg.dmrs.additional_pos: %d\n", pdsch_cfg->dmrs.additional_pos);
@@ -835,7 +835,7 @@ int srsran_ra_dl_dci_to_grant_nr(const srsran_carrier_nr_t*    carrier,
   // 5.1.3 Modulation order, target code rate, redundancy version and transport block size determination
   if (srsran_ra_nr_fill_tb(pdsch_cfg, pdsch_grant, dci_dl->mcs, &pdsch_grant->tb[0]) < SRSRAN_SUCCESS) {
     ERROR("[ue activity error skip] Error filing tb");
-    printf("[ue activity error skip] Error filing tb");
+    printf("[ue activity error skip] Error filing tb\n");
     // return SRSRAN_ERROR;
   }
 
