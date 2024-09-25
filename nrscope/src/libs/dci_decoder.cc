@@ -1012,7 +1012,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
           if (srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, 
               &dci_dl[dci_idx_dl], &pdsch_cfg, &pdsch_cfg.grant) < 
               SRSRAN_SUCCESS) {
-            ERROR("Error decoding PDSCH search");
+            ERROR("[ue activity error skip] Error decoding PDSCH search");
+            printf("[ue activity error skip] Error decoding PDSCH search");
             // return result;
           }
           srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));

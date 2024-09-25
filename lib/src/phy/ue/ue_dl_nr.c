@@ -603,14 +603,32 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
     return SRSRAN_ERROR;
   }
 
-  // Decode PDCCH
-  if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
-      q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
-  // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
-    ERROR("Error decoding PDCCH");
-    return SRSRAN_ERROR;
-  }
+  /**
+   * SCAN a range of dci size for getting the right dci size for cross validation 
+   * something similar patented: https://patents.google.com/patent/CN113541866A/zh
+   * 
+   */
+  uint32_t original_nof_bits = dci_msg->nof_bits;
 
+  uint32_t dci_size_guess_lb = 30;
+  uint32_t dci_size_guess_ub = 50;
+  for (uint32_t i = dci_size_guess_lb; i <= dci_size_guess_ub; ++i) {
+    dci_msg->nof_bits = i;
+    printf("[rnti %u| crc cross validation] try dci size %u\n", dci_msg->ctx.rnti, i);
+    // Decode PDCCH
+    if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
+        q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
+      ERROR("Error decoding PDCCH");
+      return SRSRAN_ERROR;
+    }
+
+    if (pdcch_res->crc == 1) {
+      if (dci_msg->nof_bits != original_nof_bits) {
+        printf("[rnti %u| crc cross validation] deduced dci size: %u; actual dci size: %u\n", dci_msg->ctx.rnti, original_nof_bits, i);
+      }
+      break;
+    }
+  }
 #if 0
   static uint32_t num_pdcch = 0;
   char            tmpstr[64];
@@ -1344,8 +1362,9 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
   uint32_t dci_msg_count = SRSRAN_MIN(nof_dci_msg, q->dl_dci_msg_count);
   for (uint32_t i = 0; i < dci_msg_count; i++) {
     if (srsran_dci_nr_dl_unpack(&q->dci, &q->dl_dci_msg[i], &dci_dl_list[i]) < SRSRAN_SUCCESS) {
-      ERROR("Error unpacking grant %d;", i);
-      return SRSRAN_ERROR;
+      ERROR("[ue activity error skip] Error unpacking grant %d;", i);
+      ERROR("[ue activity error skip] Error unpacking grant %d;", i);
+      // return SRSRAN_ERROR;
     }
 
     // Check if we found new rntis.
