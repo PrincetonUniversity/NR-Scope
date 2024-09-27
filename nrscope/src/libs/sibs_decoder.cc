@@ -175,9 +175,9 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
     printf("SIBDecoder -- Error decoding PDSCH (CRC)\n");
     return SRSRAN_ERROR;
   }
-  // printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
-  // srsran_vec_fprint_byte(stdout, pdsch_res.tb[0].payload, 
-  // pdsch_cfg.grant.tb[0].tbs / 8);
+  printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
+  srsran_vec_fprint_byte(stdout, pdsch_res.tb[0].payload, 
+  pdsch_cfg.grant.tb[0].tbs / 8);
 
    // check payload is not all null
   bool all_zero = true;

@@ -820,6 +820,7 @@ int Radio::DecodeAndProcess(){
   
   uint64_t next_consume_at = 0;
   bool first_time = true;
+  bool man_agc = false;
   task_scheduler_nrscope.task_scheduler_state.sib1_inited = true;
   while (true) {
     sem_wait(&smph_sf_data_prod_cons); 
@@ -867,6 +868,11 @@ int Radio::DecodeAndProcess(){
           task_scheduler_nrscope.next_result.outcome.sfn = outcome.sfn + 1;
         }
         
+      }
+
+      if (task_scheduler_nrscope.task_scheduler_state.sib1_found && !man_agc) {
+        man_agc = true;
+        radio->set_rx_gain(80);
       }
 
       if (task_scheduler_nrscope.AssignTask(sf_round, slot, outcome, rx_buffer) 
