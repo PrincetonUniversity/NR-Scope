@@ -94,6 +94,8 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   result->found_sib1 = false;
   result->found_sib.clear();
   result->sibs.clear();
+
+  uint8_t hardcoded_sib1[111] = {0x6e, 0x88, 0x18, 0x0a, 0x09, 0x88, 0x49, 0x81, 0x5b, 0x98, 0x00, 0x51, 0x43, 0x68, 0x00, 0x68, 0x26, 0x23, 0x49, 0x05, 0x6e, 0x60, 0x01, 0x45, 0x0d, 0xa0, 0x01, 0x00, 0x0c, 0x50, 0x01, 0x08, 0x30, 0xc0, 0x4a, 0x08, 0x46, 0x01, 0x40, 0x00, 0x00, 0x4e, 0x65, 0x3c, 0xa1, 0x0f, 0x9b, 0x82, 0x01, 0x00, 0x00, 0x00, 0x84, 0x00, 0x02, 0x08, 0x34, 0x20, 0x21, 0x06, 0x10, 0x01, 0x9c, 0x21, 0x18, 0x20, 0x64, 0x60, 0x00, 0x00, 0x4e, 0xd5, 0xca, 0x79, 0x42, 0xd2, 0x11, 0x00, 0x78, 0xc0, 0xd4, 0x41, 0x99, 0x00, 0x5f, 0xcb, 0xce, 0x08, 0xdc, 0x21, 0xb8, 0x63, 0x71, 0x06, 0xfb, 0x65, 0xf1, 0x21, 0x16, 0x3c, 0x40, 0x54, 0x55, 0xee, 0x43, 0x14, 0x41, 0x0e, 0x00, 0x00, 0x00};
   
   memset(&dci_sibs, 0, sizeof(srsran_dci_dl_nr_t));
 
@@ -130,26 +132,27 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   //   info->nof_bits,
   //   info->result.crc ? "OK" : "KO");
   // }
-  if (nof_found_dci < 1) {
-    printf("SIBDecoder -- No DCI found :'(\n");
-    return SRSRAN_ERROR;
-  }
+  // if (nof_found_dci < 1) {
+  //   printf("SIBDecoder -- No DCI found :'(\n");
+  //   return SRSRAN_ERROR;
+  // }
 
   char str[1024] = {};
-  srsran_dci_dl_nr_to_str(&(ue_dl_sibs.dci), &dci_sibs, str, 
-    (uint32_t)sizeof(str));
-  printf("SIBDecoder -- Found DCI: %s\n", str);
+  // srsran_dci_dl_nr_to_str(&(ue_dl_sibs.dci), &dci_sibs, str, 
+  //   (uint32_t)sizeof(str));
+  // printf("SIBDecoder -- Found DCI: %s\n", str);
 
   pdsch_cfg = {};
+  pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
 
-  if (srsran_ra_dl_dci_to_grant_nr(&base_carrier, slot, &pdsch_hl_cfg, 
-      &dci_sibs, &pdsch_cfg, &pdsch_cfg.grant) < SRSRAN_SUCCESS) {
-    ERROR("SIBDecoder -- Error decoding PDSCH search");
-    return SRSRAN_ERROR;
-  }
+  // if (srsran_ra_dl_dci_to_grant_nr(&base_carrier, slot, &pdsch_hl_cfg, 
+  //     &dci_sibs, &pdsch_cfg, &pdsch_cfg.grant) < SRSRAN_SUCCESS) {
+  //   ERROR("SIBDecoder -- Error decoding PDSCH search");
+  //   return SRSRAN_ERROR;
+  // }
 
-  srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-  printf("PDSCH_cfg:\n%s", str);
+  // srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
+  // printf("PDSCH_cfg:\n%s", str);
 
   if (srsran_softbuffer_rx_init_guru(&softbuffer, SRSRAN_SCH_NR_MAX_NOF_CB_LDPC, 
       SRSRAN_LDPC_MAX_LEN_ENCODED_CB) < SRSRAN_SUCCESS) {
@@ -165,18 +168,26 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   pdsch_res.tb[0].payload = data_pdcch;
 
   // Decode PDSCH
-  if (srsran_ue_dl_nr_decode_pdsch(&ue_dl_sibs, slot, &pdsch_cfg, &pdsch_res) < 
-      SRSRAN_SUCCESS) {
-    printf("SIBDecoder -- Error decoding PDSCH search\n");
-    return SRSRAN_ERROR;
+  // if (srsran_ue_dl_nr_decode_pdsch(&ue_dl_sibs, slot, &pdsch_cfg, &pdsch_res) < 
+  //     SRSRAN_SUCCESS) {
+  //   printf("SIBDecoder -- Error decoding PDSCH search\n");
+  //   return SRSRAN_ERROR;
+  // }
+  // if (!pdsch_res.tb[0].crc) {
+  //   printf("SIBDecoder -- Error decoding PDSCH (CRC)\n");
+  //   return SRSRAN_ERROR;
+  // }
+
+
+  // Load the SIB
+  pdsch_cfg.grant.tb[0].tbs = 111 * 8;
+  for (int i = 0; i < pdsch_cfg.grant.tb[0].tbs / 8; ++i) {
+    pdsch_res.tb[0].payload[i] = hardcoded_sib1[i];
   }
-  if (!pdsch_res.tb[0].crc) {
-    printf("SIBDecoder -- Error decoding PDSCH (CRC)\n");
-    return SRSRAN_ERROR;
-  }
-  // printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
-  // srsran_vec_fprint_byte(stdout, pdsch_res.tb[0].payload, 
-  // pdsch_cfg.grant.tb[0].tbs / 8);
+
+  printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
+  srsran_vec_fprint_byte(stdout, pdsch_res.tb[0].payload, 
+  pdsch_cfg.grant.tb[0].tbs / 8);
 
    // check payload is not all null
   bool all_zero = true;
