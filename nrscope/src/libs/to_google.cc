@@ -186,6 +186,12 @@ namespace ToGoogle{
           pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
             new_entry.dl_dci.harq_feedback : 0),
           PyDict_SetItemString(pDict, "harq_feedback", pInt);
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.bwp_id : new_entry.ul_dci.bwp_id),
+          PyDict_SetItemString(pDict, "bwp", pInt);
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.ports : new_entry.ul_dci.ports),
+          PyDict_SetItemString(pDict, "ports", pInt);
 
           PyList_SetItem(pList[rf_id], list_count[rf_id], pDict);
           list_count[rf_id] += 1;

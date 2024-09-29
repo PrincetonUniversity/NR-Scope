@@ -809,6 +809,7 @@ int srsran_ra_dl_dci_to_grant_nr(const srsran_carrier_nr_t*    carrier,
   // ...
 
   pdsch_grant->nof_layers      = carrier->max_mimo_layers;
+  
   pdsch_grant->dci_format      = dci_dl->ctx.format;
   pdsch_grant->rnti            = dci_dl->ctx.rnti;
   pdsch_grant->rnti_type       = dci_dl->ctx.rnti_type;
