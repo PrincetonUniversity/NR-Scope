@@ -808,8 +808,17 @@ int srsran_ra_dl_dci_to_grant_nr(const srsran_carrier_nr_t*    carrier,
   // 5.1.2.3 Physical resource block (PRB) bundling
   // ...
 
-  pdsch_grant->nof_layers      = carrier->max_mimo_layers;
-  
+  if (dci_dl->ctx.format == srsran_dci_format_nr_1_1) {
+    pdsch_grant->nof_layers    = srsran_dl_nr_mimo_layers(pdsch_hl_cfg, dci_dl);
+    if (pdsch_grant->nof_layers > carrier->max_mimo_layers) {
+      /* Also includes the -1 scenario */
+      ERROR("Wrong number of layers %d, back to maximum nof layers",
+        pdsch_grant->nof_layers);
+      pdsch_grant->nof_layers  = carrier->max_mimo_layers;
+    }
+  } else {
+    pdsch_grant->nof_layers    = carrier->max_mimo_layers;
+  }
   pdsch_grant->dci_format      = dci_dl->ctx.format;
   pdsch_grant->rnti            = dci_dl->ctx.rnti;
   pdsch_grant->rnti_type       = dci_dl->ctx.rnti_type;

@@ -6,6 +6,12 @@
 #define RING_BUF_SIZE 10000
 #define RING_BUF_MODULUS (RING_BUF_SIZE - 1)
 
+static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
+{ 
+  printf("[AGC gain adj] new rx gain: %f\n", gain_db);
+  ((srsran::radio_interface_phy *)h)->set_rx_gain(gain_db);
+}
+
 Radio::Radio() : 
   logger(srslog::fetch_basic_logger("PHY")), 
   srsran_searcher(logger),
@@ -15,7 +21,7 @@ Radio::Radio() :
   raido_shared = std::make_shared<srsran::radio>();
   radio = nullptr;
 
-  nof_trials = 2000;
+  nof_trials = 10000;
   nof_trials_scan = 200;
   sf_round = 0;
   srsran_searcher_args_t.max_srate_hz = 92.16e6;
@@ -148,7 +154,7 @@ int Radio::ScanInitandStart(){
   // resampling rate (output/input)
   float r = (float)rf_args.srsran_srate_hz/(float)rf_args.srate_hz;
   // resampling filter stop-band attenuation [dB]    
-  float As=60.0f;
+  float As=TARGET_STOPBAND_SUPPRESSION_DB;
   msresamp_crcf q[CS_RESAMPLE_WORKER_NUM];
   uint32_t temp_x_sz;
   uint32_t temp_y_sz;
@@ -472,9 +478,10 @@ int Radio::RadioInitandStart(){
 
   // initialize resampling tool
   // resampling rate (output/input)
+
   float r = (float)rf_args.srsran_srate_hz/(float)rf_args.srate_hz;
   // resampling filter stop-band attenuation [dB]     
-  float As=60.0f;
+  float As=TARGET_STOPBAND_SUPPRESSION_DB;
   msresamp_crcf q[RESAMPLE_WORKER_NUM];
   uint32_t temp_x_sz;
   uint32_t temp_y_sz;
@@ -746,6 +753,9 @@ int Radio::SyncandDownlinkInit(){
       sync_cfg.N_id);
     return SRSRAN_ERROR;
   }
+
+  srsran_ue_sync_nr_start_agc(&ue_sync_nr, radio_set_rx_gain_wrapper, 
+    rf_args.rx_gain, min_rx_gain, max_rx_gain);
 
   return SRSRAN_SUCCESS;
 }

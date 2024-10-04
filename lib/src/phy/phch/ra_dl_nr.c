@@ -121,6 +121,209 @@ int srsran_ra_dl_nr_time_default_A(uint32_t m, srsran_dmrs_sch_typeA_pos_t dmrs_
   return SRSRAN_SUCCESS;
 }
 
+int srsran_dl_nr_mimo_layers(const srsran_sch_hl_cfg_nr_t* cfg,
+                             const srsran_dci_dl_nr_t*     dci)
+{
+  // According to TS 38.214 5.1.6.2 DM-RS reception procedure
+  switch (dci->ctx.format) {
+    case srsran_dci_format_nr_1_0:
+      ERROR("dci 1_0 shouldn't use this function");
+      return SRSRAN_ERROR;
+    case srsran_dci_format_nr_1_1:
+      // When receiving PDSCH scheduled by DCI format 1_1, the UE shall assume that the CDM groups indicated in the
+      // configured index from Tables 7.3.1.2.2-1, 7.3.1.2.2-2, 7.3.1.2.2-3, 7.3.1.2.2-4 of [5, TS. 38.212] contain
+      // potential co- scheduled downlink DM-RS and are not used for data transmission, where "1", "2" and "3" for the
+      // number of DM-RS CDM group(s) in Tables 7.3.1.2.2-1, 7.3.1.2.2-2, 7.3.1.2.2-3, 7.3.1.2.2-4 of [5, TS. 38.212]
+      // correspond to CDM group 0, {0,1}, {0,1,2}, respectively.
+
+      // Table 7.3.1.2.2-1: Antenna port(s) (1000 + DMRS port), dmrs-Type=1, maxLength=1
+      if (cfg->dmrs_type == srsran_dmrs_sch_type_1 && cfg->dmrs_max_length == srsran_dmrs_sch_len_1) {
+        switch(dci->ports){
+          case 0:
+          case 1:
+          case 3:
+          case 4:
+          case 5:
+          case 6:
+            return 1;
+          case 2:
+          case 7:
+          case 8:
+          case 11:
+            return 2;
+          case 9:
+            return 3;
+          case 10:
+            return 4;
+          default:
+            break;
+        }
+        ERROR("Unhandled case (%d, %d)", cfg->dmrs_type, cfg->dmrs_max_length);
+        return SRSRAN_ERROR;
+      } 
+      // Table 7.3.1.2.2-2: Antenna port(s) (1000 + DMRS port), dmrs-Type=1, maxLength=2
+      else if (cfg->dmrs_type == srsran_dmrs_sch_type_1 && cfg->dmrs_max_length == srsran_dmrs_sch_len_2) {
+        ERROR("Not fully understood: dmrs-Type=1, maxLength=2, may have errors");
+        switch(dci->ports){
+          case 0:
+          case 1:
+          case 3:
+          case 4:
+          case 5:
+          case 6:
+          case 12:
+          case 13:
+          case 14:
+          case 15:
+          case 16:
+          case 17:
+          case 18:
+          case 19:
+            return 1;
+          case 2:
+          case 7:
+          case 8:
+          case 11:
+          case 20:
+          case 21:
+          case 22:
+          case 23:
+          case 24:
+          case 25:
+            return 2;
+          case 9:
+          case 26:
+          case 27:
+            return 3;
+          case 10:
+          case 28:
+          case 29:
+          case 30:
+            return 4;
+          default:
+            break;
+        }
+        ERROR("Unhandled case (%d, %d)", cfg->dmrs_type, cfg->dmrs_max_length);
+        return SRSRAN_ERROR;
+      }
+      // Table 7.3.1.2.2-3: Antenna port(s) (1000 + DMRS port), dmrs-Type=2, maxLength=1
+      else if (cfg->dmrs_type == srsran_dmrs_sch_type_2 && cfg->dmrs_max_length == srsran_dmrs_sch_len_1) {
+        switch(dci->ports){
+          case 0:
+          case 1:
+          case 3:
+          case 4:
+          case 5:
+          case 6:
+          case 11:
+          case 12:
+          case 13:
+          case 14:
+          case 15:
+          case 16:
+            return 1;
+          case 2:
+          case 7:
+          case 8:
+          case 17:
+          case 18:
+          case 19:
+          case 23:
+            return 2;
+          case 9:
+          case 20:
+          case 21:
+            return 3;
+          case 10:
+          case 22:
+            return 4;
+          default:
+            break;
+        }
+        ERROR("Unhandled case (%d, %d)", cfg->dmrs_type, cfg->dmrs_max_length);
+        return SRSRAN_ERROR;
+      }
+      // Table 7.3.1.2.2-4: Antenna port(s) (1000 + DMRS port), dmrs-Type=2, maxLength=2
+      else if (cfg->dmrs_type == srsran_dmrs_sch_type_2 && cfg->dmrs_max_length == srsran_dmrs_sch_len_2) {
+        ERROR("Not fully understood: dmrs-Type=2, maxLength=2, may have errors");
+        switch (dci->ports)
+        {
+        case 0:
+        case 1:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 11:
+        case 12:
+        case 13:
+        case 14:
+        case 15:
+        case 16:
+        case 24:
+        case 25:
+        case 26:
+        case 27:
+        case 28:
+        case 29:
+        case 30:
+        case 31:
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 48:
+        case 49:
+        case 50:
+        case 51:
+          return 1;
+        case 2:
+        case 7:
+        case 8:
+        case 17:
+        case 18:
+        case 19:
+        case 23:
+        case 36:
+        case 37:
+        case 38:
+        case 39:
+        case 40:
+        case 41:
+        case 52:
+        case 53:
+        case 54:
+        case 55:
+        case 56:
+        case 57:
+          return 2;
+        case 9:
+        case 20:
+        case 21:
+        case 42:
+        case 43:
+        case 44:
+          return 3;
+        case 10:
+        case 22:
+        case 45:
+        case 46:
+        case 47:
+          return 4;
+        default:
+          break;
+        }
+      }
+      ERROR("Unhandled case (%d, %d)", cfg->dmrs_type, cfg->dmrs_max_length);
+      return SRSRAN_ERROR;
+    default:
+      ERROR("Invalid DL DCI format %s", srsran_dci_format_nr_string(dci->ctx.format));
+  }
+
+
+  return SRSRAN_SUCCESS;
+}
+
 static void ra_dl_nr_time_hl(const srsran_sch_time_ra_t* hl_ra_cfg, srsran_sch_grant_nr_t* grant)
 {
   // Compute S and L from SLIV from higher layers

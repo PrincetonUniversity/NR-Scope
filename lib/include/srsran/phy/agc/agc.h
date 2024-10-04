@@ -87,6 +87,8 @@ typedef struct SRSRAN_API {
 
 SRSRAN_API int srsran_agc_init_acc(srsran_agc_t* q, srsran_agc_mode_t mode, uint32_t nof_frames);
 
+SRSRAN_API int srsran_agc_set_min_max_gain(srsran_agc_t* q, float min_gain, float max_gain);
+
 SRSRAN_API int srsran_agc_init_uhd(srsran_agc_t*     q,
                                    srsran_agc_mode_t mode,
                                    uint32_t          nof_frames,

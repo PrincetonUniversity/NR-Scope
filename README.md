@@ -180,6 +180,8 @@ Therefore, we have the variant pattern B:
 
 (September 8, 2024) Enabled 40MHz cell monitoring. PCIe connection between USRP and computer is needed.
 
+(September 30, 2024) Automatic gain control (AGC) is enabled to better listen to commercial cells. 
+
 ## TODOs
 
 There are some on-going plans for the near future:
