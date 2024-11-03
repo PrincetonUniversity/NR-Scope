@@ -10,7 +10,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-i", "--interval", type=int)
+parser.add_argument("-i", "--interval", type=int, help="Animation interval in ms.")
 args = parser.parse_args()
 
 BUFFER_LEN = 64
