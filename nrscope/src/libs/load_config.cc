@@ -179,6 +179,20 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
         radios[i].nof_workers = 1;
       }
 
+      if(config_yaml[setting_name]["ca_mode"]){
+        radios[i].ca_mode = 
+          config_yaml[setting_name]["ca_mode"].as<bool>();
+      }else{
+        radios[i].ca_mode = false;
+      }
+
+      if(config_yaml[setting_name]["ca_mode"] && config_yaml[setting_name]["crnti"]){
+        radios[i].input_crnti = 
+          config_yaml[setting_name]["crnti"].as<int>();
+      }else{
+        radios[i].input_crnti = 0;
+      }
+
       radios[i].nof_threads = radios[i].nof_threads * radios[i].nof_bwps;
 
       // std::cout << "    nof_thread: " << radios[i].nof_thread << std::endl;

@@ -21,9 +21,13 @@
 
 #include "srsran/asn1/rrc_nr.h"
 #include <sstream>
+#include <nlohmann/json.hpp>
+#include <bitset>
+#include <iostream>
 
 using namespace asn1;
 using namespace asn1::rrc_nr;
+using json = nlohmann::json;
 
 /*******************************************************************************
  *                                Struct Methods
@@ -48625,6 +48629,624 @@ SRSASN_CODE cell_group_cfg_s::unpack(cbit_ref& bref)
   }
   return SRSASN_SUCCESS;
 }
+
+SRSASN_CODE cell_group_cfg_s::from_json(json js_in) {
+
+  // TO-DO: Currently assume input only dl+ul bwp lists; write other part parsing of master cell group
+
+  // Assume we load those hidden bwp configs only once, so essentially everything is treated
+  // as ADD (NOT MOD), and hence we just need to append to array, rather than search if the
+  // config might already exist and modify accordingly
+
+  /**
+   * 
+   * NON-INITIAL UL BWP(S) CONFIG EXTRACTION
+   * 
+   */
+  if (js_in["spCellConfigDedicated"].contains("uplinkConfig")) {
+    sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present = true;
+    // printf("[9/21] trigger 3.1\n");
+  }
+  if (js_in["spCellConfigDedicated"]["uplinkConfig"]["uplinkBWP-ToAddModList"].is_array()) {
+    auto& ul_bwp_to_add_mod_list = sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list;
+    json js_ul_bwp_to_add_mod_list = js_in["spCellConfigDedicated"]["uplinkConfig"]["uplinkBWP-ToAddModList"];
+
+    /* uplinkBWP-ToAddModList */
+    for (auto& js_cur_ul_bwp_el : js_ul_bwp_to_add_mod_list.items()) {
+      // printf("[9/21] trigger 3.2\n");
+      json js_cur_ul_bwp = js_cur_ul_bwp_el.value();
+      bwp_ul_s cur_ul_bwp;
+      cur_ul_bwp.bwp_id = js_cur_ul_bwp["bwp-Id"];
+
+      /* bwp-Common */
+      cur_ul_bwp.bwp_common_present = js_cur_ul_bwp.contains("bwp-Common");
+
+      /* bwp-Common -- genericParameters */
+      json js_cur_ul_bwp_common_generic = js_cur_ul_bwp["bwp-Common"]["genericParameters"];
+
+      cur_ul_bwp.bwp_common.generic_params.location_and_bw = js_cur_ul_bwp_common_generic["locationAndBandwidth"];
+      cur_ul_bwp.bwp_common.generic_params.subcarrier_spacing = (asn1::rrc_nr::subcarrier_spacing_e)js_cur_ul_bwp_common_generic["subcarrierSpacing"];
+
+      /* bwp-Common -- rach-ConfigCommon */
+      cur_ul_bwp.bwp_common.rach_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("rach-ConfigCommon");
+      // skip rach-related config copy as it's not related to DCI computation
+
+      /* bwp-Common -- pusch-ConfigCommon */
+      cur_ul_bwp.bwp_common.pusch_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("pusch-ConfigCommon");
+      if (cur_ul_bwp.bwp_common.pusch_cfg_common_present) {
+        json js_cur_ul_bwp_common_pusch_common = js_cur_ul_bwp["bwp-Common"]["pusch-ConfigCommon"];
+
+        json js_cur_ul_bwp_common_pusch_common_time_alloc_list = js_cur_ul_bwp_common_pusch_common["pusch-TimeDomainAllocationList"];
+        cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().pusch_time_domain_alloc_list;
+        for (auto& js_cur_ul_bwp_common_pusch_common_time_alloc_el : js_cur_ul_bwp_common_pusch_common_time_alloc_list.items()) {
+          json js_cur_ul_bwp_common_pusch_common_time_alloc = js_cur_ul_bwp_common_pusch_common_time_alloc_el.value()["PUSCH-TimeDomainResourceAllocation"];
+          pusch_time_domain_res_alloc_s cur_ul_bwp_common_pusch_common_time_alloc;
+          cur_ul_bwp_common_pusch_common_time_alloc.k2_present = true;
+          cur_ul_bwp_common_pusch_common_time_alloc.k2 = js_cur_ul_bwp_common_pusch_common_time_alloc["k2"];
+          cur_ul_bwp_common_pusch_common_time_alloc.map_type = (asn1::rrc_nr::pusch_time_domain_res_alloc_s::map_type_e_)js_cur_ul_bwp_common_pusch_common_time_alloc["mappingType"];
+          cur_ul_bwp_common_pusch_common_time_alloc.start_symbol_and_len = js_cur_ul_bwp_common_pusch_common_time_alloc["startSymbolAndLength"];
+
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().pusch_time_domain_alloc_list.push_back(cur_ul_bwp_common_pusch_common_time_alloc);
+        }
+
+        cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().msg3_delta_preamb_present = js_cur_ul_bwp_common_pusch_common.contains("msg3-DeltaPreamble");
+        if (cur_ul_bwp.bwp_common.pusch_cfg_common.setup().msg3_delta_preamb_present) {
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().msg3_delta_preamb = js_cur_ul_bwp_common_pusch_common["msg3-DeltaPreamble"];
+        }
+
+        cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().p0_nominal_with_grant_present = js_cur_ul_bwp_common_pusch_common.contains("p0-NominalWithGrant");
+        if (cur_ul_bwp.bwp_common.pusch_cfg_common.setup().p0_nominal_with_grant_present) {
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().p0_nominal_with_grant = js_cur_ul_bwp_common_pusch_common["p0-NominalWithGrant"];
+        }
+      }
+      // printf("[9/21] trigger 3.3\n");
+
+      /* bwp-Common -- pucch-ConfigCommon */
+      cur_ul_bwp.bwp_common.pucch_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("pucch-ConfigCommon");
+      if (cur_ul_bwp.bwp_common.pucch_cfg_common_present) {
+        json js_cur_ul_bwp_common_pucch_common = js_cur_ul_bwp["bwp-Common"]["pucch-ConfigCommon"];
+
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_res_common_present = js_cur_ul_bwp_common_pucch_common.contains("pucch-ResourceCommon");
+        if (cur_ul_bwp.bwp_common.pucch_cfg_common.setup().pucch_res_common_present) {
+          cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_res_common = js_cur_ul_bwp_common_pucch_common["pucch-ResourceCommon"];
+        }
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_group_hop = (asn1::rrc_nr::pucch_cfg_common_s::pucch_group_hop_e_)js_cur_ul_bwp_common_pucch_common["pucch-GroupHopping"];
+
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().p0_nominal_present = js_cur_ul_bwp_common_pucch_common.contains("p0-nominal");
+
+        if (cur_ul_bwp.bwp_common.pucch_cfg_common.setup().p0_nominal_present) {
+          cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().p0_nominal = js_cur_ul_bwp_common_pucch_common["p0-nominal"];
+        }
+      }
+      // printf("[9/21] trigger 3.4\n");
+      
+      /* bwp-Dedicated */
+      cur_ul_bwp.bwp_ded_present = js_cur_ul_bwp.contains("bwp-Dedicated");
+
+      /* bwp-Dedicated -- pucch-Config */
+      cur_ul_bwp.bwp_ded.pucch_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("pucch-Config");
+      if (cur_ul_bwp.bwp_ded.pucch_cfg_present) {
+        json js_cur_ul_bwp_ded_pucch = js_cur_ul_bwp["bwp-Dedicated"]["pucch-Config"];
+
+        /* resourceSetToAddModList */
+        for (auto& js_cur_ul_bwp_ded_pucch_res_set_el : js_cur_ul_bwp_ded_pucch["resourceSetToAddModList"].items()) {
+          json js_cur_ul_bwp_ded_pucch_res_set = js_cur_ul_bwp_ded_pucch_res_set_el.value();
+          pucch_res_set_s cur_ul_bwp_ded_pucch_res_set;
+
+          cur_ul_bwp_ded_pucch_res_set.pucch_res_set_id = js_cur_ul_bwp_ded_pucch_res_set["PUCCH-ResourceSetId"];
+          for (auto& js_cur_ul_bwp_ded_pucch_res_set_res_el : js_cur_ul_bwp_ded_pucch_res_set["resourceList"].items()) {
+            json js_cur_res_id = js_cur_ul_bwp_ded_pucch_res_set_res_el.value();
+            cur_ul_bwp_ded_pucch_res_set.res_list.push_back(js_cur_res_id);
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().res_set_to_add_mod_list.push_back(cur_ul_bwp_ded_pucch_res_set);
+        }
+
+        // printf("[9/21] trigger 3.41\n");
+
+        /* resourceToAddModList */
+        for (auto& js_cur_ul_bwp_ded_pucch_res_el : js_cur_ul_bwp_ded_pucch["resourceToAddModList"].items()) {
+          json js_cur_ul_bwp_ded_pucch_res = js_cur_ul_bwp_ded_pucch_res_el.value();
+          pucch_res_s cur_ul_bwp_ded_pucch_res;
+
+          cur_ul_bwp_ded_pucch_res.pucch_res_id = js_cur_ul_bwp_ded_pucch_res["pucch-ResourceId"];
+          cur_ul_bwp_ded_pucch_res.start_prb = js_cur_ul_bwp_ded_pucch_res["startingPRB"];
+
+          // Need to distinguish/infer format type
+          /* Format 0 */
+          if (js_cur_ul_bwp_ded_pucch_res["format"].contains("initialCyclicShift")) {
+            cur_ul_bwp_ded_pucch_res.format.set_format0().init_cyclic_shift = js_cur_ul_bwp_ded_pucch_res["format"]["initialCyclicShift"];
+            cur_ul_bwp_ded_pucch_res.format.set_format0().nrof_symbols = js_cur_ul_bwp_ded_pucch_res["format"]["nrofSymbols"];
+            cur_ul_bwp_ded_pucch_res.format.set_format0().start_symbol_idx = js_cur_ul_bwp_ded_pucch_res["format"]["startingSymbolIndex"];
+          }
+
+          /* Format 2 */
+          if (js_cur_ul_bwp_ded_pucch_res["format"].contains("nrofPRBs")) {
+            cur_ul_bwp_ded_pucch_res.format.set_format2().nrof_prbs = js_cur_ul_bwp_ded_pucch_res["format"]["nrofPRBs"];
+            cur_ul_bwp_ded_pucch_res.format.set_format2().nrof_symbols = js_cur_ul_bwp_ded_pucch_res["format"]["nrofSymbols"];
+            cur_ul_bwp_ded_pucch_res.format.set_format2().start_symbol_idx = js_cur_ul_bwp_ded_pucch_res["format"]["startingSymbolIndex"];
+          }
+          
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().res_to_add_mod_list.push_back(cur_ul_bwp_ded_pucch_res);
+        }
+
+        // printf("[9/21] trigger 3.42\n");
+
+        cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().format2_present = js_cur_ul_bwp_ded_pucch.contains("format2");
+        if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().format2_present) {
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().format2.set_setup().max_code_rate = (asn1::rrc_nr::pucch_max_code_rate_e)js_cur_ul_bwp_ded_pucch["format2"]["maxCodeRate"];
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().format2.set_setup().simul_harq_ack_csi_present = js_cur_ul_bwp_ded_pucch["format2"]["simultaneousHARQ-ACK-CSI"] == 0 ? true : false;
+        }
+
+        // printf("[9/21] trigger 3.43\n");
+
+        /* schedulingRequestResourceToAddModList */
+        for (auto& js_cur_ul_bwp_ded_pucch_sch_req_res_el : js_cur_ul_bwp_ded_pucch["schedulingRequestResourceToAddModList"].items()) {
+          json js_cur_ul_bwp_ded_pucch_sch_req_res = js_cur_ul_bwp_ded_pucch_sch_req_res_el.value();
+          sched_request_res_cfg_s cur_ul_bwp_ded_pucch_sch_req_res;
+          cur_ul_bwp_ded_pucch_sch_req_res.sched_request_res_id = js_cur_ul_bwp_ded_pucch_sch_req_res["schedulingRequestResourceId"];
+          cur_ul_bwp_ded_pucch_sch_req_res.sched_request_id = js_cur_ul_bwp_ded_pucch_sch_req_res["schedulingRequestID"];
+          cur_ul_bwp_ded_pucch_sch_req_res.periodicity_and_offset_present = js_cur_ul_bwp_ded_pucch_sch_req_res.contains("periodicityAndOffset");
+          if (cur_ul_bwp_ded_pucch_sch_req_res.periodicity_and_offset_present) {
+            // Hardcode for now
+            // TO-DO: fix this
+            cur_ul_bwp_ded_pucch_sch_req_res.periodicity_and_offset.set_sl80();
+          }
+          cur_ul_bwp_ded_pucch_sch_req_res.res_present = js_cur_ul_bwp_ded_pucch_sch_req_res.contains("resource");
+          if (cur_ul_bwp_ded_pucch_sch_req_res.res_present) {
+            cur_ul_bwp_ded_pucch_sch_req_res.res = js_cur_ul_bwp_ded_pucch_sch_req_res["resource"];
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().sched_request_res_to_add_mod_list.push_back(cur_ul_bwp_ded_pucch_sch_req_res);
+        }
+
+        // printf("[9/21] trigger 3.44\n");
+
+        /* multi-CSI-PUCCH-ResourceList */
+        for (auto& js_cur_ul_bwp_ded_pucch_mul_csi_pucch_res_el : js_cur_ul_bwp_ded_pucch["multi-CSI-PUCCH-ResourceList"].items()) {
+          json js_cur_ul_bwp_ded_pucch_mul_csi_pucch_res = js_cur_ul_bwp_ded_pucch_mul_csi_pucch_res_el.value();
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().multi_csi_pucch_res_list.push_back(js_cur_ul_bwp_ded_pucch_mul_csi_pucch_res);
+        }
+
+        // printf("[9/21] trigger 3.45\n");
+
+        /* dl-DataToUL-ACK */
+        for (auto& js_cur_ul_bwp_ded_pucch_dl_data_to_ul_ack_el : js_cur_ul_bwp_ded_pucch["dl-DataToUL-ACK"].items()) {
+          json js_cur_ul_bwp_ded_pucch_dl_data_to_ul_ack = js_cur_ul_bwp_ded_pucch_dl_data_to_ul_ack_el.value();
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().dl_data_to_ul_ack.push_back(js_cur_ul_bwp_ded_pucch_dl_data_to_ul_ack);
+        }
+
+        // printf("[9/21] trigger 3.46\n");
+
+        /* pucch-PowerControl */
+        cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl_present = js_cur_ul_bwp_ded_pucch.contains("pucch-PowerControl");
+        if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl_present) {
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.delta_f_pucch_f0_present = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"].contains("deltaF-PUCCH-f0");
+          if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f0_present) {
+            cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f0 = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["deltaF-PUCCH-f0"];
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.delta_f_pucch_f1_present = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"].contains("deltaF-PUCCH-f1");
+          if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f1_present) {
+            cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f1 = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["deltaF-PUCCH-f1"];
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.delta_f_pucch_f2_present = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"].contains("deltaF-PUCCH-f2");
+          if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f2_present) {
+            cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f2 = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["deltaF-PUCCH-f2"];
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.delta_f_pucch_f3_present = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"].contains("deltaF-PUCCH-f3");
+          if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f3_present) {
+            cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f3 = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["deltaF-PUCCH-f3"];
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.delta_f_pucch_f4_present = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"].contains("deltaF-PUCCH-f4");
+          if (cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f4_present) {
+            cur_ul_bwp.bwp_ded.pucch_cfg.setup().pucch_pwr_ctrl.delta_f_pucch_f4 = js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["deltaF-PUCCH-f4"];
+          }
+
+          for (auto& js_cur_ul_bwp_ded_pucch_pc_p0_el : js_cur_ul_bwp_ded_pucch["pucch-PowerControl"]["p0-Set"].items()) {
+            json js_cur_ul_bwp_ded_pucch_pc_p0 = js_cur_ul_bwp_ded_pucch_pc_p0_el.value();
+
+            p0_pucch_s cur_ul_bwp_ded_pucch_pc_p0;
+            cur_ul_bwp_ded_pucch_pc_p0.p0_pucch_id = js_cur_ul_bwp_ded_pucch_pc_p0["p0-PUCCH-Id"];
+            cur_ul_bwp_ded_pucch_pc_p0.p0_pucch_value = js_cur_ul_bwp_ded_pucch_pc_p0["p0-PUCCH-Value"];
+
+            cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().pucch_pwr_ctrl.p0_set.push_back(cur_ul_bwp_ded_pucch_pc_p0);
+          }
+
+        }
+
+        // printf("[9/21] trigger 3.47\n");
+      }
+      // printf("[9/21] trigger 3.5\n");
+
+      /* bwp-Dedicated -- pusch-Config */
+      cur_ul_bwp.bwp_ded.pusch_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("pusch-Config");
+      if (cur_ul_bwp.bwp_ded.pusch_cfg_present) {
+        json js_cur_ul_bwp_ded_pusch = js_cur_ul_bwp["bwp-Dedicated"]["pusch-Config"];
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().data_scrambling_id_pusch_present = js_cur_ul_bwp_ded_pusch.contains("dataScramblingIdentityPUSCH");
+
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().data_scrambling_id_pusch_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().data_scrambling_id_pusch = js_cur_ul_bwp_ded_pusch["dataScramblingIdentityPUSCH"];
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().tx_cfg_present = js_cur_ul_bwp_ded_pusch.contains("txConfig");
+
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().tx_cfg_present) {
+          if (js_cur_ul_bwp_ded_pusch["txConfig"].contains("codebook")) {
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().tx_cfg = asn1::rrc_nr::pusch_cfg_s::tx_cfg_e_::codebook;
+          }
+          
+          // For non_codebook and nulltype, will add here once encountered
+        }
+
+        /* dmrs-UplinkForPUSCH-MappingTypeA */
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a_present = js_cur_ul_bwp_ded_pusch.contains("dmrs-UplinkForPUSCH-MappingTypeA");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().dmrs_ul_for_pusch_map_type_a_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a.set_setup().dmrs_add_position_present = js_cur_ul_bwp_ded_pusch["dmrs-UplinkForPUSCH-MappingTypeA"].contains("dmrs-AdditionalPosition");
+          if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().dmrs_ul_for_pusch_map_type_a.setup().dmrs_add_position_present) {
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a.set_setup().dmrs_add_position = 
+              (asn1::rrc_nr::dmrs_ul_cfg_s::dmrs_add_position_e_)js_cur_ul_bwp_ded_pusch["dmrs-UplinkForPUSCH-MappingTypeA"]["dmrs-AdditionalPosition"];
+          }
+
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a.set_setup().transform_precoding_disabled_present = js_cur_ul_bwp_ded_pusch["dmrs-UplinkForPUSCH-MappingTypeA"].contains("transformPrecodingDisabled");
+          if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().dmrs_ul_for_pusch_map_type_a.setup().transform_precoding_disabled_present) {
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a.set_setup().transform_precoding_disabled.scrambling_id0_present = 
+              js_cur_ul_bwp_ded_pusch["dmrs-UplinkForPUSCH-MappingTypeA"]["transformPrecodingDisabled"].contains("scramblingID0");
+            if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().dmrs_ul_for_pusch_map_type_a.setup().transform_precoding_disabled.scrambling_id0_present) {
+              cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().dmrs_ul_for_pusch_map_type_a.set_setup().transform_precoding_disabled.scrambling_id0 = 
+                js_cur_ul_bwp_ded_pusch["dmrs-UplinkForPUSCH-MappingTypeA"]["transformPrecodingDisabled"]["scramblingID0"];
+            }
+          }
+        }
+
+        // printf("[9/21] trigger 3.51\n");
+
+        /* pusch-PowerControl */
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_pwr_ctrl_present = js_cur_ul_bwp_ded_pusch.contains("pusch-PowerControl");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().pusch_pwr_ctrl_present) {
+          // printf("[9/21] trigger 3.510\n");
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_pwr_ctrl.tpc_accumulation_present = js_cur_ul_bwp_ded_pusch["pusch-PowerControl"]["tpc-Accumulation"] == 1 ? true : false;
+
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_pwr_ctrl.msg3_alpha_present = js_cur_ul_bwp_ded_pusch["pusch-PowerControl"].contains("msg3-Alpha");
+          if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().pusch_pwr_ctrl.msg3_alpha_present) {
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_pwr_ctrl.msg3_alpha = (asn1::rrc_nr::alpha_e)js_cur_ul_bwp_ded_pusch["pusch-PowerControl"]["msg3-Alpha"];
+          }
+
+          // printf("[9/21] trigger 3.511\n");
+
+          for (auto& js_cur_ul_bwp_ded_pusch_pc_p0_el : js_cur_ul_bwp_ded_pusch["pusch-PowerControl"]["p0-AlphaSets"].items()) {
+            json js_cur_ul_bwp_ded_pusch_pc_p0 = js_cur_ul_bwp_ded_pusch_pc_p0_el.value();
+            p0_pusch_alpha_set_s cur_ul_bwp_ded_pusch_pc_p0;
+            cur_ul_bwp_ded_pusch_pc_p0.p0_pusch_alpha_set_id = js_cur_ul_bwp_ded_pusch_pc_p0["p0-PUSCH-AlphaSetId"];
+            cur_ul_bwp_ded_pusch_pc_p0.p0_present = js_cur_ul_bwp_ded_pusch_pc_p0.contains("p0");
+            if (cur_ul_bwp_ded_pusch_pc_p0.p0_present) {
+              cur_ul_bwp_ded_pusch_pc_p0.p0 = js_cur_ul_bwp_ded_pusch_pc_p0["p0"];
+            }
+
+            // printf("[9/21] trigger 3.5111\n");
+
+            cur_ul_bwp_ded_pusch_pc_p0.alpha_present = js_cur_ul_bwp_ded_pusch_pc_p0.contains("alpha");
+            if (cur_ul_bwp_ded_pusch_pc_p0.alpha_present) {
+              cur_ul_bwp_ded_pusch_pc_p0.alpha = (asn1::rrc_nr::alpha_e)js_cur_ul_bwp_ded_pusch_pc_p0["alpha"];
+            }
+
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_pwr_ctrl.p0_alpha_sets.push_back(cur_ul_bwp_ded_pusch_pc_p0);
+          }
+
+          // printf("[9/21] trigger 3.512\n");
+        }
+
+        // printf("[9/21] trigger 3.52\n");
+
+        /* resourceAllocation */
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().res_alloc = (asn1::rrc_nr::pusch_cfg_s::res_alloc_e_)js_cur_ul_bwp_ded_pusch["resourceAllocation"];
+
+        /* pusch-TimeDomainAllocationList */
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_time_domain_alloc_list_present = js_cur_ul_bwp_ded_pusch.contains("pusch-TimeDomainAllocationList");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().pusch_time_domain_alloc_list_present) {
+          
+          for (auto& js_cur_ul_bwp_ded_pusch_time_alloc_el : js_cur_ul_bwp_ded_pusch["pusch-TimeDomainAllocationList"].items()) {
+            json js_cur_ul_bwp_ded_pusch_time_alloc = js_cur_ul_bwp_ded_pusch_time_alloc_el.value()["PUSCH-TimeDomainResourceAllocation"];
+            pusch_time_domain_res_alloc_s cur_ul_bwp_ded_pusch_time_alloc;
+            cur_ul_bwp_ded_pusch_time_alloc.k2_present = js_cur_ul_bwp_ded_pusch_time_alloc.contains("K2");
+            if (cur_ul_bwp_ded_pusch_time_alloc.k2_present) {
+              cur_ul_bwp_ded_pusch_time_alloc.k2 = js_cur_ul_bwp_ded_pusch_time_alloc["k2"];
+            }
+
+            cur_ul_bwp_ded_pusch_time_alloc.map_type = (asn1::rrc_nr::pusch_time_domain_res_alloc_s::map_type_e_)js_cur_ul_bwp_ded_pusch_time_alloc["mappingType"];
+            cur_ul_bwp_ded_pusch_time_alloc.start_symbol_and_len = js_cur_ul_bwp_ded_pusch_time_alloc["startSymbolAndLength"];
+
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_time_domain_alloc_list.set_setup().push_back(cur_ul_bwp_ded_pusch_time_alloc);
+          }
+        }
+
+        // printf("[9/21] trigger 3.53\n");
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().mcs_table_present = js_cur_ul_bwp_ded_pusch.contains("mcs-Table");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().mcs_table_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().mcs_table = (asn1::rrc_nr::pusch_cfg_s::mcs_table_e_)js_cur_ul_bwp_ded_pusch["mcs-Table"];
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().transform_precoder_present = js_cur_ul_bwp_ded_pusch.contains("transformPrecoder");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().transform_precoder_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().transform_precoder = (asn1::rrc_nr::pusch_cfg_s::transform_precoder_e_)js_cur_ul_bwp_ded_pusch["transformPrecoder"];
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().codebook_subset_present = js_cur_ul_bwp_ded_pusch.contains("codebookSubset");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().codebook_subset_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().codebook_subset = (asn1::rrc_nr::pusch_cfg_s::codebook_subset_e_)js_cur_ul_bwp_ded_pusch["codebookSubset"];
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().max_rank_present = js_cur_ul_bwp_ded_pusch.contains("maxRank");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().max_rank_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().max_rank = js_cur_ul_bwp_ded_pusch["maxRank"];
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().uci_on_pusch_present = js_cur_ul_bwp_ded_pusch.contains("uci-OnPUSCH");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().uci_on_pusch_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().uci_on_pusch.set_setup().beta_offsets_present = true;
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().uci_on_pusch.set_setup().scaling = (asn1::rrc_nr::uci_on_pusch_s::scaling_e_)js_cur_ul_bwp_ded_pusch["uci-OnPUSCH"]["scaling"];
+        }
+      }
+      // printf("[9/21] trigger 3.6\n");
+
+      /* bwp-Dedicated -- srs-Config */
+      cur_ul_bwp.bwp_ded.srs_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("srs-Config");
+      if (cur_ul_bwp.bwp_ded.srs_cfg_present) {
+        json js_cur_ul_bwp_ded_srs = js_cur_ul_bwp["bwp-Dedicated"]["srs-Config"];
+
+        cur_ul_bwp.bwp_ded.srs_cfg.set_setup().srs_res_set_to_add_mod_list;
+
+        /* srs-ResourceSetToAddModList */
+        for (auto& js_cur_ul_bwp_ded_srs_res_set_el : js_cur_ul_bwp_ded_srs["srs-ResourceSetToAddModList"].items()) {
+          json js_cur_ul_bwp_ded_srs_res_set = js_cur_ul_bwp_ded_srs_res_set_el.value()["SRS-ResourceSet"];
+          srs_res_set_s cur_ul_bwp_ded_srs_res_set;
+          cur_ul_bwp_ded_srs_res_set.srs_res_set_id = js_cur_ul_bwp_ded_srs_res_set["srs-ResourceSetId"];
+          if (js_cur_ul_bwp_ded_srs_res_set["resourceType"].contains("aperiodicSRS-ResourceTrigger")) {
+            cur_ul_bwp_ded_srs_res_set.res_type.set_aperiodic().aperiodic_srs_res_trigger = 
+              js_cur_ul_bwp_ded_srs_res_set["resourceType"]["aperiodicSRS-ResourceTrigger"];
+          }
+
+          for (auto& js_cur_ul_bwp_ded_srs_res_set_res_id_el : js_cur_ul_bwp_ded_srs_res_set["srs-ResourceIdList"].items()) {
+            json js_cur_ul_bwp_ded_srs_res_set_res_id = js_cur_ul_bwp_ded_srs_res_set_res_id_el.value();
+            cur_ul_bwp_ded_srs_res_set.srs_res_id_list.push_back(js_cur_ul_bwp_ded_srs_res_set_res_id);
+          }
+
+          cur_ul_bwp_ded_srs_res_set.usage = (asn1::rrc_nr::srs_res_set_s::usage_e_)js_cur_ul_bwp_ded_srs_res_set["usage"];
+
+          cur_ul_bwp_ded_srs_res_set.p0_present = js_cur_ul_bwp_ded_srs_res_set.contains("p0");
+          if (cur_ul_bwp_ded_srs_res_set.p0_present) {
+            cur_ul_bwp_ded_srs_res_set.p0 = js_cur_ul_bwp_ded_srs_res_set["p0"];
+          }
+
+          cur_ul_bwp.bwp_ded.srs_cfg.set_setup().srs_res_set_to_add_mod_list.push_back(cur_ul_bwp_ded_srs_res_set);
+        }
+
+        /* srs-ResourceToAddModList */
+        for (auto& js_cur_ul_bwp_ded_srs_res_el : js_cur_ul_bwp_ded_srs["srs-ResourceToAddModList"].items()) {
+          json js_cur_ul_bwp_ded_srs_res = js_cur_ul_bwp_ded_srs_res_el.value()["SRS-Resource"];
+          srs_res_s cur_ul_bwp_ded_srs_res;
+          cur_ul_bwp_ded_srs_res.srs_res_id = js_cur_ul_bwp_ded_srs_res["srs-ResourceId"];
+          // Just add the id for now
+
+          cur_ul_bwp.bwp_ded.srs_cfg.set_setup().srs_res_to_add_mod_list.push_back(cur_ul_bwp_ded_srs_res);
+        }
+
+      } /* bwp-Dedicated -- srs-Config End */
+      // printf("[9/21] trigger 3.7\n");
+
+      /* Done processing this new ul bwp; store... */
+      ul_bwp_to_add_mod_list.push_back(cur_ul_bwp);
+    } /* uplinkBWP-ToAddModList End */
+  }
+
+  /**
+   * 
+   * NON-INITIAL DL BWP(S) CONFIG EXTRACTION
+   * 
+   */
+
+  // TO-DO: a lot of exists check needed before accessing fields
+  if (js_in["spCellConfigDedicated"]["downlinkBWP-ToAddModList"].is_array()) {
+    // printf("[9/16] trigger 1.1\n");
+    auto& dl_bwp_to_add_mod_list = sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list;
+    json js_dl_bwp_to_add_mod_list = js_in["spCellConfigDedicated"]["downlinkBWP-ToAddModList"];
+    for (auto& js_cur_dl_bwp_el : js_dl_bwp_to_add_mod_list.items()) {
+      // printf("[9/16] trigger 1.2\n");
+      json js_cur_dl_bwp = js_cur_dl_bwp_el.value();
+      bwp_dl_s cur_dl_bwp;
+      cur_dl_bwp.bwp_id = js_cur_dl_bwp["bwp-Id"];
+
+      /* bwp-Common */
+      cur_dl_bwp.bwp_common_present = js_cur_dl_bwp.contains("bwp-Common");
+
+      /* bwp-Common -- genericParameters */
+      json js_cur_dl_bwp_common_generic = js_cur_dl_bwp["bwp-Common"]["genericParameters"];
+      cur_dl_bwp.bwp_common.generic_params.location_and_bw = js_cur_dl_bwp_common_generic["locationAndBandwidth"];
+      assert(js_cur_dl_bwp_common_generic["subcarrierSpacing"].is_number());
+      cur_dl_bwp.bwp_common.generic_params.subcarrier_spacing = (asn1::rrc_nr::subcarrier_spacing_e)js_cur_dl_bwp_common_generic["subcarrierSpacing"];
+      // printf("[9/16] trigger 1.3\n");
+      /* bwp-Common -- pdsch-ConfigCommon */
+      json js_cur_dl_bwp_common_pdsch_time_alloc_list = js_cur_dl_bwp["bwp-Common"]["pdsch-ConfigCommon"]["pdsch-TimeDomainAllocationList"];
+
+      assert(js_cur_dl_bwp_common_pdsch_time_alloc_list.is_array());
+
+      for (auto& js_cur_dl_bwp_common_pdsch_time_alloc_el : js_cur_dl_bwp_common_pdsch_time_alloc_list.items()) {
+        // printf("[9/16] trigger 1.4\n");
+        json js_cur_dl_bwp_common_pdsch_time_alloc = js_cur_dl_bwp_common_pdsch_time_alloc_el.value()["PDSCH-TimeDomainResourceAllocation"];
+        // printf("[9/16] trigger 1.41\n");
+        pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+        cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_common_pdsch_time_alloc.contains("k0");
+        if (cur_pdsch_time_alloc.k0_present) {
+          cur_pdsch_time_alloc.k0 = js_cur_dl_bwp_common_pdsch_time_alloc["k0"];
+        }
+        cur_pdsch_time_alloc.map_type = (asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_)js_cur_dl_bwp_common_pdsch_time_alloc["mappingType"];
+        cur_pdsch_time_alloc.start_symbol_and_len = js_cur_dl_bwp_common_pdsch_time_alloc["startSymbolAndLength"];
+        
+        cur_dl_bwp.bwp_common.pdsch_cfg_common.set_setup().pdsch_time_domain_alloc_list.push_back(cur_pdsch_time_alloc);
+      }
+
+      // printf("[9/16] trigger 1.5\n");
+
+      /* bwp-Dedicated */
+      cur_dl_bwp.bwp_ded_present = js_cur_dl_bwp.contains("bwp-Dedicated");
+
+      /* bwp-Dedicated -- pdcch-Config */
+      json js_cur_dl_bwp_dedicated_pdcch = js_cur_dl_bwp["bwp-Dedicated"]["pdcch-Config"];
+
+      /* bwp-Dedicated -- pdcch-Config -- controlResourceSetToAddModList */
+      json js_cur_dl_bwp_dedicated_pdcch_coreset_list = js_cur_dl_bwp_dedicated_pdcch["controlResourceSetToAddModList"];
+      // printf("[9/16] trigger 1.6\n");
+      for (auto& js_cur_dl_bwp_dedicated_pdcch_coreset_el : js_cur_dl_bwp_dedicated_pdcch_coreset_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdcch_coreset = js_cur_dl_bwp_dedicated_pdcch_coreset_el.value();
+        ctrl_res_set_s cur_dl_bwp_dedicated_pdcch_coreset;
+
+        cur_dl_bwp_dedicated_pdcch_coreset.ctrl_res_set_id = js_cur_dl_bwp_dedicated_pdcch_coreset["controlResourceSetId"];
+
+        // str format: "FF FF 80 00 00 00"
+        std::string hex_space_str = js_cur_dl_bwp_dedicated_pdcch_coreset["frequencyDomainResources"];
+        hex_space_str.erase(remove_if(hex_space_str.begin(), hex_space_str.end(), isspace), hex_space_str.end());
+        std::cout << "hex_space_str: " << hex_space_str << std::endl;
+        std::stringstream ss_helper;
+        ss_helper << std::hex << hex_space_str;
+        unsigned long val;
+        ss_helper >> val;
+        std::bitset<45> b(val);
+        cur_dl_bwp_dedicated_pdcch_coreset.freq_domain_res.from_string(b.to_string());
+        std::cout << "b.to_string(): " << b.to_string() << "; and size: " << b.to_string().size() << std::endl;
+
+        cur_dl_bwp_dedicated_pdcch_coreset.dur = js_cur_dl_bwp_dedicated_pdcch_coreset["duration"];
+
+        // Assume cce_reg_map_type is null (default) now; TO-DO: implement this
+
+        cur_dl_bwp_dedicated_pdcch_coreset.precoder_granularity = (asn1::rrc_nr::ctrl_res_set_s::precoder_granularity_e_)js_cur_dl_bwp_dedicated_pdcch_coreset["precoderGranularity"];
+
+        cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present = js_cur_dl_bwp_dedicated_pdcch_coreset.contains("pdcch-DMRS-ScramblingID");
+        if (cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present) {
+          cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id = js_cur_dl_bwp_dedicated_pdcch_coreset["pdcch-DMRS-ScramblingID"];
+        }
+
+        // Ignore TCI-related setup now
+
+        cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().ctrl_res_set_to_add_mod_list.push_back(cur_dl_bwp_dedicated_pdcch_coreset);
+      }
+      // printf("[9/16] trigger 1.7\n");
+      /* bwp-Dedicated -- pdcch-Config -- searchSpacesToAddModList */
+      json js_cur_dl_bwp_dedicated_pdcch_searchspace_list = js_cur_dl_bwp_dedicated_pdcch["searchSpacesToAddModList"];
+
+      for (auto& js_cur_dl_bwp_dedicated_pdcch_searchspace_el : js_cur_dl_bwp_dedicated_pdcch_searchspace_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdcch_searchspace = js_cur_dl_bwp_dedicated_pdcch_searchspace_el.value();
+        search_space_s cur_dl_bwp_dedicated_pdcch_searchspace;
+
+        cur_dl_bwp_dedicated_pdcch_searchspace.search_space_id = js_cur_dl_bwp_dedicated_pdcch_searchspace["searchSpaceId"];
+        cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("controlResourceSetId");
+        if (cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present) {
+          cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id = js_cur_dl_bwp_dedicated_pdcch_searchspace["controlResourceSetId"];
+        }
+
+        // Since we monitor every slot, looks like duration, monitoringSymbolsWithinSlot don't matter, so skip
+
+        /* nrofCandidates */
+        cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates");
+        if (js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates")) {
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level1 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel1"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level2 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel2"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level4 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel4"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level8 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel8"];
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level16 = 
+          (asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_)js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel16"];
+        }
+
+
+        cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present = js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("searchSpaceType");
+        if (cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present) {
+          // Assume only ue-specific is possible
+          cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type.set_ue_specific();
+        }
+
+
+        cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().search_spaces_to_add_mod_list.push_back(cur_dl_bwp_dedicated_pdcch_searchspace);
+      }
+
+      // printf("[9/16] trigger 1.8\n");
+
+      /* bwp-Dedicated -- pdsch-Config */
+      cur_dl_bwp.bwp_ded.pdsch_cfg_present = js_cur_dl_bwp["bwp-Dedicated"].contains("pdsch-Config");
+      json js_cur_dl_bwp_dedicated_pdsch = js_cur_dl_bwp["bwp-Dedicated"]["pdsch-Config"];
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch_present = js_cur_dl_bwp_dedicated_pdsch.contains("dataScramblingIdentityPDSCH");
+
+      if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().data_scrambling_id_pdsch_present) {
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch = js_cur_dl_bwp_dedicated_pdsch["dataScramblingIdentityPDSCH"];
+      }
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a_present = js_cur_dl_bwp_dedicated_pdsch.contains("dmrs-DownlinkForPDSCH-MappingTypeA");
+      if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a_present) {
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a.set_setup().dmrs_add_position_present = 
+        js_cur_dl_bwp_dedicated_pdsch["dmrs-DownlinkForPDSCH-MappingTypeA"].contains("dmrs-AdditionalPosition");
+
+        if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a.setup().dmrs_add_position_present) {
+          cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().dmrs_dl_for_pdsch_map_type_a.set_setup().dmrs_add_position = 
+          (asn1::rrc_nr::dmrs_dl_cfg_s::dmrs_add_position_e_)js_cur_dl_bwp_dedicated_pdsch["dmrs-DownlinkForPDSCH-MappingTypeA"]["dmrs-AdditionalPosition"];
+        }
+      }
+
+      // printf("[9/16] trigger 1.9\n");
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().res_alloc = (asn1::rrc_nr::pdsch_cfg_s::res_alloc_e_)js_cur_dl_bwp_dedicated_pdsch["resourceAllocation"];
+      
+      /* pdsch-TimeDomainAllocationList */
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list_present = js_cur_dl_bwp_dedicated_pdsch.contains("pdsch-TimeDomainAllocationList");
+      json js_cur_dl_bwp_dedicated_pdsch_time_alloc_list = js_cur_dl_bwp_dedicated_pdsch["pdsch-TimeDomainAllocationList"];
+      for (auto& js_cur_dl_bwp_dedicated_pdsch_time_alloc_el : js_cur_dl_bwp_dedicated_pdsch_time_alloc_list.items()) {
+        json js_cur_dl_bwp_dedicated_pdsch_time_alloc = js_cur_dl_bwp_dedicated_pdsch_time_alloc_el.value()["PDSCH-TimeDomainResourceAllocation"];
+        pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+        cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_dedicated_pdsch_time_alloc.contains("k0");
+        if (cur_pdsch_time_alloc.k0_present) {
+          cur_pdsch_time_alloc.k0 = js_cur_dl_bwp_dedicated_pdsch_time_alloc["k0"];
+        }
+
+        cur_pdsch_time_alloc.map_type = (asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_)js_cur_dl_bwp_dedicated_pdsch_time_alloc["mappingType"];
+        cur_pdsch_time_alloc.start_symbol_and_len = js_cur_dl_bwp_dedicated_pdsch_time_alloc["startSymbolAndLength"];
+
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list.set_setup().push_back(cur_pdsch_time_alloc);
+      }
+
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().rbg_size = (asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_)js_cur_dl_bwp_dedicated_pdsch["rbg-Size"];
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().mcs_table = (asn1::rrc_nr::pdsch_cfg_s::mcs_table_e_)js_cur_dl_bwp_dedicated_pdsch["mcs-Table"];
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().max_nrof_code_words_sched_by_dci = 
+      (asn1::rrc_nr::pdsch_cfg_s::max_nrof_code_words_sched_by_dci_e_)js_cur_dl_bwp_dedicated_pdsch["maxNrofCodeWordsScheduledByDCI"];
+
+      // Assume only static type now; seems no option for bundle size
+      cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().prb_bundling_type.set_static_bundling();
+
+
+      /* Done processing this new dl bwp; store... */
+      dl_bwp_to_add_mod_list.push_back(cur_dl_bwp);
+
+      // printf("[9/16] trigger 1.10\n");
+    }
+  }
+
+  return SRSASN_SUCCESS;
+}
+
 void cell_group_cfg_s::to_json(json_writer& j) const
 {
   j.start_obj();

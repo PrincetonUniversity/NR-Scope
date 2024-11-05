@@ -41,7 +41,9 @@ public:
                    uint8_t nof_bwps,
                    bool cpu_affinity,
                    cell_searcher_args_t args_t,
-                   uint32_t nof_workers_);
+                   uint32_t nof_workers_,
+                   bool ca_mode_,
+                   uint16_t input_crnti_);
 
   int DecodeMIB(cell_searcher_args_t* args_t_, 
                 srsue::nr::cell_search::ret_t* cs_ret_,

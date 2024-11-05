@@ -526,7 +526,7 @@ int Radio::RadioInitandStart(){
      They will all remain inactive until the MIB is found. */
   task_scheduler_nrscope.InitandStart(local_log, to_google, rf_index, 
     nof_threads, nof_rnti_worker_groups, nof_bwps, cpu_affinity ,args_t, 
-    nof_workers);
+    nof_workers, ca_mode, input_crnti);
 
   std::cout << "Task scheduler started..." << std::endl;
   while (not ss.end()) {
@@ -621,7 +621,7 @@ int Radio::RadioInitandStart(){
         }
 
         // srsran_vec_fprint2_c(fp_time_series_post_resample, 
-        //    rx_buffer, actual_slot_sz);
+        //    rx_buffer, buf_split_ptr - rx_buffer);
       } else {
         // pre_resampling_slot_sz should be the same as slot_sz as 
         // resample ratio is 1 in this case

@@ -74,90 +74,111 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   asn1::rrc_nr::bwp_dl_ded_s * bwp_dl_ded_s_ptr = NULL;
   asn1::rrc_nr::bwp_ul_ded_s * bwp_ul_ded_s_ptr = NULL;
 
-  // assume ul bwp n and dl bwp n should be activated and used at the same time 
-  // (lso for sure for TDD)
-  if (bwp_id == 0 && 
+  bool scell_hidden_bwp = state->ca_mode;
+
+  if (!scell_hidden_bwp) {
+    // assume ul bwp n and dl bwp n should be activated and used at the same time 
+    // (lso for sure for TDD)
+    if (bwp_id == 0 && 
+        master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
+      bwp_dl_ded_s_ptr = 
+        &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
+      bwp_ul_ded_s_ptr = 
+        &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
+    }
+    else if (bwp_id <= 3 && 
+      !master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
+      for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+          dl_bwp_to_add_mod_list.size(); i++) {
+        if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+            dl_bwp_to_add_mod_list[i].bwp_id) {
+          if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+              dl_bwp_to_add_mod_list[i].bwp_ded_present) {
+            bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+              dl_bwp_to_add_mod_list[i].bwp_ded);
+            break;
+          }
+          else {
+            printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
+          }
+        }
+      }
+
+      if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
+        for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+            ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
+          if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+              ul_bwp_to_add_mod_list[i].bwp_id) {
+            if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+                ul_bwp_to_add_mod_list[i].bwp_ded_present) {
+              bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+                ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
+              break;
+            }
+            else {
+              printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+            }
+          }
+        }
+      }
+    }else if (bwp_id <= 3 && 
       master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
-    bwp_dl_ded_s_ptr = 
-      &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
-    bwp_ul_ded_s_ptr = 
-      &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
-  }
-  else if (bwp_id <= 3 && 
-    !master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
-    for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-        dl_bwp_to_add_mod_list.size(); i++) {
-      if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          dl_bwp_to_add_mod_list[i].bwp_id) {
-        if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded_present) {
-          bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded);
-          break;
-        }
-        else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
-        }
-      }
-    }
-
-    if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
       for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
-        if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-            ul_bwp_to_add_mod_list[i].bwp_id) {
-          if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-              ul_bwp_to_add_mod_list[i].bwp_ded_present) {
-            bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-              ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
+          dl_bwp_to_add_mod_list.size(); i++) {
+        if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+            dl_bwp_to_add_mod_list[i].bwp_id) {
+          if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+              dl_bwp_to_add_mod_list[i].bwp_ded_present) {
+            bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+              dl_bwp_to_add_mod_list[i].bwp_ded);
             break;
           }
           else {
-            printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+            printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
           }
         }
       }
-    }
-  }else if (bwp_id <= 3 && 
-    master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
-    for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-        dl_bwp_to_add_mod_list.size(); i++) {
-      if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          dl_bwp_to_add_mod_list[i].bwp_id) {
-        if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded_present) {
-          bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded);
-          break;
-        }
-        else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
-        }
-      }
-    }
 
-    if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
-      for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
-        if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-            ul_bwp_to_add_mod_list[i].bwp_id) {
-          if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-              ul_bwp_to_add_mod_list[i].bwp_ded_present) {
-            bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-              ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
-            break;
-          }
-          else {
-            printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+      if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
+        for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+            ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
+          if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+              ul_bwp_to_add_mod_list[i].bwp_id) {
+            if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
+                ul_bwp_to_add_mod_list[i].bwp_ded_present) {
+              bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+                ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
+              break;
+            }
+            else {
+              printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+            }
           }
         }
       }
+      
     }
-    
-  }
+    else {
+      ERROR("bwp id cannot be greater than 3!\n");
+      return SRSRAN_ERROR;
+    }
+  } 
   else {
-    ERROR("bwp id cannot be greater than 3!\n");
-    return SRSRAN_ERROR;
+    printf("[xuyang ca debug] ca config parse start\n");
+    // scell db approach
+    std::ifstream f("/home/xyc/ca_test/NR-Scope/nrscope/hidden_bwp_db/339.txt");
+    json json_config = json::parse(f);
+    // this is a scell; using db-based config load
+    master_cell_group.from_json(json_config);
+
+    bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+      dl_bwp_to_add_mod_list[0].bwp_ded);
+
+    // usually scell only assigns dl; use this just for passing
+    bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
+                ul_cfg.ul_bwp_to_add_mod_list[0].bwp_ded);
+    
+    printf("[xuyang ca debug] ca config parse done\n");
   }
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
@@ -980,12 +1001,12 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
   // std::cout << "nof_sharded_rntis[dci_decoder_id]: " 
   // << nof_sharded_rntis[dci_decoder_id] << std::endl;
 
-  // std::cout << "sharded_rntis: ";
+  std::cout << "[xuyang ca debug] sharded_rntis: ";
   for(uint32_t i = 0; i < n_rntis; i++){
     sharded_rntis[dci_decoder_id][i] = state->known_rntis[rnti_s + i];
-    // std::cout << sharded_rntis[dci_decoder_id][i] << ", ";
+    std::cout << sharded_rntis[dci_decoder_id][i] << ", ";
   }
-  // std::cout << std::endl;
+  std::cout << std::endl;
 
   // Set the buffer to 0s
   for(uint32_t idx = 0; idx < n_rntis; idx++){

@@ -1,0 +1,85 @@
+{
+  "spCellConfigDedicated": {
+    "downlinkBWP-ToAddModList": [
+      {
+        "bwp-Id": 1,
+        "bwp-Common": {
+          "genericParameters": {
+            "locationAndBandwidth": 1099,
+            "subcarrierSpacing": 1
+          },
+          "pdsch-ConfigCommon": {
+            "pdsch-TimeDomainAllocationList": [
+              {
+                "PDSCH-TimeDomainResourceAllocation": {
+                  "k0": 0,
+                  "mappingType": 0,
+                  "startSymbolAndLength": 40
+                }
+              },
+              {
+                "PDSCH-TimeDomainResourceAllocation": {
+                  "k0": 0,
+                  "mappingType": 0,
+                  "startSymbolAndLength": 54
+                }
+              }
+            ]
+          }
+        },
+        "bwp-Dedicated": {
+          "pdcch-Config": {
+            "controlResourceSetToAddModList": [
+              {
+                "controlResourceSetId": 1,
+                "frequencyDomainResources": "FF FF FF FF FF F8",
+                "duration": 1,
+                "cce-REG-MappingType": "NULL",
+                "precoderGranularity": 0,
+                "tci-StatesPDCCH-ToAddList": [1],
+                "pdcch-DMRS-ScramblingID": 1347
+              }
+            ],
+            "searchSpacesToAddModList": [
+              {
+                "searchSpaceId": 4,
+                "controlResourceSetId": 1,
+                "monitoringSlotPeriodicityAndOffset": "sl1 NULL",
+                "monitoringSymbolsWithinSlot": "80 00",
+                "nrofCandidates": {
+                  "aggregationLevel1": 5,
+                  "aggregationLevel2": 4,
+                  "aggregationLevel4": 3,
+                  "aggregationLevel8": 2,
+                  "aggregationLevel16": 2
+                }
+              }
+            ]
+          },
+          "pdsch-Config": {
+            "dmrs-DownlinkForPDSCH-MappingTypeA": {
+              "dmrs-AdditionalPosition": 1,
+              "scramblingID0": 49350
+            },
+            "resourceAllocation": 0,
+            "pdsch-TimeDomainAllocationList": [
+              {
+                "PDSCH-TimeDomainResourceAllocation": {
+                  "k0": 0,
+                  "mappingType": 0,
+                  "startSymbolAndLength": 40
+                }
+              }
+            ],
+            "rbg-Size": 0,
+            "mcs-Table": 0,
+            "maxNrofCodeWordsScheduledByDCI": 0,
+            "prb-BundlingType": {
+              "bundleSize": 0
+            }
+          }
+        }
+      }
+    ]
+  }
+}

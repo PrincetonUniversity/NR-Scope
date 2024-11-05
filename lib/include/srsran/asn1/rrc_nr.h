@@ -31,6 +31,9 @@
 #include "asn1_utils.h"
 #include <cstdio>
 #include <stdarg.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 namespace asn1 {
 namespace rrc_nr {
@@ -20336,6 +20339,7 @@ struct cell_group_cfg_s {
   // sequence methods
   SRSASN_CODE pack(bit_ref& bref) const;
   SRSASN_CODE unpack(cbit_ref& bref);
+  SRSASN_CODE from_json(json js_in);
   void        to_json(json_writer& j) const;
 };
 

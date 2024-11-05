@@ -172,6 +172,7 @@ typedef struct WorkState_ WorkState;
     uint32_t nof_rnti_worker_groups;
     uint8_t nof_bwps;
     bool cpu_affinity;
+    bool ca_mode;
 
     uint32_t slot_sz;
 
