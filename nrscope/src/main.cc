@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <map>
 
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/load_config.h"
@@ -8,6 +9,10 @@
 
 #include "srsran/common/band_helper.h"
 #include "srsran/phy/common/phy_common_nr.h"
+
+#include "nrscope/xml2json/include/xml2json.hpp"
+
+using namespace std;
 
 int main(int argc, char** argv){
   /* Initialize ASN decoder */
@@ -27,11 +32,41 @@ int main(int argc, char** argv){
     return NR_FAILURE;
   }
 
+  // load the encrypted-RRC db
+  std::ifstream f("all.json");
+  std::string line;
+  map<int, string> cell_db;
+
+  while (std::getline(f, line))
+  {
+    json data = json::parse(line);
+    int pci = 0;
+    if (data.contains("body")) {
+      if (data["body"].contains("pci")) {
+        pci = int(data["body"]["pci"]);
+      }
+
+      // check if there is RRCReconfiguration and in which bwp1 is added
+      if (data["body"].contains("message")) {
+        string xml_rrc_msg = data["body"]["message"];
+        if (xml_rrc_msg.find("rrcReconfiguration") != std::string::npos && 
+        xml_rrc_msg.find("downlinkBWP-ToAddModList") != std::string::npos) {
+          if (pci != 0) {
+            // add to the db
+            string json_rrcreconfig_str = xml2json(xml_rrc_msg.c_str());
+            cell_db[pci] = json_rrcreconfig_str;
+          }
+        }
+      }
+    }
+  }
+
   // All the radios have the same setting for local log or push to google
   if(radios[0].local_log){
     std::vector<std::string> log_names(nof_usrp);
     for(int i = 0; i < nof_usrp; i++){
       log_names[i] = radios[i].log_name;
+      radios[i].cell_db = cell_db;
     }
     NRScopeLog::init_logger(log_names);
   }

@@ -20,10 +20,15 @@
  */
 
 #include "srsran/asn1/rrc_nr.h"
+#include <bitset>
+#include <iostream>
+#include <nlohmann/json.hpp>
 #include <sstream>
+#include <string>
 
 using namespace asn1;
 using namespace asn1::rrc_nr;
+using json = nlohmann::json;
 
 /*******************************************************************************
  *                                Struct Methods
@@ -39222,7 +39227,7 @@ codebook_cfg_s::codebook_type_c_::type1_s_::sub_type_c_::type_i_single_panel_s_:
 }
 codebook_cfg_s::codebook_type_c_::type1_s_::sub_type_c_::type_i_single_panel_s_::nr_of_ant_ports_c_::more_than_two_s_::
     n1_n2_c_&
-                                    codebook_cfg_s::codebook_type_c_::type1_s_::sub_type_c_::type_i_single_panel_s_::nr_of_ant_ports_c_::
+    codebook_cfg_s::codebook_type_c_::type1_s_::sub_type_c_::type_i_single_panel_s_::nr_of_ant_ports_c_::
         more_than_two_s_::n1_n2_c_::operator=(
             const codebook_cfg_s::codebook_type_c_::type1_s_::sub_type_c_::type_i_single_panel_s_::nr_of_ant_ports_c_::
                 more_than_two_s_::n1_n2_c_& other)
@@ -48625,6 +48630,461 @@ SRSASN_CODE cell_group_cfg_s::unpack(cbit_ref& bref)
   }
   return SRSASN_SUCCESS;
 }
+
+SRSASN_CODE cell_group_cfg_s::from_json(json js_in, bool scell)
+{
+  if (!scell) {
+    js_in = js_in["DL-DCCH-Message"]["message"]["c1"]["rrcReconfiguration"]["nonCriticalExtension"]["masterCellGroup"]
+               ["CellGroupConfig"]["spCellConfig"]["spCellConfigDedicated"];
+  }
+  else {
+    js_in = js_in["DL-DCCH-Message"]["message"]["c1"]["rrcReconfiguration"]["nonCriticalExtension"]["masterCellGroup"]
+               ["CellGroupConfig"]["sCellToAddModList"]["SCellConfig"]["sCellConfigDedicated"];
+  }
+  
+  /**
+   *
+   * NON-INITIAL UL BWP(S) CONFIG EXTRACTION
+   *
+   */
+  if (js_in.contains("uplinkConfig")) {
+    sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present = true;
+    printf("[hidden] trigger uplinkConfig\n");
+  }
+  if (js_in["uplinkConfig"].contains("uplinkBWP-ToAddModList")) {
+    auto& ul_bwp_to_add_mod_list    = sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list;
+    json  js_ul_bwp_to_add_mod_list = js_in["uplinkConfig"]["uplinkBWP-ToAddModList"];
+
+    /* uplinkBWP-ToAddModList */
+    // here we assume only one bwp here; in json it's contained in {} not [] then
+    for (auto& js_cur_ul_bwp_el : js_ul_bwp_to_add_mod_list.items()) {
+      printf("[hidden] trigger uplinkBWP-ToAddModList element\n");
+      json     js_cur_ul_bwp = js_cur_ul_bwp_el.value();
+      bwp_ul_s cur_ul_bwp;
+      cur_ul_bwp.bwp_id = stoi((std::string)js_cur_ul_bwp["bwp-Id"]);
+
+      /* bwp-Common */
+      cur_ul_bwp.bwp_common_present = js_cur_ul_bwp.contains("bwp-Common");
+
+      /* bwp-Common -- genericParameters */
+      json js_cur_ul_bwp_common_generic = js_cur_ul_bwp["bwp-Common"]["genericParameters"];
+
+      cur_ul_bwp.bwp_common.generic_params.location_and_bw =
+          stoi((std::string)js_cur_ul_bwp_common_generic["locationAndBandwidth"]);
+      str_to_subcarrier_spacing_e str_to_subcarrier_spacing_e_converter;
+      cur_ul_bwp.bwp_common.generic_params.subcarrier_spacing =
+          str_to_subcarrier_spacing_e_converter[js_cur_ul_bwp_common_generic["subcarrierSpacing"].begin().key()];
+      printf("[hidden] trigger genericParameters\n");
+
+      /* bwp-Common -- rach-ConfigCommon */
+      cur_ul_bwp.bwp_common.rach_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("rach-ConfigCommon");
+      // skip rach-related config copy as it's not related to DCI computation
+      printf("[hidden] trigger rach-ConfigCommon\n");
+
+      /* bwp-Common -- pusch-ConfigCommon */
+      cur_ul_bwp.bwp_common.pusch_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("pusch-ConfigCommon");
+      if (cur_ul_bwp.bwp_common.pusch_cfg_common_present) {
+        json js_cur_ul_bwp_common_pusch_common = js_cur_ul_bwp["bwp-Common"]["pusch-ConfigCommon"];
+
+        /* bwp-Common -- pusch-ConfigCommon -- pusch-TimeDomainAllocationList */
+        json js_cur_ul_bwp_common_pusch_common_time_alloc_list =
+            js_cur_ul_bwp_common_pusch_common["pusch-TimeDomainAllocationList"]["PUSCH-TimeDomainResourceAllocation"];
+        for (auto& js_cur_ul_bwp_common_pusch_common_time_alloc_el :
+             js_cur_ul_bwp_common_pusch_common_time_alloc_list.items()) {
+          json js_cur_ul_bwp_common_pusch_common_time_alloc = js_cur_ul_bwp_common_pusch_common_time_alloc_el;
+          pusch_time_domain_res_alloc_s cur_ul_bwp_common_pusch_common_time_alloc;
+          cur_ul_bwp_common_pusch_common_time_alloc.k2_present = true;
+          cur_ul_bwp_common_pusch_common_time_alloc.k2 =
+              stoi((std::string)js_cur_ul_bwp_common_pusch_common_time_alloc["k2"]);
+          str_to_map_type_e_ str_to_map_type_e_converter;
+          cur_ul_bwp_common_pusch_common_time_alloc.map_type =
+              str_to_map_type_e_converter[js_cur_ul_bwp_common_pusch_common_time_alloc["mappingType"].begin().key()];
+          cur_ul_bwp_common_pusch_common_time_alloc.start_symbol_and_len =
+              stoi((std::string)js_cur_ul_bwp_common_pusch_common_time_alloc["startSymbolAndLength"]);
+
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().pusch_time_domain_alloc_list.push_back(
+              cur_ul_bwp_common_pusch_common_time_alloc);
+        }
+        printf("[hidden] trigger pusch-TimeDomainAllocationList\n");
+
+        cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().msg3_delta_preamb_present =
+            js_cur_ul_bwp_common_pusch_common.contains("msg3-DeltaPreamble");
+        if (cur_ul_bwp.bwp_common.pusch_cfg_common.setup().msg3_delta_preamb_present) {
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().msg3_delta_preamb =
+              stoi((std::string)js_cur_ul_bwp_common_pusch_common["msg3-DeltaPreamble"]);
+        }
+
+        cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().p0_nominal_with_grant_present =
+            js_cur_ul_bwp_common_pusch_common.contains("p0-NominalWithGrant");
+        if (cur_ul_bwp.bwp_common.pusch_cfg_common.setup().p0_nominal_with_grant_present) {
+          cur_ul_bwp.bwp_common.pusch_cfg_common.set_setup().p0_nominal_with_grant =
+              stoi((std::string)js_cur_ul_bwp_common_pusch_common["p0-NominalWithGrant"]);
+        }
+      }
+      printf("[hidden] trigger pusch-ConfigCommon\n");
+
+      /* bwp-Common -- pucch-ConfigCommon */
+      cur_ul_bwp.bwp_common.pucch_cfg_common_present = js_cur_ul_bwp["bwp-Common"].contains("pucch-ConfigCommon");
+      if (cur_ul_bwp.bwp_common.pucch_cfg_common_present) {
+        json js_cur_ul_bwp_common_pucch_common = js_cur_ul_bwp["bwp-Common"]["pucch-ConfigCommon"]["setup"];
+
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_res_common_present =
+            js_cur_ul_bwp_common_pucch_common.contains("pucch-ResourceCommon");
+        if (cur_ul_bwp.bwp_common.pucch_cfg_common.setup().pucch_res_common_present) {
+          cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_res_common =
+              stoi((std::string)js_cur_ul_bwp_common_pucch_common["pucch-ResourceCommon"]);
+        }
+
+        str_to_pucch_group_hop_e str_to_pucch_group_hop_e_converter;
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().pucch_group_hop =
+            str_to_pucch_group_hop_e_converter[js_cur_ul_bwp_common_pucch_common["pucch-GroupHopping"].begin().key()];
+
+        cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().p0_nominal_present =
+            js_cur_ul_bwp_common_pucch_common.contains("p0-nominal");
+
+        if (cur_ul_bwp.bwp_common.pucch_cfg_common.setup().p0_nominal_present) {
+          cur_ul_bwp.bwp_common.pucch_cfg_common.set_setup().p0_nominal =
+              stoi((std::string)js_cur_ul_bwp_common_pucch_common["p0-nominal"]);
+        }
+      }
+      printf("[hidden] trigger pucch-ConfigCommon\n");
+
+      /* bwp-Dedicated */
+      cur_ul_bwp.bwp_ded_present = js_cur_ul_bwp.contains("bwp-Dedicated");
+
+      /* bwp-Dedicated -- pucch-Config */
+      cur_ul_bwp.bwp_ded.pucch_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("pucch-Config");
+      if (cur_ul_bwp.bwp_ded.pucch_cfg_present) {
+        json js_cur_ul_bwp_ded_pucch = js_cur_ul_bwp["bwp-Dedicated"]["pucch-Config"];
+
+        /* resourceSetToAddModList */
+        for (auto& js_cur_ul_bwp_ded_pucch_res_set_el :
+             js_cur_ul_bwp_ded_pucch["resourceSetToAddModList"]["PUCCH-ResourceSet"].items()) {
+          json            js_cur_ul_bwp_ded_pucch_res_set = js_cur_ul_bwp_ded_pucch_res_set_el.value();
+          pucch_res_set_s cur_ul_bwp_ded_pucch_res_set;
+
+          cur_ul_bwp_ded_pucch_res_set.pucch_res_set_id =
+              stoi((std::string)js_cur_ul_bwp_ded_pucch_res_set["PUCCH-ResourceSetId"]);
+          for (auto& js_cur_ul_bwp_ded_pucch_res_set_res_el :
+               js_cur_ul_bwp_ded_pucch_res_set["resourceList"]["PUCCH-ResourceId"].items()) {
+            int js_cur_res_id = stoi((std::string)js_cur_ul_bwp_ded_pucch_res_set_res_el.value());
+            cur_ul_bwp_ded_pucch_res_set.res_list.push_back(js_cur_res_id);
+          }
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().res_set_to_add_mod_list.push_back(cur_ul_bwp_ded_pucch_res_set);
+        }
+        printf("[hidden] trigger bwp-Dedicated -- pucch-Config -- resourceSetToAddModList\n");
+
+        /* resourceToAddModList */
+        for (auto& js_cur_ul_bwp_ded_pucch_res_el :
+             js_cur_ul_bwp_ded_pucch["resourceToAddModList"]["PUCCH-Resource"].items()) {
+          json        js_cur_ul_bwp_ded_pucch_res = js_cur_ul_bwp_ded_pucch_res_el.value();
+          pucch_res_s cur_ul_bwp_ded_pucch_res;
+
+          cur_ul_bwp_ded_pucch_res.pucch_res_id = stoi((std::string)js_cur_ul_bwp_ded_pucch_res["pucch-ResourceId"]);
+          cur_ul_bwp_ded_pucch_res.start_prb    = stoi((std::string)js_cur_ul_bwp_ded_pucch_res["startingPRB"]);
+
+          cur_ul_bwp.bwp_ded.pucch_cfg.set_setup().res_to_add_mod_list.push_back(cur_ul_bwp_ded_pucch_res);
+        }
+        printf("[hidden] trigger bwp-Dedicated -- pucch-Config -- resourceToAddModList\n");
+      }
+      printf("[hidden] trigger bwp-Dedicated -- pucch-Config\n");
+
+      /* bwp-Dedicated -- pusch-Config */
+      cur_ul_bwp.bwp_ded.pusch_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("pusch-Config");
+      if (cur_ul_bwp.bwp_ded.pusch_cfg_present) {
+        json js_cur_ul_bwp_ded_pusch = js_cur_ul_bwp["bwp-Dedicated"]["pusch-Config"]["setup"];
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().data_scrambling_id_pusch_present =
+            js_cur_ul_bwp_ded_pusch.contains("dataScramblingIdentityPUSCH");
+
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().data_scrambling_id_pusch_present) {
+          cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().data_scrambling_id_pusch =
+              stoi((std::string)js_cur_ul_bwp_ded_pusch["dataScramblingIdentityPUSCH"]);
+        }
+
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().tx_cfg_present = js_cur_ul_bwp_ded_pusch.contains("txConfig");
+
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().tx_cfg_present) {
+          if (js_cur_ul_bwp_ded_pusch["txConfig"].contains("codebook")) {
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().tx_cfg = asn1::rrc_nr::pusch_cfg_s::tx_cfg_e_::codebook;
+          }
+
+          // For non_codebook and nulltype, will add here once encountered
+        }
+        printf("[hidden] trigger bwp-Dedicated -- pusch-Config -- txConfig\n");
+
+        /* resourceAllocation */
+        str_to_pusch_res_alloc_e str_to_pusch_res_alloc_e_converter;
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().res_alloc =
+            str_to_pusch_res_alloc_e_converter[js_cur_ul_bwp_ded_pusch["resourceAllocation"].begin().key()];
+        printf("[hidden] trigger bwp-Dedicated -- pusch-Config -- resourceAllocation\n");
+
+        /* pusch-TimeDomainAllocationList */
+        cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_time_domain_alloc_list_present =
+            js_cur_ul_bwp_ded_pusch.contains("pusch-TimeDomainAllocationList");
+        if (cur_ul_bwp.bwp_ded.pusch_cfg.setup().pusch_time_domain_alloc_list_present) {
+          for (auto& js_cur_ul_bwp_ded_pusch_time_alloc_el :
+               js_cur_ul_bwp_ded_pusch["pusch-TimeDomainAllocationList"]["setup"]["PUSCH-TimeDomainResourceAllocation"]
+                   .items()) {
+            json js_cur_ul_bwp_ded_pusch_time_alloc = js_cur_ul_bwp_ded_pusch_time_alloc_el.value();
+            pusch_time_domain_res_alloc_s cur_ul_bwp_ded_pusch_time_alloc;
+            cur_ul_bwp_ded_pusch_time_alloc.k2_present = js_cur_ul_bwp_ded_pusch_time_alloc.contains("K2");
+            if (cur_ul_bwp_ded_pusch_time_alloc.k2_present) {
+              cur_ul_bwp_ded_pusch_time_alloc.k2 = stoi((std::string)js_cur_ul_bwp_ded_pusch_time_alloc["k2"]);
+            }
+
+            str_to_map_type_e_ str_to_map_type_e_converter;
+            cur_ul_bwp_ded_pusch_time_alloc.map_type =
+                str_to_map_type_e_converter[js_cur_ul_bwp_ded_pusch_time_alloc["mappingType"].begin().key()];
+            cur_ul_bwp_ded_pusch_time_alloc.start_symbol_and_len =
+                stoi((std::string)js_cur_ul_bwp_ded_pusch_time_alloc["startSymbolAndLength"]);
+            cur_ul_bwp.bwp_ded.pusch_cfg.set_setup().pusch_time_domain_alloc_list.set_setup().push_back(
+                cur_ul_bwp_ded_pusch_time_alloc);
+          }
+        }
+        printf("[hidden] trigger bwp-Dedicated -- pusch-Config -- pusch-TimeDomainAllocationList\n");
+      }
+      printf("[hidden] trigger bwp-Dedicated -- pusch-Config\n");
+
+      /* bwp-Dedicated -- srs-Config */
+      cur_ul_bwp.bwp_ded.srs_cfg_present = js_cur_ul_bwp["bwp-Dedicated"].contains("srs-Config");
+      if (cur_ul_bwp.bwp_ded.srs_cfg_present) {
+        json js_cur_ul_bwp_ded_srs = js_cur_ul_bwp["bwp-Dedicated"]["srs-Config"];
+
+        cur_ul_bwp.bwp_ded.srs_cfg.set_setup().srs_res_set_to_add_mod_list;
+
+        /* Done processing this new ul bwp; store... */
+        ul_bwp_to_add_mod_list.push_back(cur_ul_bwp);
+      } /* uplinkBWP-ToAddModList End */
+    }
+    printf("[hidden] trigger uplinkBWP-ToAddModList done\n");
+
+    /**
+     *
+     * NON-INITIAL DL BWP(S) CONFIG EXTRACTION
+     *
+     */
+
+    // TO-DO: a lot of exists check needed before accessing fields
+    // assume only one bwp addeed; {} not []
+    if (js_in.contains("downlinkBWP-ToAddModList")) {
+      auto& dl_bwp_to_add_mod_list    = sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list;
+      json  js_dl_bwp_to_add_mod_list = js_in["downlinkBWP-ToAddModList"];
+      for (auto& js_cur_dl_bwp_el : js_dl_bwp_to_add_mod_list.items()) {
+        json     js_cur_dl_bwp = js_cur_dl_bwp_el.value();
+        bwp_dl_s cur_dl_bwp;
+        cur_dl_bwp.bwp_id = stoi((std::string)js_cur_dl_bwp["bwp-Id"]);
+        printf("[hidden] trigger BWP-Downlink bwp-Id\n");
+
+        /* bwp-Common */
+        cur_dl_bwp.bwp_common_present = js_cur_dl_bwp.contains("bwp-Common");
+
+        /* bwp-Common -- genericParameters */
+        json js_cur_dl_bwp_common_generic = js_cur_dl_bwp["bwp-Common"]["genericParameters"];
+        cur_dl_bwp.bwp_common.generic_params.location_and_bw =
+            stoi((std::string)js_cur_dl_bwp_common_generic["locationAndBandwidth"]);
+
+        str_to_subcarrier_spacing_e str_to_subcarrier_spacing_e_converter;
+        cur_dl_bwp.bwp_common.generic_params.subcarrier_spacing =
+            str_to_subcarrier_spacing_e_converter[js_cur_dl_bwp_common_generic["subcarrierSpacing"].begin().key()];
+
+        /* bwp-Common -- pdsch-ConfigCommon */
+        json js_cur_dl_bwp_common_pdsch_time_alloc_list =
+            js_cur_dl_bwp["bwp-Common"]["pdsch-ConfigCommon"]["setup"]["pdsch-TimeDomainAllocationList"];
+
+        for (auto& js_cur_dl_bwp_common_pdsch_time_alloc_el : js_cur_dl_bwp_common_pdsch_time_alloc_list.items()) {
+          json js_cur_dl_bwp_common_pdsch_time_alloc = js_cur_dl_bwp_common_pdsch_time_alloc_el.value();
+          pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+          cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_common_pdsch_time_alloc.contains("k0");
+          if (cur_pdsch_time_alloc.k0_present) {
+            cur_pdsch_time_alloc.k0 = stoi((std::string)js_cur_dl_bwp_common_pdsch_time_alloc["k0"]);
+          }
+
+          str_to_pdsch_map_type_e_ str_to_pdsch_map_type_e_converter;
+          cur_pdsch_time_alloc.map_type =
+              str_to_pdsch_map_type_e_converter[js_cur_dl_bwp_common_pdsch_time_alloc["mappingType"].begin().key()];
+          cur_pdsch_time_alloc.start_symbol_and_len =
+              stoi((std::string)js_cur_dl_bwp_common_pdsch_time_alloc["startSymbolAndLength"]);
+
+          cur_dl_bwp.bwp_common.pdsch_cfg_common.set_setup().pdsch_time_domain_alloc_list.push_back(
+              cur_pdsch_time_alloc);
+        }
+        printf("[hidden] trigger BWP-Downlink -- pdsch-ConfigCommon -- pdsch-TimeDomainAllocationList\n");
+
+        /* bwp-Common -- pdcch-ConfigCommon */
+        // does this matter? not for now?
+
+        /* bwp-Dedicated */
+        cur_dl_bwp.bwp_ded_present = js_cur_dl_bwp.contains("bwp-Dedicated");
+
+        /* bwp-Dedicated -- pdcch-Config */
+        json js_cur_dl_bwp_dedicated_pdcch = js_cur_dl_bwp["bwp-Dedicated"]["pdcch-Config"];
+
+        /* bwp-Dedicated -- pdcch-Config -- controlResourceSetToAddModList */
+        json js_cur_dl_bwp_dedicated_pdcch_coreset_list =
+            js_cur_dl_bwp_dedicated_pdcch["setup"]["controlResourceSetToAddModList"];
+
+        for (auto& js_cur_dl_bwp_dedicated_pdcch_coreset_el : js_cur_dl_bwp_dedicated_pdcch_coreset_list.items()) {
+          json           js_cur_dl_bwp_dedicated_pdcch_coreset = js_cur_dl_bwp_dedicated_pdcch_coreset_el.value();
+          ctrl_res_set_s cur_dl_bwp_dedicated_pdcch_coreset;
+
+          cur_dl_bwp_dedicated_pdcch_coreset.ctrl_res_set_id =
+              stoi((std::string)js_cur_dl_bwp_dedicated_pdcch_coreset["controlResourceSetId"]);
+
+          cur_dl_bwp_dedicated_pdcch_coreset.freq_domain_res.from_string(
+              js_cur_dl_bwp_dedicated_pdcch_coreset["frequencyDomainResources"]);
+
+          cur_dl_bwp_dedicated_pdcch_coreset.dur = stoi((std::string)js_cur_dl_bwp_dedicated_pdcch_coreset["duration"]);
+
+          if (js_cur_dl_bwp_dedicated_pdcch_coreset["cce-REG-MappingType"].contains("nonInterleaved")) {
+            cur_dl_bwp_dedicated_pdcch_coreset.cce_reg_map_type.set_non_interleaved();
+          } else {
+            printf("[hidden TODO] trigger BWP-Downlink -- bwp-Dedicated -- pdcch-Config -- "
+                   "controlResourceSetToAddModList -- ControlResourceSet -- cce-REG-MappingType: either unknown or "
+                   "interleaved type; please add such case\n");
+          }
+
+          cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present =
+              js_cur_dl_bwp_dedicated_pdcch_coreset.contains("pdcch-DMRS-ScramblingID");
+          if (cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id_present) {
+            cur_dl_bwp_dedicated_pdcch_coreset.pdcch_dmrs_scrambling_id =
+                stoi((std::string)js_cur_dl_bwp_dedicated_pdcch_coreset["pdcch-DMRS-ScramblingID"]);
+          }
+
+          // Ignore TCI-related setup now
+
+          cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().ctrl_res_set_to_add_mod_list.push_back(
+              cur_dl_bwp_dedicated_pdcch_coreset);
+        }
+        printf("[hidden] trigger BWP-Downlink -- bwp-Dedicated -- pdcch-Config -- controlResourceSetToAddModList\n");
+
+        /* bwp-Dedicated -- pdcch-Config -- searchSpacesToAddModList */
+        json js_cur_dl_bwp_dedicated_pdcch_searchspace_list = js_cur_dl_bwp_dedicated_pdcch["setup"]["searchSpacesToAddModList"];
+
+        for (auto& js_cur_dl_bwp_dedicated_pdcch_searchspace_el :
+             js_cur_dl_bwp_dedicated_pdcch_searchspace_list.items()) {
+          json js_cur_dl_bwp_dedicated_pdcch_searchspace = js_cur_dl_bwp_dedicated_pdcch_searchspace_el.value();
+          search_space_s cur_dl_bwp_dedicated_pdcch_searchspace;
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.search_space_id =
+              stoi((std::string)js_cur_dl_bwp_dedicated_pdcch_searchspace["searchSpaceId"]);
+          cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present =
+              js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("controlResourceSetId");
+          if (cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id_present) {
+            cur_dl_bwp_dedicated_pdcch_searchspace.ctrl_res_set_id =
+                stoi((std::string)js_cur_dl_bwp_dedicated_pdcch_searchspace["controlResourceSetId"]);
+          }
+
+          // Since we monitor every slot, looks like duration, monitoringSymbolsWithinSlot don't matter, so skip
+
+          /* nrofCandidates */
+          cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates_present =
+              js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates");
+          if (js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("nrofCandidates")) {
+            str_to_aggregation_level1_e str_to_aggregation_level1_e_converter;
+            str_to_aggregation_level2_e str_to_aggregation_level2_e_converter;
+            str_to_aggregation_level4_e str_to_aggregation_level4_e_converter;
+            str_to_aggregation_level8_e str_to_aggregation_level8_e_converter;
+            str_to_aggregation_level16_e str_to_aggregation_level16_e_converter;
+
+
+            cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level1 =
+                str_to_aggregation_level1_e_converter[
+                    js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel1"].begin().key()];
+
+            cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level2 =
+                str_to_aggregation_level2_e_converter[
+                    js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel2"].begin().key()];
+
+            cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level4 =
+                str_to_aggregation_level4_e_converter[
+                    js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel4"].begin().key()];
+
+            cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level8 =
+                str_to_aggregation_level8_e_converter[
+                    js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel8"].begin().key()];
+
+            cur_dl_bwp_dedicated_pdcch_searchspace.nrof_candidates.aggregation_level16 =
+                str_to_aggregation_level16_e_converter[
+                    js_cur_dl_bwp_dedicated_pdcch_searchspace["nrofCandidates"]["aggregationLevel16"].begin().key()];
+          }
+
+          cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present =
+              js_cur_dl_bwp_dedicated_pdcch_searchspace.contains("searchSpaceType");
+          if (cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type_present) {
+            // Assume only ue-specific is possible
+            cur_dl_bwp_dedicated_pdcch_searchspace.search_space_type.set_ue_specific();
+          }
+
+          cur_dl_bwp.bwp_ded.pdcch_cfg.set_setup().search_spaces_to_add_mod_list.push_back(
+              cur_dl_bwp_dedicated_pdcch_searchspace);
+        }
+
+        printf("[hidden] trigger BWP-Downlink -- bwp-Dedicated -- pdcch-Config -- searchSpacesToAddModList\n");
+
+        /* bwp-Dedicated -- pdsch-Config */
+        cur_dl_bwp.bwp_ded.pdsch_cfg_present = js_cur_dl_bwp["bwp-Dedicated"].contains("pdsch-Config");
+        json js_cur_dl_bwp_dedicated_pdsch   = js_cur_dl_bwp["bwp-Dedicated"]["pdsch-Config"]["setup"];
+
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch_present =
+            js_cur_dl_bwp_dedicated_pdsch.contains("dataScramblingIdentityPDSCH");
+
+        if (cur_dl_bwp.bwp_ded.pdsch_cfg.setup().data_scrambling_id_pdsch_present) {
+          cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().data_scrambling_id_pdsch =
+              stoi((std::string)js_cur_dl_bwp_dedicated_pdsch["dataScramblingIdentityPDSCH"]);
+        }
+
+        str_to_pdsch_res_alloc_e str_to_pdsch_res_alloc_e_converter;
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().res_alloc =
+            str_to_pdsch_res_alloc_e_converter[js_cur_dl_bwp_dedicated_pdsch["resourceAllocation"].begin().key()];
+
+        printf("[hidden] trigger BWP-Downlink -- bwp-Dedicated -- pdsch-Config -- resourceAllocation\n");
+
+        /* pdsch-TimeDomainAllocationList */
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list_present =
+            js_cur_dl_bwp_dedicated_pdsch.contains("pdsch-TimeDomainAllocationList");
+        json js_cur_dl_bwp_dedicated_pdsch_time_alloc_list =
+            js_cur_dl_bwp_dedicated_pdsch["pdsch-TimeDomainAllocationList"]["setup"];
+        for (auto& js_cur_dl_bwp_dedicated_pdsch_time_alloc_el :
+             js_cur_dl_bwp_dedicated_pdsch_time_alloc_list.items()) {
+          json js_cur_dl_bwp_dedicated_pdsch_time_alloc =
+              js_cur_dl_bwp_dedicated_pdsch_time_alloc_el.value();
+          pdsch_time_domain_res_alloc_s cur_pdsch_time_alloc;
+
+          cur_pdsch_time_alloc.k0_present = js_cur_dl_bwp_dedicated_pdsch_time_alloc.contains("k0");
+          if (cur_pdsch_time_alloc.k0_present) {
+            cur_pdsch_time_alloc.k0 = js_cur_dl_bwp_dedicated_pdsch_time_alloc["k0"];
+          }
+
+          str_to_pdsch_map_type_e_ str_to_pdsch_map_type_e_converter;
+          cur_pdsch_time_alloc.map_type = str_to_pdsch_map_type_e_converter[
+              js_cur_dl_bwp_dedicated_pdsch_time_alloc["mappingType"].begin().key()];
+          cur_pdsch_time_alloc.start_symbol_and_len = stoi((std::string)js_cur_dl_bwp_dedicated_pdsch_time_alloc["startSymbolAndLength"]);
+
+          cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().pdsch_time_domain_alloc_list.set_setup().push_back(
+              cur_pdsch_time_alloc);
+        }
+        printf("[hidden] trigger BWP-Downlink -- bwp-Dedicated -- pdsch-Config -- pdsch-TimeDomainAllocationList\n");
+
+        str_to_rbg_size_e str_to_rbg_size_e_converter;
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().rbg_size =
+            str_to_rbg_size_e_converter[js_cur_dl_bwp_dedicated_pdsch["rbg-Size"].begin().key()];
+
+        // Assume only static type now; seems no option for bundle size
+        cur_dl_bwp.bwp_ded.pdsch_cfg.set_setup().prb_bundling_type.set_static_bundling();
+
+        /* Done processing this new dl bwp; store... */
+        dl_bwp_to_add_mod_list.push_back(cur_dl_bwp);
+      }
+    } // done downlink bwp addmod list
+    printf("[hidden] trigger BWP-Downlink done\n");
+
+    return SRSASN_SUCCESS;
+  }
+}
+
 void cell_group_cfg_s::to_json(json_writer& j) const
 {
   j.start_obj();

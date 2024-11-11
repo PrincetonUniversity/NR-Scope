@@ -1,4 +1,7 @@
 #include "nrscope/hdr/dci_decoder.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 DCIDecoder::DCIDecoder(uint32_t max_nof_rntis){
 
@@ -76,52 +79,32 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
 
   // assume ul bwp n and dl bwp n should be activated and used at the same time 
   // (lso for sure for TDD)
-  if (bwp_id == 0 && 
+
+  /* ERROR CASE */
+  if (bwp_id > 3) {
+    ERROR("bwp id cannot be greater than 3!\n");
+    return SRSRAN_ERROR;
+  }
+  /* CASE 1: initial bwp and configured in RRCSetup */
+  else if (bwp_id == 0 && 
       master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
+    
+    /* DL */
     bwp_dl_ded_s_ptr = 
       &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
+    
+    /* UL */
     bwp_ul_ded_s_ptr = 
       &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
   }
-  else if (bwp_id <= 3 && 
+  /* CASE 2: non-initial bwp and configured in RRCSetup */
+  else if (0 < bwp_id && bwp_id <= 3 && 
     !master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
-    for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-        dl_bwp_to_add_mod_list.size(); i++) {
-      if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          dl_bwp_to_add_mod_list[i].bwp_id) {
-        if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded_present) {
-          bwp_dl_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-            dl_bwp_to_add_mod_list[i].bwp_ded);
-          break;
-        }
-        else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
-        }
-      }
-    }
 
-    if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
-      for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-          ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
-        if (bwp_id+1 == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-            ul_bwp_to_add_mod_list[i].bwp_id) {
-          if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.
-              ul_bwp_to_add_mod_list[i].bwp_ded_present) {
-            bwp_ul_ded_s_ptr = &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
-              ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
-            break;
-          }
-          else {
-            printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
-          }
-        }
-      }
-    }
-  }else if (bwp_id <= 3 && 
-    master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
+    /* DL */
     for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
         dl_bwp_to_add_mod_list.size(); i++) {
+
       if (bwp_id == master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
           dl_bwp_to_add_mod_list[i].bwp_id) {
         if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
@@ -130,12 +113,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
             dl_bwp_to_add_mod_list[i].bwp_ded);
           break;
         }
-        else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
-        }
       }
     }
 
+    /* UL */
     if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg_present) {
       for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
           ul_cfg.ul_bwp_to_add_mod_list.size(); i++) {
@@ -147,24 +128,36 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
               ul_cfg.ul_bwp_to_add_mod_list[i].bwp_ded);
             break;
           }
-          else {
-            printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
-          }
         }
       }
     }
-    
+  }
+  
+  /* HIDDEN BWP AUGMENT: config might been changed through encrypted RRCReconfiguration */
+  // check by PCI
+  if (state->cell_db.find(state->pci) != state->cell_db.end()) {
+    master_cell_group.from_json(json::parse(state->cell_db[state->pci]), state->ca_mode);
+    printf("[hidden] pci %u indexed successfully in cell db!\n", state->pci);
   }
   else {
-    ERROR("bwp id cannot be greater than 3!\n");
-    return SRSRAN_ERROR;
+    printf("[hidden] pci %u not found in cell db\n", state->pci);
   }
 
   if (bwp_dl_ded_s_ptr == NULL || bwp_ul_ded_s_ptr == NULL) {
-    ERROR("bwp id %d ul or dl config never appears in RRCSetup (what we assume "
-          "now only checking in RRCSetup). Currently please bring back nof_bwps"
-          " back to 1 in config.yaml as we are working on encrypted"
-          "RRCReconfiguration-based BWP config monitoring.\n", bwp_id);
+
+    /* EDGE CASE SKIP ERROR: if non-initial bwp is configured and you are bwp 0 (NW can skip configuring bwp 0) */
+
+    if (bwp_id != 0) {
+      ERROR("bwp id %d ul or dl config never appears in RRCSetup or our"
+        "collected RRCReconfiguration\n", bwp_id);
+    }
+
+    if (bwp_id == 0 && state->nof_bwps == 1) {
+      ERROR("bwp id 0 ul or dl config never appears in RRCSetup and you "
+      "set up nof_bwps to only 1. Surely there are other non-initial bwp(s). "
+      "The network skips configuring bwp 0. Please increase nof_bwps to monitor"
+      " other bwps.\n");
+    }
     return SRSRAN_ERROR;
   }
 

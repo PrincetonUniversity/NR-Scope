@@ -14,12 +14,16 @@
 #include <semaphore>
 #include <liquid/liquid.h>
 #include <chrono>
+#include <map>
+#include <string>
 
 #define RESAMPLE_WORKER_NUM 8
 // For cell scan
 #define CS_RESAMPLE_WORKER_NUM 4
 
 #define TARGET_STOPBAND_SUPPRESSION_DB 60.0f;
+
+using namespace std;
 
 class Radio{
   public:
@@ -67,6 +71,10 @@ class Radio{
     uint32_t nof_rnti_worker_groups;
     uint8_t nof_bwps;
     uint32_t nof_workers;
+
+    map<int, string> cell_db;
+    bool ca_mode; // carrier aggregation mode
+    uint32_t input_crnti; // for ca, from config
 
     NRScopeTask::TaskSchedulerNRScope task_scheduler_nrscope;
 

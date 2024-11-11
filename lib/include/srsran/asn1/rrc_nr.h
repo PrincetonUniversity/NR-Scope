@@ -31,7 +31,11 @@
 #include "asn1_utils.h"
 #include <cstdio>
 #include <stdarg.h>
+#include <nlohmann/json.hpp>
+#include <map>
+#include <string>
 
+using json = nlohmann::json;
 namespace asn1 {
 namespace rrc_nr {
 
@@ -586,6 +590,16 @@ struct pdsch_time_domain_res_alloc_s {
   void        to_json(json_writer& j) const;
 };
 
+struct str_to_pdsch_map_type_e_ : public std::map<std::string, asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_>
+{
+    str_to_pdsch_map_type_e_()
+    {
+        this->operator[]("typeA") = asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_::type_a;
+        this->operator[]("typeB") = asn1::rrc_nr::pdsch_time_domain_res_alloc_s::map_type_e_::type_b;
+    };
+    ~str_to_pdsch_map_type_e_(){}
+};
+
 // PUSCH-TimeDomainResourceAllocation ::= SEQUENCE
 struct pusch_time_domain_res_alloc_s {
   struct map_type_opts {
@@ -605,6 +619,16 @@ struct pusch_time_domain_res_alloc_s {
   SRSASN_CODE pack(bit_ref& bref) const;
   SRSASN_CODE unpack(cbit_ref& bref);
   void        to_json(json_writer& j) const;
+};
+
+struct str_to_map_type_e_ : public std::map<std::string, asn1::rrc_nr::pusch_time_domain_res_alloc_s::map_type_e_>
+{
+    str_to_map_type_e_()
+    {
+        this->operator[]("typeA") = asn1::rrc_nr::pusch_time_domain_res_alloc_s::map_type_e_::type_a;
+        this->operator[]("typeB") = asn1::rrc_nr::pusch_time_domain_res_alloc_s::map_type_e_::type_b;
+    };
+    ~str_to_map_type_e_(){}
 };
 
 // CellReselectionSubPriority ::= ENUMERATED
@@ -1432,6 +1456,91 @@ struct search_space_s {
   void        to_json(json_writer& j) const;
 };
 
+// level 1
+struct str_to_aggregation_level1_e : public std::map<std::string, asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_>
+{
+    str_to_aggregation_level1_e()
+    {
+        this->operator[]("n0") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n0;
+        this->operator[]("n1") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n1;
+        this->operator[]("n2") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n2;
+        this->operator[]("n3") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n3;
+        this->operator[]("n4") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n4;
+        this->operator[]("n5") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n5;
+        this->operator[]("n6") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n6;
+        this->operator[]("n8") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level1_e_::n8;
+    };
+    ~str_to_aggregation_level1_e(){}
+};
+
+// level 2
+struct str_to_aggregation_level2_e : public std::map<std::string, asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_>
+{
+    str_to_aggregation_level2_e()
+    {
+        this->operator[]("n0") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n0;
+        this->operator[]("n1") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n1;
+        this->operator[]("n2") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n2;
+        this->operator[]("n3") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n3;
+        this->operator[]("n4") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n4;
+        this->operator[]("n5") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n5;
+        this->operator[]("n6") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n6;
+        this->operator[]("n8") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level2_e_::n8;
+    };
+    ~str_to_aggregation_level2_e(){}
+};
+
+// level 4
+struct str_to_aggregation_level4_e : public std::map<std::string, asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_>
+{
+    str_to_aggregation_level4_e()
+    {
+        this->operator[]("n0") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n0;
+        this->operator[]("n1") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n1;
+        this->operator[]("n2") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n2;
+        this->operator[]("n3") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n3;
+        this->operator[]("n4") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n4;
+        this->operator[]("n5") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n5;
+        this->operator[]("n6") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n6;
+        this->operator[]("n8") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level4_e_::n8;
+    };
+    ~str_to_aggregation_level4_e(){}
+};
+
+// level 8
+struct str_to_aggregation_level8_e : public std::map<std::string, asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_>
+{
+    str_to_aggregation_level8_e()
+    {
+        this->operator[]("n0") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n0;
+        this->operator[]("n1") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n1;
+        this->operator[]("n2") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n2;
+        this->operator[]("n3") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n3;
+        this->operator[]("n4") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n4;
+        this->operator[]("n5") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n5;
+        this->operator[]("n6") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n6;
+        this->operator[]("n8") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level8_e_::n8;
+    };
+    ~str_to_aggregation_level8_e(){}
+};
+
+// level 16
+struct str_to_aggregation_level16_e : public std::map<std::string, asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_>
+{
+    str_to_aggregation_level16_e()
+    {
+        this->operator[]("n0") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n0;
+        this->operator[]("n1") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n1;
+        this->operator[]("n2") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n2;
+        this->operator[]("n3") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n3;
+        this->operator[]("n4") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n4;
+        this->operator[]("n5") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n5;
+        this->operator[]("n6") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n6;
+        this->operator[]("n8") = asn1::rrc_nr::search_space_s::nrof_candidates_s_::aggregation_level16_e_::n8;
+    };
+    ~str_to_aggregation_level16_e(){}
+};
+
 // SpeedStateScaleFactors ::= SEQUENCE
 struct speed_state_scale_factors_s {
   struct sf_medium_opts {
@@ -1472,6 +1581,17 @@ struct subcarrier_spacing_opts {
   uint8_t     to_number() const;
 };
 typedef enumerated<subcarrier_spacing_opts> subcarrier_spacing_e;
+
+struct str_to_subcarrier_spacing_e : public std::map<std::string, subcarrier_spacing_e>
+{
+    str_to_subcarrier_spacing_e()
+    {
+        this->operator[]("kHz15") = subcarrier_spacing_e::khz15;
+        this->operator[]("kHz30") = subcarrier_spacing_e::khz30;
+        this->operator[]("kHz60") = subcarrier_spacing_e::khz60;
+    };
+    ~str_to_subcarrier_spacing_e(){}
+};
 
 // ThresholdNR ::= SEQUENCE
 struct thres_nr_s {
@@ -1852,6 +1972,16 @@ struct pucch_cfg_common_s {
   SRSASN_CODE pack(bit_ref& bref) const;
   SRSASN_CODE unpack(cbit_ref& bref);
   void        to_json(json_writer& j) const;
+};
+
+struct str_to_pucch_group_hop_e : public std::map<std::string, asn1::rrc_nr::pucch_cfg_common_s::pucch_group_hop_e_>
+{
+    str_to_pucch_group_hop_e()
+    {
+        this->operator[]("enable") = asn1::rrc_nr::pucch_cfg_common_s::pucch_group_hop_e_::enable;
+        this->operator[]("disable") = asn1::rrc_nr::pucch_cfg_common_s::pucch_group_hop_e_::disable;
+    };
+    ~str_to_pucch_group_hop_e(){}
 };
 
 // PUSCH-ConfigCommon ::= SEQUENCE
@@ -11646,6 +11776,26 @@ struct pdsch_cfg_s {
   void        to_json(json_writer& j) const;
 };
 
+struct str_to_pdsch_res_alloc_e : public std::map<std::string, asn1::rrc_nr::pdsch_cfg_s::res_alloc_e_>
+{
+    str_to_pdsch_res_alloc_e()
+    {
+        this->operator[]("resourceAllocationType0") = asn1::rrc_nr::pdsch_cfg_s::res_alloc_e_::res_alloc_type0;
+        this->operator[]("resourceAllocationType1") = asn1::rrc_nr::pdsch_cfg_s::res_alloc_e_::res_alloc_type1;
+    };
+    ~str_to_pdsch_res_alloc_e(){}
+};
+
+struct str_to_rbg_size_e : public std::map<std::string, asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_>
+{
+    str_to_rbg_size_e()
+    {
+        this->operator[]("config1") = asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_::cfg1;
+        this->operator[]("config2") = asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_::cfg2;
+    };
+    ~str_to_rbg_size_e(){}
+};
+
 // RadioLinkMonitoringConfig ::= SEQUENCE
 struct radio_link_monitoring_cfg_s {
   using fail_detection_res_to_add_mod_list_l_ = dyn_array<radio_link_monitoring_rs_s>;
@@ -13903,6 +14053,16 @@ struct pusch_cfg_s {
   SRSASN_CODE pack(bit_ref& bref) const;
   SRSASN_CODE unpack(cbit_ref& bref);
   void        to_json(json_writer& j) const;
+};
+
+struct str_to_pusch_res_alloc_e : public std::map<std::string, asn1::rrc_nr::pusch_cfg_s::res_alloc_e_>
+{
+    str_to_pusch_res_alloc_e()
+    {
+        this->operator[]("resourceAllocationType0") = asn1::rrc_nr::pusch_cfg_s::res_alloc_e_::res_alloc_type0;
+        this->operator[]("resourceAllocationType1") = asn1::rrc_nr::pusch_cfg_s::res_alloc_e_::res_alloc_type1;
+    };
+    ~str_to_pusch_res_alloc_e(){}
 };
 
 // SRS-Config ::= SEQUENCE
@@ -20337,6 +20497,7 @@ struct cell_group_cfg_s {
   SRSASN_CODE pack(bit_ref& bref) const;
   SRSASN_CODE unpack(cbit_ref& bref);
   void        to_json(json_writer& j) const;
+  SRSASN_CODE from_json(json js_in, bool scell);
 };
 
 // EUTRA-ParametersCommon ::= SEQUENCE

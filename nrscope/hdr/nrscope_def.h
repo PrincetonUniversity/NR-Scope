@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <complex>
 #include <sys/time.h>
+#include <map>
 
 #include "srsran/common/band_helper.h"
 #include "srsran/common/band_helper.h"
@@ -51,6 +52,8 @@
 
 #define NR_FAILURE -1
 #define NR_SUCCESS 0
+
+using namespace std;
 
 struct cell_searcher_args_t {
   // Generic parameters
@@ -172,6 +175,10 @@ typedef struct WorkState_ WorkState;
     uint32_t nof_rnti_worker_groups;
     uint8_t nof_bwps;
     bool cpu_affinity;
+
+    map<int, string> cell_db;
+    uint32_t pci;
+    bool ca_mode;
 
     uint32_t slot_sz;
 

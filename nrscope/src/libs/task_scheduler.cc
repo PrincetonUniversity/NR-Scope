@@ -1,4 +1,10 @@
+#include <string>
+#include <map>
+
 #include "nrscope/hdr/task_scheduler.h"
+
+using namespace std;
+
 
 namespace NRScopeTask{
 
@@ -27,7 +33,10 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
                                        uint8_t nof_bwps,
                                        bool cpu_affinity,
                                        cell_searcher_args_t args_t,
-                                       uint32_t nof_workers_){
+                                       uint32_t nof_workers_,
+                                       map<int, string> cell_db_,
+                                       bool ca_mode_,
+                                       uint16_t input_crnti_){
   local_log = local_log_;
   to_google = to_google_;
   rf_index = rf_index_;
@@ -39,6 +48,13 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
     SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
   task_scheduler_state.cpu_affinity = cpu_affinity;
   nof_workers = nof_workers_;
+  task_scheduler_state.cell_db = cell_db_;
+  task_scheduler_state.ca_mode = ca_mode_;
+    if (task_scheduler_state.ca_mode) {
+    task_scheduler_state.nof_known_rntis += 1;
+    task_scheduler_state.known_rntis.push_back(input_crnti_);
+  }
+  
   std::cout << "Starting workers..." << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
     NRScopeWorker *worker = new NRScopeWorker();
@@ -70,6 +86,8 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
     ERROR("Error decoding MIB");
     return SRSRAN_ERROR;
   }
+
+  task_scheduler_state.pci = cs_ret_->ssb_res.N_id;
 
   char str[1024] = {};
   srsran_pbch_msg_nr_mib_info(&task_scheduler_state.cell.mib, str, 1024);
