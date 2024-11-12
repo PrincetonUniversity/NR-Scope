@@ -165,6 +165,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
 
 int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
   task_scheduler_lock.lock();
+  double now = get_now_timestamp_in_double();
   /* This slot contains SIBs decoder's result */
   if (now_result.sib_result) {
     if (now_result.found_sib1 && !task_scheduler_state.sib1_found) {
@@ -224,6 +225,8 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
           task_scheduler_state.known_rntis.push_back(
             now_result.new_rntis_found[i]);
+          task_scheduler_state.last_seen.push_back(
+            now);
         }
         task_scheduler_state.rach_found = true;
       } else {
@@ -242,6 +245,8 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             task_scheduler_state.nof_known_rntis += 1;
             task_scheduler_state.known_rntis.push_back(
               now_result.new_rntis_found[i]);
+            task_scheduler_state.last_seen.push_back(
+              now);
           }
         }
       }
@@ -270,6 +275,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
               srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
             log_node.dl_dci = result.dl_dcis[i];
             log_node.bwp_id = result.dl_dcis[i].bwp_id;
+            task_scheduler_state.last_seen[i] = now;
             if(local_log){
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -289,6 +295,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
               srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
             log_node.ul_dci = result.ul_dcis[i];
             log_node.bwp_id = result.ul_dcis[i].bwp_id;
+            task_scheduler_state.last_seen[i] = now;
             if(local_log){
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -300,6 +307,28 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
       }
     }
   }
+
+  /* Check the last seen time for each UE in the list*/
+  std::vector<double>::iterator last_seen_iter = 
+    task_scheduler_state.last_seen.begin();
+  std::vector<uint16_t>::iterator ue_list_iter = 
+    task_scheduler_state.known_rntis.begin();
+
+  while(last_seen_iter != task_scheduler_state.last_seen.end() &&
+    ue_list_iter != task_scheduler_state.known_rntis.end()) {
+      if(now - *last_seen_iter > 5) {
+        // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
+        //   << std::endl;
+        last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
+        ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
+        --task_scheduler_state.nof_known_rntis;
+      }
+      else {
+        ++last_seen_iter;
+        ++ue_list_iter;
+      }
+  }
+
   return SRSRAN_SUCCESS;
 }
 

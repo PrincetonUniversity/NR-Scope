@@ -204,6 +204,9 @@ typedef struct WorkState_ WorkState;
 
     uint32_t nof_known_rntis;
     std::vector<uint16_t> known_rntis;
+    /* The time that the UE is last seen by us, if it's too long (5 second), 
+    we delete the UE from the list. */
+    std::vector<double> last_seen; 
   };
 
 typedef struct SlotResult_ SlotResult;

@@ -1,11 +1,9 @@
 NR-Scope
 ========
 
-NR-Scope is a telemetry tool that decodes the DCI, SIBs and RACH information from a 5G SA base station and it's published in CoNEXT 2024, please check our [paper](https://doi.org/10.1145/3680121.3697808)! And please cite our paper if you use this tool!
+**NR-Scope** is a 5G wireless network telemetry tool for 5G Standalone network measurement and performance optimization.  NR-Scope decodes DCI, SIB and RACH information from a 5G Standalone (New Radio) base station.  It is distinct from [NG-Scope](https://github.com/PrincetonUniversity/NG-Scope), our prior 4G cellular network telemetry tool.
 
-We welcome contributions.  If you use NR-Scope and would like to contribute improvements, modifications, bug fixes, and the like, please initiate a pull request and one of our team will review your contribution.
-
-NR-Scope is an open source product of NSF Award CNS-2223556 (IMR: MT).  Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
+NR-Scope is [published](https://doi.org/10.1145/3680121.3697808) in ACM CoNEXT 2024: if you use this tool, we ask that you cite our paper and reach out to the developers at the email address `ng-scope-dev` *at* `lists.cs.princeton.edu`
 
 ```
 @inproceedings{wan_nrscope_2024,
@@ -24,6 +22,11 @@ NR-Scope is an open source product of NSF Award CNS-2223556 (IMR: MT).  Any opin
   series = {CoNEXT 2024}
 }
 ```
+
+We welcome contributions.  If you use NR-Scope and would like to contribute improvements, modifications, bug fixes, and the like, please initiate a pull request on this repository and one of our team will review your contribution.
+
+NR-Scope and NG-Scope are open source products of NSF Award CNS-2223556 (IMR: MT).  Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
+
 
 # Features
 
