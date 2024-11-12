@@ -47,6 +47,8 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     data = get_data(DATA_FILENAME, BUFFER_LEN)
     if verbose:
         print(data)
+    while(data[file_cur].split(',')[0] == 'timestamp'):
+        file_cur = file_cur + 1
     first_time = float(data[file_cur].split(',')[0])
     # print(file_cur, first_time)
     mcs_data = [[] for ue_i in range(len(ue_list))]
