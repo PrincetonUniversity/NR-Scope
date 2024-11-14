@@ -27,7 +27,7 @@ SLOT_TIME = 0.5
 DL_TOTAL = 0.8
 PRB_NUM = INTERVAL / SLOT_TIME * DL_TOTAL * 51 * 12
 
-FONT_SIZE = 23
+FONT_SIZE = 25
 
 file_cur = 1
 first_time = 0
@@ -38,11 +38,11 @@ fig = plt.figure(0, figsize=(16,9))
 plt.rcParams["font.size"] = FONT_SIZE
 ax1 = fig.add_subplot(7, 1, 1)
 ax1.set_xticklabels([])
-ax1.set_ylabel("DL\n (Mbit/s)")
+ax1.set_ylabel("DL Tput\n (Mbit/s)")
 
 ax2 = fig.add_subplot(7, 1, 2)
 ax2.set_xticklabels([])
-ax2.set_ylabel("UL\n (Mbit/s)")
+ax2.set_ylabel("UL Tput\n (Mbit/s)")
 
 ax3 = fig.add_subplot(7, 1, 3)
 ax3.set_xticklabels([])
@@ -228,29 +228,32 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     ax1.clear()
     ax1.set_xticklabels([])
     ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-    ax1.set_ylabel("DL\n (Mbit/s)")
+    ax1.set_ylabel("DL Tput\n (Mbit/s)")
+    ax1.get_yaxis().set_label_coords(-0.05,0.5)
 
     # ax1.set_ylim([0, 1])
     for ue_i in range(ue_id):
         ax1.plot(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], ys[0][ue_i], 
-                label="UE {}".format(ue_i))
-    ax1.legend(prop={'size': 15})
+                label="UE {}".format(ue_i), linewidth=2.5)
+    ax1.legend(loc='upper left', bbox_to_anchor=(1.02, 0.75), prop={'size': 15})
 
     ax2.clear()
     ax2.set_xticklabels([])
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-    ax2.set_ylabel("UL\n (Mbit/s)")
+    ax2.set_ylabel("UL Tput\n (Mbit/s)")
+    ax2.get_yaxis().set_label_coords(-0.05,0.5)
     # ax1.set_ylim([0, 1])
     for ue_i in range(ue_id):
         ax2.plot(xs[1][(len(xs[1]) - len(ys[1][ue_i])):], ys[1][ue_i], 
-                label="UE {}".format(ue_i))
-    ax2.legend(prop={'size': 15})
+                label="UE {}".format(ue_i), linewidth=2.5)
+    # ax2.legend(prop={'size': 15})
 
     ax3.clear()
     ax3.set_xticklabels([])
     ax3.set_ylabel("PRB (%)")
     ax3.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax3.set_ylim([0, 100])
+    ax3.get_yaxis().set_label_coords(-0.05,0.5)
     ax3.bar(xs[2][(len(xs[2]) - len(ys[2][0])):], ys[2][0], label="UE {}".format(0))
     # for ue_i in range(1, ue_id):
     #     ax.bar(xs[(len(xs) - len(ys[ue_i])):], ys[ue_i], 
@@ -261,21 +264,23 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         ax3.bar(xs[2][(len(xs[2]) - len(ys[2][ue_i])):], ys[2][ue_i], 
                bottom=ys[2][ue_i-1][(len(ys[2][ue_i-1]) - len(ys[2][ue_i])):], 
                label="UE {}".format(ue_i))
-    ax3.legend(prop={'size': 15})
+    # ax3.legend(prop={'size': 15})
 
     ax4.clear()
     ax4.set_xticklabels([])
     ax4.set_ylabel("MCS")
+    ax4.get_yaxis().set_label_coords(-0.05,0.5)
     ax4.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     # ax.set_ylim([0, 1])
     for ue_i in range(ue_id):
         ax4.plot(xs[3][(len(xs[3]) - len(ys[3][ue_i])):], ys[3][ue_i], 
-                label="UE {}".format(ue_i))
-    ax4.legend(prop={'size': 15})
+                label="UE {}".format(ue_i), linewidth=2.5)
+    # ax4.legend(prop={'size': 15})
 
     ax5.clear()
     ax5.set_xticklabels([])
     ax5.set_ylabel("ReTXs")
+    ax5.get_yaxis().set_label_coords(-0.05,0.5)
     ax5.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     xs4 = xs[4][-limit:]
     ys4 = ys[4][-limit:]
@@ -286,27 +291,29 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                label="UE {}".format(ue_i))
         # ax4.plot(xs[4][(len(xs[4]) - len(ys[4][ue_i])):], ys[4][ue_i], 
         #         label="UE {}".format(ue_i))
-    ax5.legend(prop={'size': 15})
+    # ax5.legend(prop={'size': 15})
 
     ax6.clear()
     ax6.set_xticklabels([])
     ax6.set_ylabel("TPC")
+    ax6.get_yaxis().set_label_coords(-0.05,0.5)
     ax6.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     # ax.set_ylim([0, 1])
     for ue_i in range(ue_id):
         ax6.plot(xs[5][(len(xs[5]) - len(ys[5][ue_i])):], ys[5][ue_i], 
-                label="UE {}".format(ue_i))
-    ax6.legend(prop={'size': 15})
+                label="UE {}".format(ue_i), linewidth=2.5)
+    # ax6.legend(prop={'size': 15})
 
     ax7.clear()
     ax7.set_xlabel("Time (s)")
     ax7.set_ylabel("MIMO\n Layers")
+    ax7.get_yaxis().set_label_coords(-0.05,0.5)
     ax7.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     # ax.set_ylim([0, 1])
     for ue_i in range(ue_id):
         ax7.plot(xs[6][(len(xs[6]) - len(ys[6][ue_i])):], ys[6][ue_i], 
-                label="UE {}".format(ue_i))
-    ax7.legend(prop={'size': 15})
+                label="UE {}".format(ue_i), linewidth=2.5)
+    # ax7.legend(prop={'size': 15})
     
 # save video (only to attach here) 
 #anim = mpl.animation.FuncAnimation(fig, animate, fargs=([time.time()], [None]), interval=1, frames=3 * PLOT_LIMIT, repeat=False)
