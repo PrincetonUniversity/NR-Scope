@@ -36,38 +36,34 @@ ue_id = 0
 
 fig = plt.figure(0, figsize=(16,9))
 plt.rcParams["font.size"] = FONT_SIZE
-ax1 = fig.add_subplot(7, 2, 1)
+ax1 = fig.add_subplot(7, 1, 1)
 ax1.set_xticklabels([])
 ax1.set_ylabel("DL\n (Mbit/s)")
 
-ax2 = fig.add_subplot(7, 2, 3)
+ax2 = fig.add_subplot(7, 1, 2)
 ax2.set_xticklabels([])
 ax2.set_ylabel("UL\n (Mbit/s)")
 
-ax3 = fig.add_subplot(7, 2, 5)
+ax3 = fig.add_subplot(7, 1, 3)
 ax3.set_xticklabels([])
 ax3.set_ylabel("PRB (%)")
 
-ax4 = fig.add_subplot(7, 2, 7)
+ax4 = fig.add_subplot(7, 1, 4)
 ax4.set_xticklabels([])
 ax4.set_ylabel("MCS")
 
-ax5 = fig.add_subplot(7, 2, 9)
+ax5 = fig.add_subplot(7, 1, 5)
 ax5.set_xticklabels([])
 ax5.set_ylabel("ReTXs")
 
-ax6 = fig.add_subplot(7, 2, 11)
+ax6 = fig.add_subplot(7, 1, 6)
 ax6.set_xticklabels([])
 ax6.set_ylabel("TPC")
 
-ax7 = fig.add_subplot(7, 2, 13)
+ax7 = fig.add_subplot(7, 1, 7)
 ax7.set_xticklabels([])
 ax7.set_ylabel("MIMO\nLayers")
 
-# Cell info and UE tracker
-ax8 = fig.add_subplot(1, 2, 2)
-ax8.set_xticklabels([])
-ax8.set_yticklabels([])
 
 ndi_data = [[[] for harq_id in range(16)] for ue_i in range(len(ue_list))]
 

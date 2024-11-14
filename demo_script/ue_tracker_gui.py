@@ -30,20 +30,20 @@ class AsyncioThread(threading.Thread):
         # print("done123!")
 
         # simulate to-be-removed
-        # lines_to_fetch = 20
+        lines_to_fetch = 20
         while True:
             print("new round of CSV reading")
-            with open("a.csv", newline='') as csvfile:
+            with open("/home/wanhr/Documents/codes/cpp/NG-Scope-5G/build/nrscope/src/a.csv", newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 fetched_l_count = 0
                 for row in reader:
                     if row['rnti'].isnumeric():
                         self.the_queue.put(int(row['rnti']))
-                        # fetched_l_count += 1
-                        # if fetched_l_count >= lines_to_fetch:
-                        #     break
+                        fetched_l_count += 1
+                        if fetched_l_count >= lines_to_fetch:
+                            break
             
-            # lines_to_fetch += 20
+            lines_to_fetch += 20
             time.sleep(0.3)
 
 
