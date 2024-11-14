@@ -27,7 +27,7 @@ SLOT_TIME = 0.5
 DL_TOTAL = 0.8
 PRB_NUM = INTERVAL / SLOT_TIME * DL_TOTAL * 51 * 12
 
-FONT_SIZE = 25
+FONT_SIZE = 28
 
 file_cur = 1
 first_time = 0
@@ -35,7 +35,11 @@ ue_list = dict()
 ue_id = 0
 
 fig = plt.figure(0, figsize=(16,9))
+# plt.rcParams["text.usetex"] = True
+# plt.rcParams["font.weight"] = "light"
 plt.rcParams["font.size"] = FONT_SIZE
+# plt.rcParams["font.family"] = "Times"
+
 ax1 = fig.add_subplot(7, 1, 1)
 ax1.set_xticklabels([])
 ax1.set_ylabel("DL Tput\n (Mbit/s)")
@@ -235,7 +239,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     for ue_i in range(ue_id):
         ax1.plot(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], ys[0][ue_i], 
                 label="UE {}".format(ue_i), linewidth=2.5)
-    ax1.legend(loc='upper left', bbox_to_anchor=(1.02, 0.75), prop={'size': 15})
+    ax1.legend(loc='upper left', bbox_to_anchor=(1.02, 0.75), prop={'size': 23})
 
     ax2.clear()
     ax2.set_xticklabels([])
