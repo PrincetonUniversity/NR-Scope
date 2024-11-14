@@ -245,6 +245,10 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
     asn1::json_writer js_sib1;
     (result->sib1).to_json(js_sib1);
     printf("Decoded SIB1: %s\n", js_sib1.to_string().c_str());
+
+    uint16_t initial_dl_bwp_lbw = result->sib1.serving_cell_cfg_common.dl_cfg_common.init_dl_bwp.generic_params.location_and_bw;
+    uint16_t initial_ul_bwp_lbw = result->sib1.serving_cell_cfg_common.ul_cfg_common.init_ul_bwp.generic_params.location_and_bw;
+    printf("[mobicom demo] initial_dl_bwp_lbw and initial_ul_bwp_lbw: %u; %u\n", initial_dl_bwp_lbw, initial_ul_bwp_lbw);
   }
 
   srsran_softbuffer_rx_free(&softbuffer);

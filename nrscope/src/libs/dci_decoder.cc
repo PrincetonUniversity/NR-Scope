@@ -82,6 +82,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
       &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp);
     bwp_ul_ded_s_ptr = 
       &(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.init_ul_bwp);
+    
+    printf("[mobicom_demo] bwp0 used\n");
   }
   else if (bwp_id <= 3 && 
     !master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
@@ -118,6 +120,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
         }
       }
     }
+    printf("[mobicom_demo] bwp1 used\n");
+    uint16_t dl_bwp_lbw = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list.begin()->bwp_common.generic_params.location_and_bw;
+    uint16_t ul_bwp_lbw = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list.begin()->bwp_common.generic_params.location_and_bw;
+    printf("[mobicom_demo] bwp dl ul lbw: %u; %u\n", dl_bwp_lbw, ul_bwp_lbw);
   }else if (bwp_id <= 3 && 
     master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.init_dl_bwp_present) {
     for (uint8_t i = 0; i < master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
@@ -153,7 +159,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
         }
       }
     }
-    
+    printf("[mobicom_demo] bwp1 used\n");
+    uint16_t dl_bwp_lbw = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.dl_bwp_to_add_mod_list.begin()->bwp_common.generic_params.location_and_bw;
+    uint16_t ul_bwp_lbw = master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.ul_cfg.ul_bwp_to_add_mod_list.begin()->bwp_common.generic_params.location_and_bw;
+    printf("[mobicom_demo] bwp dl ul lbw: %u; %u\n", dl_bwp_lbw, ul_bwp_lbw);
   }
   else {
     ERROR("bwp id cannot be greater than 3!\n");
