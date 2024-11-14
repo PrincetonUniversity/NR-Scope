@@ -5,6 +5,7 @@ import threading
 import random
 import queue
 import csv
+import re
 
 
 # crnti => (last-seen timestamp, label, frame, occupied, color_index)
@@ -88,39 +89,99 @@ shared_queue = queue.Queue()
 
 window = tk.Tk()
 
+def decode_riv(riv, scs, point_a):
+    bwp_size = 275
+    tmp_rb_len = riv // bwp_size
+    tmp = riv // bwp_size + riv % bwp_size
+    rb_len = None
+    rb_start = None
+    if tmp < bwp_size:
+        rb_len = tmp_rb_len + 1
+        rb_start = riv % bwp_size
+    else:
+        rb_len = bwp_size - tmp_rb_len + 1
+        rb_start = bwp_size - 1 - (riv % bwp_size)
+    
+    start = point_a + (rb_start * 12 * int(re.findall(r'\d+', scs)[0]) / 1000)
+    len = rb_len * 12 * int(re.findall(r'\d+', scs)[0]) / 1000
+    return (start, len)
+
+
 def search_meta_info(label):
     ssb_freq = None
     scs = None
     duplix = None
     pci = None
-    with open('stdout.txt', 'r') as file:
+    band = None
+    carrier_bw = None
+    pointA = None
+    bwp_used = None
+    bwp0_dl_lbw = None
+    bwp0_ul_lbw = None
+    bwp1_dl_lbw = None
+    bwp1_ul_lbw = None
+    with open('stdout_moso.txt', 'r') as file:
         for line in file:
             if "c-freq=" in line:
                 tokens = line.split(" ")
                 for token in tokens:
                     if "c-freq=" in token:
-                        ssb_freq = token.split("=")[1].replace(";", "")
+                        ssb_freq = token.split("=")[1].replace(";", "").replace("\n", "")
                         print("ssb_freq")
 
                     if "scs=" in token:
-                        scs = token.split("=")[1].replace(";", "")
+                        scs = token.split("=")[1].replace(";", "").replace("\n", "")
                         print("scs")
                     if "duplex=" in token:
-                        duplex = token.split("=")[1].replace(";", "")
+                        duplex = token.split("=")[1].replace(";", "").replace("\n", "")
                         print("duplex")
             if "N_id: " in line:
-                pci = line.split(" ")[1]
+                pci = line.split(" ")[1].replace("\n", "")
                 print("pci")
+            
+            if "freqBandIndicatorNR" in line:
+                band = line.split(": ")[1].replace("\n", "")
+                print("band")
+            
+            if "carrierBandwidth" in line:
+                carrier_bw = int(line.split(": ")[1].replace("\n", ""))
+                # convert from PRB # to Hz
+                carrier_bw = carrier_bw * 12 * int(re.findall(r'\d+', scs)[0]) / 1000
+                print("carrier_bw")
+            
+            if "pointA" in line:
+                pointA = float(line.split(": ")[1].replace("\n", ""))/1000000
+                print("pointA")
+            
+            if "bwp0 used" in line:
+                bwp_used = 0
+            
+            if "bwp1 used" in line:
+                bwp_used = 1
+            
+            if "initial_dl_bwp_lbw and initial_ul_bwp_lbw: " in line:
+                bwp0_dl_lbw = int(line.split(": ")[1].split("; ")[0])
+                bwp0_ul_lbw = int(line.split(": ")[1].split("; ")[1].replace("\n", ""))
+            
+            
     
     if ssb_freq is None or scs is None or duplex is None or pci is None:
         label.after(1000, search_meta_info, label)
     else:
+        dl_start, dl_len = decode_riv(bwp0_dl_lbw if bwp_used == 0 else bwp1_dl_lbw, scs, pointA)
+        ul_start, ul_len = decode_riv(bwp0_ul_lbw if bwp_used == 0 else bwp1_ul_lbw, scs, pointA)
         cell_info = f"""
             CELL INFO
             PCI (cell id): {pci}
-            SSB (5G becon) freq: {ssb_freq}
-            duplix mode: {duplix}
+            SSB (5G becon) freq: {ssb_freq}MHz
+            duplix mode: {duplex}
             OFDM subcarrier spacing: {scs}
+            band ID: {band}
+            channel bandwidth: {carrier_bw}MHz
+            point A (channel lower bound): {pointA}MHz
+            BWP (bandwidth part) id used: {bwp_used}
+            DL BWP start and length: {dl_start}MHz and {dl_len}MHz
+            UL BWP start and length: {ul_start}MHz and {ul_len}MHz
         """
         label.config(text=cell_info)
 
@@ -138,7 +199,7 @@ def decrease_freshness(rnti_and_label):
                 # this RNTI expired; remove the frame for others
                 print("Expired; freed")
                 labels[rnti][3] = False
-                label.config(text=f"free")
+                label.config(text=f"")
                 label.config(bg=None)
 
 def refresh_data(rt_window):
@@ -225,11 +286,11 @@ cell_info_loading = "NR-SCOPE SEARCHING CELL... LOADING CELL INFO..."
 
 frame1 = tk.Frame(master=window, height=100)
 frame1.grid(row=0, column=0, sticky='ew', columnspan=5)
-meta_info = tk.Label(master=frame1, text=cell_info_loading, height=10)
+meta_info = tk.Label(master=frame1, text=cell_info_loading, height=12)
 meta_info.pack(padx=5, pady=5)
 meta_info.after(1000, search_meta_info, meta_info)
 
-for i in range(1, 11):
+for i in range(1, 10):
     window.rowconfigure(i, weight=1, minsize=50)
     for j in range(0, 5):
         window.columnconfigure(j, weight=1, minsize=75)
@@ -240,7 +301,7 @@ for i in range(1, 11):
         )
         frame.grid(row=i, column=j, padx=5, pady=5)
 
-        label = tk.Label(master=frame, text=f"free", bg="#f5f3f2", width=10, height=5)
+        label = tk.Label(master=frame, text=f"", bg="#f5f3f2", width=10, height=5)
         
         labels[RNTI] = [time.time(), label, frame, False]
         # label.after(1000, decrease_freshness, (RNTI, label))
