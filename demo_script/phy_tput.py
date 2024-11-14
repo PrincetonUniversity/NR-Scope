@@ -26,7 +26,7 @@ first_time = 0
 ue_list = dict()
 ue_id = 0
 
-fig, ax = plt.subplots(1, 1)#, figsize=(10,8))
+fig, ax = plt.subplots(1, 1) #, figsize=(10,8))
 ax.set_title("PHY Throughput from NR-Scope")
 ax.set_xlabel("Time (sec)")
 ax.set_ylabel("PHY Throughput (Mbit/sec)")
@@ -86,7 +86,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     # Draw x and y lists
     ax.clear()
     ax.set_title("PHY Throughput from NR-Scope")
-    ax.set_xlabel("Time (sec)")
+    # ax.set_xlabel("Time (sec)")
     ax.set_ylabel("PHY Throughput (Mbit/sec)")
     # ax.set_ylim([0, 1])
     for ue_i in range(ue_id):
