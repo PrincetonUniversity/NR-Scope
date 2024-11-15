@@ -3,6 +3,7 @@
 
 import io
 import time
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.animation
@@ -16,18 +17,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--interval", type=int, help="Animation interval in ms.")
 args = parser.parse_args()
 
+matplotlib.use('TkAgg')
+
 BUFFER_LEN = 64
-DATA_FILENAME = "t_mobile2_ueactivity_afternoon_3.csv"
+DATA_FILENAME = "t_mobile2_ueactivity_afternoon_2.csv"
 ANIM_FILENAME = "video.gif"
 
 INTERVAL = args.interval #ms
-PLOT_LIMIT = int(35 * 1000 / INTERVAL) # 90 seconds
+PLOT_LIMIT = 10 * INTERVAL # 5 seconds
 
 SLOT_TIME = 0.5
 DL_TOTAL = 0.8
 PRB_NUM = INTERVAL / SLOT_TIME * DL_TOTAL * 51 * 12
 
-FONT_SIZE = 25
+FONT_SIZE = 100
 
 file_cur = 1
 first_time = 0
@@ -38,7 +41,7 @@ data = []
 fig = plt.figure(0, figsize=(16,9))
 # plt.rcParams["text.usetex"] = True
 # plt.rcParams["font.weight"] = "light"
-plt.rcParams["font.size"] = FONT_SIZE
+# plt.rcParams["font.size"] = FONT_SIZE
 # plt.rcParams["font.family"] = "Times"
 
 ax1 = fig.add_subplot(7, 1, 1)
@@ -69,8 +72,18 @@ ax7 = fig.add_subplot(7, 1, 7)
 ax7.set_xticklabels([])
 ax7.set_ylabel("MIMO\nLayers")
 
-
 ndi_data = [[[] for harq_id in range(16)] for ue_i in range(len(ue_list))]
+
+color_layers = [
+    "#f55702",
+    "#ff00d4",
+    "#9200fa",
+    "#1500ff",
+    "#ff0000",
+    "#f2e200",
+    "#6aff00",
+    "#05499c",
+    "#b56d00"] # 9 elements
 
 def get_data(filename, delay=0.0):
     with open(filename, "r") as f:
@@ -235,7 +248,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     ax1.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax1.set_ylabel("DL Tput\n (Mbit/s)")
     ax1.get_yaxis().set_label_coords(-0.05,0.5)
-    ax1.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax1.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     # ax1.set_ylim([0, 1])
     for ue_i in range(ue_id):
@@ -245,11 +258,11 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         if (len(ys[0][ue_i]) > limit):
             if (np.sum(ys[0][ue_i][-limit:]) > 0):
                 ax1.plot(xs[0][-limit:], ys[0][ue_i][-limit:], 
-                        label="UE {}".format(ue_i), linewidth=2.5)
+                        label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[0][ue_i]) > 0):
                 ax1.plot(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], ys[0][ue_i], 
-                        label="UE {}".format(ue_i), linewidth=2.5)
+                        label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     ax1.legend(loc='upper left', bbox_to_anchor=(1.0, 1.5), prop={'size': 23})
 
     ax2.clear()
@@ -262,26 +275,26 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         if (len(ys[1][ue_i]) > limit):
             if (np.sum(ys[1][ue_i][-limit:]) > 0):
                 ax2.plot(xs[1][-limit:], ys[1][ue_i][-limit:], 
-                        label="UE {}".format(ue_i), linewidth=2.5)
+                        label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[1][ue_i]) > 0):
                 ax2.plot(xs[1][(len(xs[1]) - len(ys[1][ue_i])):], ys[1][ue_i], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     # ax2.legend(prop={'size': 15})
-    ax2.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax2.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     ax3.clear()
     ax3.set_xticklabels([])
     ax3.set_ylabel("PRB (%)")
     ax3.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    ax3.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax3.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
     ax3.get_yaxis().set_label_coords(-0.05,0.5)
     if (len(ys[2][0]) > limit):
         if (np.sum(ys[2][0][-limit:]) > 0):
-            ax3.bar(xs[2][-limit:], ys[2][0][-limit:], label="UE {}".format(0), width=INTERVAL/1000)
+            ax3.bar(xs[2][-limit:], ys[2][0][-limit:], label="UE {}".format(0), width=INTERVAL/1000, color=color_layers[np.mod(0, 9)])
     else:
         if (np.sum(ys[2][0]) > 0):
-            ax3.bar(xs[2][(len(xs[2]) - len(ys[2][0])):], ys[2][0], label="UE {}".format(0), width=INTERVAL/1000)
+            ax3.bar(xs[2][(len(xs[2]) - len(ys[2][0])):], ys[2][0], label="UE {}".format(0), width=INTERVAL/1000, color=color_layers[np.mod(0, 9)])
     # for ue_i in range(1, ue_id):
     #     ax.bar(xs[(len(xs) - len(ys[ue_i])):], ys[ue_i], 
     #            bottom=ys[ue_i-1][(len(ys[ue_i-1]) - len(ys[ue_i])):], 
@@ -295,7 +308,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                     bottoms = bottoms + np.array(ys[2][previous_ue][-limit:])
                 ax3.bar(xs[2][-limit:], ys[2][ue_i][-limit:], 
                     bottom=bottoms, width=INTERVAL/1000, 
-                    label="UE {}".format(ue_i))
+                    label="UE {}".format(ue_i), color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[2][0]) > 0):
                 bottoms = np.zeros(len(ys[2][ue_i]))
@@ -303,7 +316,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                     bottoms = bottoms + np.array(ys[2][previous_ue][(len(ys[2][previous_ue]) - len(ys[2][ue_i])):])
                 ax3.bar(xs[2][(len(xs[2]) - len(ys[2][ue_i])):], ys[2][ue_i], 
                     bottom=bottoms, width=INTERVAL/1000, 
-                    label="UE {}".format(ue_i))
+                    label="UE {}".format(ue_i), color=color_layers[np.mod(ue_i, 9)])
     # ax3.legend(prop={'size': 15})
 
     ax4.clear()
@@ -316,13 +329,13 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         if (len(ys[3][ue_i]) > limit):
             if (np.sum(ys[3][0][-limit:]) > 0):
                 ax4.plot(xs[3][-limit:], ys[3][ue_i][-limit:], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[3][0]) > 0):
                 ax4.plot(xs[3][(len(xs[3]) - len(ys[3][ue_i])):], ys[3][ue_i], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     # ax4.legend(prop={'size': 15})
-    ax4.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax4.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     ax5.clear()
     ax5.set_xticklabels([])
@@ -333,10 +346,10 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     ys4 = ys[4]
     if(len(ys4[0]) > limit):
         if (np.sum(ys4[0][-limit:]) > 0):
-            ax5.bar(xs4[-limit:], ys4[0][-limit:], label="UE {}".format(0), width=INTERVAL/1000)
+            ax5.bar(xs4[-limit:], ys4[0][-limit:], label="UE {}".format(0), width=INTERVAL/1000, color=color_layers[np.mod(0, 9)])
     else: 
         if (np.sum(ys4[0]) > 0):
-            ax5.bar(xs4[(len(xs4) - len(ys4[0])):], ys4[0], label="UE {}".format(0), width=INTERVAL/1000)
+            ax5.bar(xs4[(len(xs4) - len(ys4[0])):], ys4[0], label="UE {}".format(0), width=INTERVAL/1000, color=color_layers[np.mod(0, 9)])
     for ue_i in range(1, ue_id):
         if (len(ys4[ue_i]) > limit):
             if (np.sum(ys4[ue_i][-limit:]) > 0):
@@ -345,7 +358,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                     bottoms = bottoms + np.array(ys4[previous_ue][-limit:])
                 ax5.bar(xs4[-limit:], ys4[ue_i][-limit:], 
                     bottom=bottoms, width=INTERVAL/1000,
-                    label="UE {}".format(ue_i))
+                    label="UE {}".format(ue_i), color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys4[ue_i]) > 0):
                 bottoms = np.zeros(len(ys4[ue_i]))
@@ -353,11 +366,11 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                     bottoms = bottoms + np.array(ys4[previous_ue][(len(ys4[previous_ue]) - len(ys4[ue_i])):])
                 ax5.bar(xs4[(len(xs4) - len(ys4[ue_i])):], ys4[ue_i], 
                     bottom=bottoms, width=INTERVAL/1000,
-                    label="UE {}".format(ue_i))
+                    label="UE {}".format(ue_i), color=color_layers[np.mod(ue_i, 9)])
         # ax4.plot(xs[4][(len(xs[4]) - len(ys[4][ue_i])):], ys[4][ue_i], 
         #         label="UE {}".format(ue_i))
     # ax5.legend(prop={'size': 15})
-    ax5.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax5.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     ax6.clear()
     ax6.set_xticklabels([])
@@ -369,13 +382,13 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         if (len(ys[5][ue_i]) > limit):
             if (np.sum(ys[5][ue_i][-limit:]) > 0):
                 ax6.plot(xs[5][-limit:], ys[5][ue_i][-limit:], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[5][ue_i]) > 0):
                 ax6.plot(xs[5][(len(xs[5]) - len(ys[5][ue_i])):], ys[5][ue_i], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     # ax6.legend(prop={'size': 15})
-    ax6.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax6.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     ax7.clear()
     ax7.set_xlabel("Time (s)")
@@ -387,13 +400,13 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
         if (len(ys[6][ue_i]) > limit):
             if (np.sum(ys[5][ue_i][-limit:]) > 0):
                 ax7.plot(xs[6][-limit:], ys[6][ue_i][-limit:], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
         else:
             if (np.sum(ys[5][ue_i]) > 0):
                 ax7.plot(xs[6][(len(xs[6]) - len(ys[6][ue_i])):], ys[6][ue_i], 
-                    label="UE {}".format(ue_i), linewidth=2.5)
+                    label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     # ax7.legend(prop={'size': 15})
-    ax7.set_xlim([xs[0][-1]-limit, xs[0][-1]])
+    ax7.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
     
 # save video (only to attach here) 
 #anim = mpl.animation.FuncAnimation(fig, animate, fargs=([time.time()], [None]), interval=1, frames=3 * PLOT_LIMIT, repeat=False)
@@ -403,6 +416,8 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
 # show interactively
 anim = mpl.animation.FuncAnimation(fig, animate, 
     fargs=([[], [], [], [], [], [], []], [[[]], [[]], [[]], [[]], [[]], [[]], [[]]]), interval=INTERVAL)
+# anim.save(ANIM_FILENAME, writer='imagemagick', fps=20)
+#print(f"I: Saved to `{ANIM_FILENAME}`")
 
 plt.show()
 plt.close()
