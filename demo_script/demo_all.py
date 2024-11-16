@@ -17,20 +17,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--interval", type=int, help="Animation interval in ms.")
 args = parser.parse_args()
 
-matplotlib.use('TkAgg')
-
 BUFFER_LEN = 64
-DATA_FILENAME = "t_mobile2_ueactivity_afternoon_2.csv"
+DATA_FILENAME = "t_mobile2_ueactivity_afternoon_3.csv"
 ANIM_FILENAME = "video.gif"
 
 INTERVAL = args.interval #ms
-PLOT_LIMIT = 10 * INTERVAL # 5 seconds
+PLOT_LIMIT = 20 * INTERVAL # 5 seconds
 
-SLOT_TIME = 0.5
+SLOT_TIME = 1
 DL_TOTAL = 0.8
 PRB_NUM = INTERVAL / SLOT_TIME * DL_TOTAL * 51 * 12
 
-FONT_SIZE = 100
+FONT_SIZE = 25
 
 file_cur = 1
 first_time = 0
@@ -38,10 +36,11 @@ ue_list = dict()
 ue_id = 0
 data = []
 
+# matplotlib.use('TkAgg')
 fig = plt.figure(0, figsize=(16,9))
 # plt.rcParams["text.usetex"] = True
 # plt.rcParams["font.weight"] = "light"
-# plt.rcParams["font.size"] = FONT_SIZE
+plt.rcParams["font.size"] = FONT_SIZE
 # plt.rcParams["font.family"] = "Times"
 
 ax1 = fig.add_subplot(7, 1, 1)
@@ -86,6 +85,7 @@ color_layers = [
     "#b56d00"] # 9 elements
 
 def get_data(filename, delay=0.0):
+    print("getting data")
     with open(filename, "r") as f:
         data = f.readlines()
         if delay:
@@ -96,6 +96,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     global file_cur, first_time, ue_list, ue_id, data
     # grab the data
     # try:
+    start_time = time.time()
     if (len(data) == 0):
         data = get_data(DATA_FILENAME)
     if verbose:
@@ -243,6 +244,9 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     else:
         print(f"W: {time.time()} :: STALE!")
 
+    end_time = time.time()
+    print("Processing time: ", end_time - start_time)
+    
     ax1.clear()
     ax1.set_xticklabels([])
     ax1.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
@@ -251,6 +255,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     ax1.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     # ax1.set_ylim([0, 1])
+    print(ue_id)
     for ue_i in range(ue_id):
         # stacked_data = np.array(ys[0][ue_i])
         # for last_data in range(ue_i):
@@ -269,8 +274,6 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
     ax2.set_xticklabels([])
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax2.set_ylabel("UL Tput\n (Mbit/s)")
-    ax2.get_yaxis().set_label_coords(-0.05,0.5)
-    # ax1.set_ylim([0, 1])
     for ue_i in range(ue_id):
         if (len(ys[1][ue_i]) > limit):
             if (np.sum(ys[1][ue_i][-limit:]) > 0):
@@ -281,6 +284,7 @@ def animate(i, xs, ys, limit=PLOT_LIMIT, verbose=False):
                 ax2.plot(xs[1][(len(xs[1]) - len(ys[1][ue_i])):], ys[1][ue_i], 
                     label="UE {}".format(ue_i), linewidth=2.5, color=color_layers[np.mod(ue_i, 9)])
     # ax2.legend(prop={'size': 15})
+    ax2.get_yaxis().set_label_coords(-0.05,0.5)
     ax2.set_xlim([xs[0][-1]-int(limit/INTERVAL), xs[0][-1]])
 
     ax3.clear()
