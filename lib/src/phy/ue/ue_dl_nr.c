@@ -421,7 +421,7 @@ static int ue_dl_nr_find_dci_ncce(srsran_ue_dl_nr_t*     q,
   }
 
   // Decode PDCCH
-   INFO("PDCCH candidate L=%d;ncce=%d; EPRE=%+.2f; RSRP=%+.2f;",
+   INFO("Decoding PDCCH candidate L=%d;ncce=%d; EPRE=%+.2f; RSRP=%+.2f;",
          location.L,
          location.ncce,
          m->epre_dBfs,
