@@ -6,9 +6,17 @@ import random
 import queue
 import csv
 import re
+import argparse
+import time
 
+parser = argparse.ArgumentParser()
 
-# crnti => (last-seen timestamp, label, frame, occupied, color_index)
+parser.add_argument("-i", "--interval", type=float, help="Animation interval in ms.")
+args = parser.parse_args()
+
+TIME_INTERVAL = args.interval
+
+# crnti => (last-seen timestamp, label, frame, occupied, MIMO_layer)
 labels = {}
 seen_ues = []
 
@@ -46,21 +54,21 @@ class AsyncioThread(threading.Thread):
         lines_to_fetch_before_t = None
         while True:
             print("new round of CSV reading")
-            with open("a.csv", newline='') as csvfile:
+            with open("t_mobile2_ueactivity_afternoon_3.csv", newline='') as csvfile:
                 with lock:
                     reader = csv.DictReader(csvfile)
                     for row in reader:
                         if row['rnti'].isnumeric():
                             if lines_to_fetch_before_t is None:
-                                lines_to_fetch_before_t = float(row['timestamp']) + 1
+                                lines_to_fetch_before_t = float(row['timestamp']) + TIME_INTERVAL
 
                             if float(row['timestamp']) <= lines_to_fetch_before_t:
-                                self.the_queue.put(int(row['rnti']))
+                                self.the_queue.put((int(row['rnti']), int(row['transport_block_size']), int(row['nof_layers'])))
                             else:
                                 break
             
-            lines_to_fetch_before_t += 1
-            time.sleep(1)
+            lines_to_fetch_before_t += TIME_INTERVAL
+            time.sleep(TIME_INTERVAL)
 
     # async def do_data(self):
     #     """ Creating and starting 'maxData' asyncio-tasks. """
@@ -183,7 +191,7 @@ def search_meta_info(label):
             DL BWP start and length: {dl_start}MHz and {dl_len}MHz
             UL BWP start and length: {ul_start}MHz and {ul_len}MHz
         """
-        label.config(text=cell_info)
+        label.config(text=cell_info, font=("Arial", 20))
 
 def decrease_freshness(rnti_and_label):
     with lock:
@@ -211,11 +219,14 @@ def refresh_data(rt_window):
     consume_idx = 0
     with lock:
         while not shared_queue.empty():
-            data = shared_queue.get()
+            data, tbs, mimo_layer = shared_queue.get()
             if consume_idx < CSV_LINE_IDX:
                 consume_idx += 1
                 continue
             consume_idx += 1
+            if tbs == 0:
+                print("tbs 0; skip")
+                continue
             print(f"data: {data}")
             data_idx = None
             if data not in seen_ues:
@@ -228,6 +239,7 @@ def refresh_data(rt_window):
             # case 1: this RNTI is active, update its timestamp
             if data in labels and labels[data][3] == True:
                 labels[data][0] = time.time()
+                labels[data][1].config(text=f"RNTI: {data}\nMIMO: {mimo_layer}")
 
             else:
                 # case 2: not exists, find an empty slot and put it there
@@ -247,7 +259,7 @@ def refresh_data(rt_window):
                     labels[data][3] = True
                     labels[data][0] = time.time()
                     label = labels[data][1]
-                    label.config(text=f"RNTI: {data}")
+                    label.config(text=f"RNTI: {data}\nMIMO: {mimo_layer}")
                     label.config(bg=color_layers[data_idx % 9][0])
                     label.after(300, decrease_freshness, (data, label))
                 # case 3: not exists, no existing empty slot; need to expand window (TODO)
@@ -277,7 +289,7 @@ def refresh_data(rt_window):
 
     CSV_LINE_IDX = consume_idx
 
-    rt_window.after(1000, refresh_data, rt_window)
+    rt_window.after(int(TIME_INTERVAL*1000), refresh_data, rt_window)
 
 
 
@@ -286,11 +298,11 @@ cell_info_loading = "NR-SCOPE SEARCHING CELL... LOADING CELL INFO..."
 
 frame1 = tk.Frame(master=window, height=100)
 frame1.grid(row=0, column=0, sticky='ew', columnspan=5)
-meta_info = tk.Label(master=frame1, text=cell_info_loading, height=12)
+meta_info = tk.Label(master=frame1, text=cell_info_loading, height=13, font=("Arial", 20))
 meta_info.pack(padx=5, pady=5)
 meta_info.after(1000, search_meta_info, meta_info)
 
-for i in range(1, 10):
+for i in range(1, 7):
     window.rowconfigure(i, weight=1, minsize=50)
     for j in range(0, 5):
         window.columnconfigure(j, weight=1, minsize=75)
@@ -310,7 +322,7 @@ for i in range(1, 10):
 
 # create Thread object
 fetcher_thread = AsyncioThread(shared_queue, 50)
-window.after(500, refresh_data, window)
+window.after(int(TIME_INTERVAL*1000), refresh_data, window)
 fetcher_thread.start()
 
 window.title("UE tracker")

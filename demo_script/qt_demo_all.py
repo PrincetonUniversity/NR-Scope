@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets, QtCore
+from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 import numpy as np
 import sys
 import argparse
@@ -41,21 +41,23 @@ ue_id = 0
 i = 0
 data = []
 ndi_data = [[[] for harq_id in range(16)] for ue_i in range(len(ue_list))]
-xs = [[], [], [], [], [], [], []]
-ys = [[[]], [[]], [[]], [[]], [[]], [[]], [[]]]
+xs = [[], [], [], [], [], []]
+ys = [[[]], [[]], [[]], [[]], [[]], [[]]]
 
 # Initialize the Qt application
 app = QtWidgets.QApplication([])
 
 # Create a layout widget
-win = pg.GraphicsLayoutWidget(show=True, title="Dynamic Number of Lines in Each Subplot")
-win.resize(1000, 600)
-win.setWindowTitle("Dynamic Lines Example")
+win = pg.GraphicsLayoutWidget(show=True, title="NR-Scope Real-Time Data")
+win.resize(3840, 2160)
+win.setWindowTitle("NR-Scope Real-Time Data")
 
 # Variables for managing subplots and their lines
-num_subplots = 7  # Fixed number of subplots
+num_subplots = 6  # Fixed number of subplots
 subplots = []     # Store subplots
 all_lines = []    # Store lines for each subplot
+font=QtGui.QFont()
+font.setPixelSize(80)
 
 # Function to initialize subplots
 def initialize_subplots():
@@ -66,25 +68,54 @@ def initialize_subplots():
     # Create subplots and initialize line holders
     for i in range(num_subplots):
         plot = win.addPlot(row=i, col=0)
+        if (i < 2):
+            plot.setFixedHeight(win.height() * 0.25)
         subplots.append(plot)
         all_lines.append([])  # Empty line list for each subplot
-        if (i < 6):
+        if (i < 5):
             plot.getAxis('bottom').setTicks([])  # Remove tick labels on the x-axis
         if (i == 0):
-            plot.setLabel('left', 'DL Tput\n(Mibits/s)')
+            plot.setLabel('left', text='DL (Mbps)', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
         if (i == 1):
-            plot.setLabel('left', 'UL Tput\n(Mibits/s)')
+            plot.setLabel('left', text='UL (Mbps)', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
         if (i == 2):
-            plot.setLabel('left', 'PRB (%)')
+            plot.setLabel('left', text='PRB (%)', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
         if (i == 3):
-            plot.setLabel('left', 'MCS')
+            plot.setLabel('left', text='MCS', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
         if (i == 4):
-            plot.setLabel('left', 'ReTxs')
+            plot.setLabel('left', text='ReTxs', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
         if (i == 5):
-            plot.setLabel('left', 'TPC')
-        if (i == 6):
-            plot.setLabel('left', 'MIMO\nLayers')
-            plot.setLabel('bottom', 'Time (s)')
+            plot.setLabel('left', text='TPC', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis("left").setStyle(tickTextOffset=100)
+            plot.getAxis("left").setWidth(400)
+            plot.getAxis('left').setTextPen(color='#FFFFFF')
+            plot.getAxis('left').setTickFont(font)
+            plot.setLabel('bottom', text='Time (s)', color='#FFFFFF', **{'font-size': '30pt'})
+            plot.getAxis('bottom').setTextPen(color='#FFFFFF')
+            plot.getAxis('bottom').setTickFont(font)
+        # if (i == 6):
+        #     plot.setLabel('left', 'MIMO\nLayers')
+            # plot.setLabel('bottom', 'Time (s)')
         
 
 # Initialize subplots at the beginning
@@ -281,44 +312,77 @@ def update():
     else:
         print(f"W: {time.time()} :: STALE!")
 
-    if len(xs[6]) == 0 or ts > xs[6][-1]:
-        # Add x and y to lists
-        xs[6].append(ts)
-        while (ue_id > len(ys[6])):
-            ys[6].append([])
-        for ue_i in range(ue_id):
-            if (len(mimo_data[ue_i]) > 0):
-                ys[6][ue_i].append(np.mean(mimo_data[ue_i]))
-            else:
-                ys[6][ue_i].append(0)
-    else:
-        print(f"W: {time.time()} :: STALE!")
+    # if len(xs[6]) == 0 or ts > xs[6][-1]:
+    #     # Add x and y to lists
+    #     xs[6].append(ts)
+    #     while (ue_id > len(ys[6])):
+    #         ys[6].append([])
+    #     for ue_i in range(ue_id):
+    #         if (len(mimo_data[ue_i]) > 0):
+    #             ys[6][ue_i].append(np.mean(mimo_data[ue_i]))
+    #         else:
+    #             ys[6][ue_i].append(0)
+    # else:
+    #     print(f"W: {time.time()} :: STALE!")
         
     end_time = time.time()
     print("Processing time: ", end_time - start_time)
     if (len(all_lines[0]) < ue_id):
-      set_num_lines(0, ue_id)  # Set 2 lines in subplot 1
+      set_num_lines(0, ue_id)  # Set 2 lines in subplot 1     
     for ue_i in range(ue_id):
-      if (len(ys[0][ue_i]) > PLOT_LIMIT):
-        all_lines[0][ue_i].setData(xs[0][-PLOT_LIMIT:], ys[0][ue_i][-PLOT_LIMIT:])
-      else:
-        all_lines[0][ue_i].setData(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], ys[0][ue_i])
+        stacked_y = []
+        if (len(ys[0][ue_i]) > PLOT_LIMIT):
+            stacked_y = np.array(ys[0][ue_i][-PLOT_LIMIT:])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[0][ue_p][-PLOT_LIMIT:])        
+            all_lines[0][ue_i].setData(xs[0][-PLOT_LIMIT:], stacked_y)
+        else:
+            stacked_y = np.array(ys[0][ue_i])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[0][ue_p][-len(ys[0][ue_i]):])
+            all_lines[0][ue_i].setData(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], stacked_y)
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[0][ue_i-1], all_lines[0][ue_i], brush=color_layers[np.mod(ue_i, 9)])
+        #     subplots[0].addItem(fill)   
 
     if (len(all_lines[1]) < ue_id):
       set_num_lines(1, ue_id)  # Set 2 lines in subplot 1
     for ue_i in range(ue_id):
-      if (len(ys[1][ue_i]) > PLOT_LIMIT):
-        all_lines[1][ue_i].setData(xs[1][-PLOT_LIMIT:], ys[1][ue_i][-PLOT_LIMIT:])
-      else:
-        all_lines[1][ue_i].setData(xs[1][(len(xs[0]) - len(ys[1][ue_i])):], ys[1][ue_i])
+        if (len(ys[1][ue_i]) > PLOT_LIMIT):
+            stacked_y = np.array(ys[1][ue_i][-PLOT_LIMIT:])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[1][ue_p][-PLOT_LIMIT:])
+            all_lines[1][ue_i].setData(xs[1][-PLOT_LIMIT:], stacked_y)
+        else:
+            stacked_y = np.array(ys[1][ue_i])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[1][ue_p][-len(ys[1][ue_i]):])
+            all_lines[1][ue_i].setData(xs[1][(len(xs[1]) - len(ys[1][ue_i])):], stacked_y)
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[1][ue_i-1], all_lines[1][ue_i], brush=color_layers[np.mod(ue_i, 9)])
+        #     subplots[1].addItem(fill)   
     
     if (len(all_lines[2]) < ue_id):
       set_num_lines(2, ue_id)  # Set 2 lines in subplot 1
+    # for ue_i in range(ue_id):
+    #   if (len(ys[2][ue_i]) > PLOT_LIMIT):
+    #     all_lines[2][ue_i].setData(xs[2][-PLOT_LIMIT:], ys[2][ue_i][-PLOT_LIMIT:])
+    #   else:
+    #     all_lines[2][ue_i].setData(xs[2][(len(xs[2]) - len(ys[2][ue_i])):], ys[2][ue_i])
     for ue_i in range(ue_id):
-      if (len(ys[2][ue_i]) > PLOT_LIMIT):
-        all_lines[2][ue_i].setData(xs[2][-PLOT_LIMIT:], ys[2][ue_i][-PLOT_LIMIT:])
-      else:
-        all_lines[2][ue_i].setData(xs[2][(len(xs[0]) - len(ys[2][ue_i])):], ys[2][ue_i])
+        if (len(ys[2][ue_i]) > PLOT_LIMIT):
+            stacked_y = np.array(ys[2][ue_i][-PLOT_LIMIT:])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[2][ue_p][-PLOT_LIMIT:])
+            all_lines[2][ue_i].setData(xs[2][-PLOT_LIMIT:], stacked_y)
+        else:
+            stacked_y = np.array(ys[2][ue_i])
+            for ue_p in range(ue_i):
+                stacked_y = stacked_y + np.array(ys[2][ue_p][-len(ys[2][ue_i]):])
+            all_lines[2][ue_i].setData(xs[2][(len(xs[2]) - len(ys[2][ue_i])):], stacked_y)
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[2][ue_i-1], all_lines[2][ue_i], brush=color_layers[np.mod(ue_i, 9)])
+        #     subplots[2].addItem(fill)   
 
     if (len(all_lines[3]) < ue_id):
       set_num_lines(3, ue_id)  # Set 2 lines in subplot 1
@@ -344,13 +408,13 @@ def update():
       else:
         all_lines[5][ue_i].setData(xs[5][(len(xs[0]) - len(ys[5][ue_i])):], ys[5][ue_i])
 
-    if (len(all_lines[6]) < ue_id):
-      set_num_lines(6, ue_id)  # Set 2 lines in subplot 1
-    for ue_i in range(ue_id):
-      if (len(ys[6][ue_i]) > PLOT_LIMIT):
-        all_lines[6][ue_i].setData(xs[6][-PLOT_LIMIT:], ys[6][ue_i][-PLOT_LIMIT:])
-      else:
-        all_lines[6][ue_i].setData(xs[6][(len(xs[0]) - len(ys[6][ue_i])):], ys[6][ue_i])
+    # if (len(all_lines[6]) < ue_id):
+    #   set_num_lines(6, ue_id)  # Set 2 lines in subplot 1
+    # for ue_i in range(ue_id):
+    #   if (len(ys[6][ue_i]) > PLOT_LIMIT):
+    #     all_lines[6][ue_i].setData(xs[6][-PLOT_LIMIT:], ys[6][ue_i][-PLOT_LIMIT:])
+    #   else:
+    #     all_lines[6][ue_i].setData(xs[6][(len(xs[0]) - len(ys[6][ue_i])):], ys[6][ue_i])
 
 # Adjust line count after 3 seconds to demonstrate dynamic changes
 # QtCore.QTimer.singleShot(3000, change_line_count_in_subplots)
