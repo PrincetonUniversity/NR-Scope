@@ -603,11 +603,9 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
     return SRSRAN_ERROR;
   }
   
-  printf("Decoding PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;",
+  printf("Decoding PDCCH candidate L=%d;ncce=%d; EPRE=%+.2f; RSRP=%+.2f;\n",
          location.L,
          location.ncce,
-         m->norm_corr,
-         q->pdcch_dmrs_corr_thr,
          m->epre_dBfs,
          m->rsrp_dBfs);
 
