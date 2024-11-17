@@ -602,6 +602,14 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
     ERROR("Error extracting PDCCH DMRS");
     return SRSRAN_ERROR;
   }
+  
+  printf("Decoding PDCCH candidate L=%d;ncce=%d; Correlation is too low (%.1f<%.1f); EPRE=%+.2f; RSRP=%+.2f;",
+         location.L,
+         location.ncce,
+         m->norm_corr,
+         q->pdcch_dmrs_corr_thr,
+         m->epre_dBfs,
+         m->rsrp_dBfs);
 
   // Decode PDCCH
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 

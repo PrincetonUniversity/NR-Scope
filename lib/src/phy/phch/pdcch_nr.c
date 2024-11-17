@@ -1038,6 +1038,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   // Measure EVM if configured
   if (q->evm_buffer != NULL) {
     res->evm = srsran_evm_run_b(q->evm_buffer, &q->modem_table, q->symbols, llr, q->E);
+    printf("[evm debug] res->evm: %f\n", res->evm);
   } else {
     res->evm = NAN;
   }
