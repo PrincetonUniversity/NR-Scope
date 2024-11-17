@@ -333,34 +333,34 @@ def update():
         stacked_y = []
         if (len(ys[0][ue_i]) > PLOT_LIMIT):
             stacked_y = np.array(ys[0][ue_i][-PLOT_LIMIT:])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[0][ue_p][-PLOT_LIMIT:])        
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[0][ue_p][-PLOT_LIMIT:])        
             all_lines[0][ue_i].setData(xs[0][-PLOT_LIMIT:], stacked_y)
         else:
             stacked_y = np.array(ys[0][ue_i])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[0][ue_p][-len(ys[0][ue_i]):])
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[0][ue_p][-len(ys[0][ue_i]):])
             all_lines[0][ue_i].setData(xs[0][(len(xs[0]) - len(ys[0][ue_i])):], stacked_y)
-        if (np.sum(stacked_y) > 0 and ue_i > 1):
-            fill = pg.FillBetweenItem(all_lines[0][ue_i-1], all_lines[0][ue_i], brush=all_lines[0][ue_i])
-            subplots[0].addItem(fill)   
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[0][ue_i-1], all_lines[0][ue_i], brush=all_lines[0][ue_i])
+        #     subplots[0].addItem(fill)   
 
     if (len(all_lines[1]) < ue_id):
       set_num_lines(1, ue_id)  # Set 2 lines in subplot 1
     for ue_i in range(ue_id):
         if (len(ys[1][ue_i]) > PLOT_LIMIT):
             stacked_y = np.array(ys[1][ue_i][-PLOT_LIMIT:])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[1][ue_p][-PLOT_LIMIT:])
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[1][ue_p][-PLOT_LIMIT:])
             all_lines[1][ue_i].setData(xs[1][-PLOT_LIMIT:], stacked_y)
         else:
             stacked_y = np.array(ys[1][ue_i])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[1][ue_p][-len(ys[1][ue_i]):])
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[1][ue_p][-len(ys[1][ue_i]):])
             all_lines[1][ue_i].setData(xs[1][(len(xs[1]) - len(ys[1][ue_i])):], stacked_y)
-        if (np.sum(stacked_y) > 0 and ue_i > 1):
-            fill = pg.FillBetweenItem(all_lines[1][ue_i-1], all_lines[1][ue_i], brush=color_layers[np.mod(ue_i, 9)])
-            subplots[1].addItem(fill)   
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[1][ue_i-1], all_lines[1][ue_i], brush=color_layers[np.mod(ue_i, 9)])
+        #     subplots[1].addItem(fill)   
     
     if (len(all_lines[2]) < ue_id):
       set_num_lines(2, ue_id)  # Set 2 lines in subplot 1
@@ -372,17 +372,17 @@ def update():
     for ue_i in range(ue_id):
         if (len(ys[2][ue_i]) > PLOT_LIMIT):
             stacked_y = np.array(ys[2][ue_i][-PLOT_LIMIT:])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[2][ue_p][-PLOT_LIMIT:])
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[2][ue_p][-PLOT_LIMIT:])
             all_lines[2][ue_i].setData(xs[2][-PLOT_LIMIT:], stacked_y)
         else:
             stacked_y = np.array(ys[2][ue_i])
-            for ue_p in range(ue_i):
-                stacked_y = stacked_y + np.array(ys[2][ue_p][-len(ys[2][ue_i]):])
+            # for ue_p in range(ue_i):
+            #     stacked_y = stacked_y + np.array(ys[2][ue_p][-len(ys[2][ue_i]):])
             all_lines[2][ue_i].setData(xs[2][(len(xs[2]) - len(ys[2][ue_i])):], stacked_y)
-        if (np.sum(stacked_y) > 0 and ue_i > 1):
-            fill = pg.FillBetweenItem(all_lines[2][ue_i-1], all_lines[2][ue_i], brush=color_layers[np.mod(ue_i, 9)])
-            subplots[2].addItem(fill)   
+        # if (np.sum(stacked_y) > 0 and ue_i > 1):
+        #     fill = pg.FillBetweenItem(all_lines[2][ue_i-1], all_lines[2][ue_i], brush=color_layers[np.mod(ue_i, 9)])
+        #     subplots[2].addItem(fill)   
 
     if (len(all_lines[3]) < ue_id):
       set_num_lines(3, ue_id)  # Set 2 lines in subplot 1
