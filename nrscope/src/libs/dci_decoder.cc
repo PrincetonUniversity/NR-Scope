@@ -1051,7 +1051,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
         if(dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {
           srsran_sch_cfg_nr_t pdsch_cfg = {};
           pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
-          pdsch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
+          // pdsch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
           // printf("pdsch_hl_cfg.dmrs_typeA.additional_pos: %d\n", 
           //  pdsch_hl_cfg.dmrs_typeA.additional_pos);
 
@@ -1124,7 +1124,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
         // We can calculate the UL bandwidth for this subframe by ourselves.
         srsran_sch_cfg_nr_t pusch_cfg = {};
         pusch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
-        pusch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
+        // pusch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
         if (srsran_ra_ul_dci_to_grant_nr(&carrier_ul, slot, 
             &pusch_hl_cfg, &dci_ul[dci_idx_ul], &pusch_cfg, &pusch_cfg.grant) 
             < SRSRAN_SUCCESS) {

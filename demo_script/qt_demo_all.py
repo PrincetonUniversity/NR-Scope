@@ -12,6 +12,8 @@ args = parser.parse_args()
 
 BUFFER_LEN = 64
 DATA_FILENAME = "t_mobile2_ueactivity_afternoon_3.csv"
+# "t_mobile2_ueactivity_afternoon_3.csv"
+# "/home/wanhr/Documents/codes/cpp/NG-Scope-5G/build/nrscope/src/a.csv"
 ANIM_FILENAME = "video.gif"
 
 INTERVAL = args.interval #ms
@@ -21,7 +23,7 @@ SLOT_TIME = 1
 DL_TOTAL = 0.8
 PRB_NUM = INTERVAL / SLOT_TIME * DL_TOTAL * 51 * 12
 
-FONT_SIZE = 45
+FONT_SIZE = 15
 
 color_layers = [
     "#f55702",
@@ -49,7 +51,7 @@ app = QtWidgets.QApplication([])
 
 # Create a layout widget
 win = pg.GraphicsLayoutWidget(show=True, title="NR-Scope Real-Time Data")
-win.resize(3840, 2160)
+win.resize(2160, 1440)
 win.setWindowTitle("NR-Scope Real-Time Data")
 
 # Variables for managing subplots and their lines
@@ -57,7 +59,7 @@ num_subplots = 6  # Fixed number of subplots
 subplots = []     # Store subplots
 all_lines = []    # Store lines for each subplot
 font=QtGui.QFont()
-font.setPixelSize(80)
+font.setPixelSize(45)
 
 # Function to initialize subplots
 def initialize_subplots():
@@ -69,45 +71,45 @@ def initialize_subplots():
     for i in range(num_subplots):
         plot = win.addPlot(row=i, col=0)
         if (i < 2):
-            plot.setFixedHeight(win.height() * 0.25)
+            plot.setFixedHeight(win.height() * 0.15)
         subplots.append(plot)
         all_lines.append([])  # Empty line list for each subplot
         if (i < 5):
             plot.getAxis('bottom').setTicks([])  # Remove tick labels on the x-axis
         if (i == 0):
             plot.setLabel('left', text='DL (Mbps)', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
         if (i == 1):
             plot.setLabel('left', text='UL (Mbps)', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
         if (i == 2):
             plot.setLabel('left', text='PRB (%)', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
         if (i == 3):
             plot.setLabel('left', text='MCS', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
         if (i == 4):
             plot.setLabel('left', text='ReTxs', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
         if (i == 5):
             plot.setLabel('left', text='TPC', color='#FFFFFF', **{'font-size': '30pt'})
-            plot.getAxis("left").setStyle(tickTextOffset=100)
-            plot.getAxis("left").setWidth(400)
+            plot.getAxis("left").setStyle(tickTextOffset=40)
+            plot.getAxis("left").setWidth(200)
             plot.getAxis('left').setTextPen(color='#FFFFFF')
             plot.getAxis('left').setTickFont(font)
             plot.setLabel('bottom', text='Time (s)', color='#FFFFFF', **{'font-size': '30pt'})

@@ -55,6 +55,7 @@ class AsyncioThread(threading.Thread):
         while True:
             print("new round of CSV reading")
             with open("t_mobile2_ueactivity_afternoon_3.csv", newline='') as csvfile:
+                # "/home/wanhr/Documents/codes/cpp/NG-Scope-5G/build/nrscope/src/a.csv", newline='') as csvfile:
                 with lock:
                     reader = csv.DictReader(csvfile)
                     for row in reader:
@@ -68,7 +69,7 @@ class AsyncioThread(threading.Thread):
                                 break
             
             lines_to_fetch_before_t += TIME_INTERVAL
-            time.sleep(TIME_INTERVAL)
+            time.sleep(int(TIME_INTERVAL/2))
 
     # async def do_data(self):
     #     """ Creating and starting 'maxData' asyncio-tasks. """
@@ -128,7 +129,7 @@ def search_meta_info(label):
     bwp0_ul_lbw = None
     bwp1_dl_lbw = None
     bwp1_ul_lbw = None
-    with open('stdout_moso.txt', 'r') as file:
+    with open('/home/wanhr/Documents/codes/cpp/NG-Scope-5G/build/nrscope/src/stdout.txt', 'r') as file:
         for line in file:
             if "c-freq=" in line:
                 tokens = line.split(" ")
@@ -157,7 +158,7 @@ def search_meta_info(label):
                 carrier_bw = carrier_bw * 12 * int(re.findall(r'\d+', scs)[0]) / 1000
                 print("carrier_bw")
             
-            if "pointA" in line:
+            if "pointA:" in line and pointA is None:
                 pointA = float(line.split(": ")[1].replace("\n", ""))/1000000
                 print("pointA")
             
