@@ -212,6 +212,9 @@ typedef struct WorkState_ WorkState;
     // TO-DO: this will be an array alike when interface with the real db
     // so we will search the right hidden bwp based on PCI or alike. 
     json js_hidden_bwp;
+    /* The time that the UE is last seen by us, if it's too long (5 second), 
+    we delete the UE from the list. */
+    std::vector<double> last_seen; 
   };
 
 typedef struct SlotResult_ SlotResult;

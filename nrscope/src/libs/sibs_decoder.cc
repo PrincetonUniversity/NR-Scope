@@ -13,6 +13,7 @@ SIBsDecoder::~SIBsDecoder(){
 
 int SIBsDecoder::SIBDecoderandReceptionInit(WorkState* state,
                                             cf_t* input[SRSRAN_MAX_PORTS]){  
+  std::cout << "Initializing SIB decoder" << std::endl;
   memcpy(&coreset0_t, &state->coreset0_t, sizeof(srsran_coreset_t));
 
   dci_cfg.bwp_dl_initial_bw   = 275;
@@ -75,7 +76,7 @@ int SIBsDecoder::SIBDecoderandReceptionInit(WorkState* state,
   }
 
   // task_scheduler_nrscope->sib1_inited = true;
-  // std::cout << "SIB Decoder Initialized.." << std::endl;
+  std::cout << "SIB Decoder Initialized.." << std::endl;
 
   return SRSRAN_SUCCESS;
 }
@@ -93,6 +94,17 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   result->found_sib1 = false;
   result->found_sib.clear();
   result->sibs.clear();
+
+  // uint8_t hardcoded_sib1[111] = {0x6e, 0x88, 0x18, 0x0a, 0x09, 0x88, 0x49, 
+  //   0x81, 0x5b, 0x98, 0x00, 0x51, 0x43, 0x68, 0x00, 0x68, 0x26, 0x23, 0x49, 
+  //   0x05, 0x6e, 0x60, 0x01, 0x45, 0x0d, 0xa0, 0x01, 0x00, 0x0c, 0x50, 0x01, 
+  //   0x08, 0x30, 0xc0, 0x4a, 0x08, 0x46, 0x01, 0x40, 0x00, 0x00, 0x4e, 0x65, 
+  //   0x3c, 0xa1, 0x0f, 0x9b, 0x82, 0x01, 0x00, 0x00, 0x00, 0x84, 0x00, 0x02, 
+  //   0x08, 0x34, 0x20, 0x21, 0x06, 0x10, 0x01, 0x9c, 0x21, 0x18, 0x20, 0x64, 
+  //   0x60, 0x00, 0x00, 0x4e, 0xd5, 0xca, 0x79, 0x42, 0xd2, 0x11, 0x00, 0x78, 
+  //   0xc0, 0xd4, 0x41, 0x99, 0x00, 0x5f, 0xcb, 0xce, 0x08, 0xdc, 0x21, 0xb8, 
+  //   0x63, 0x71, 0x06, 0xfb, 0x65, 0xf1, 0x21, 0x16, 0x3c, 0x40, 0x54, 0x55, 
+  //   0xee, 0x43, 0x14, 0x41, 0x0e, 0x00, 0x00, 0x00};
   
   memset(&dci_sibs, 0, sizeof(srsran_dci_dl_nr_t));
 
@@ -113,22 +125,22 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
     return SRSRAN_ERROR;
   }
   /* Print PDCCH blind search candidates */
-  // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_sibs.pdcch_info_count; pdcch_idx++) {
-  //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_sibs.pdcch_info[pdcch_idx]);
-  //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //   "nof_bits=%d; crc=%s;\n",
-  //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //   info->dci_ctx.rnti,
-  //   info->dci_ctx.coreset_id,
-  //   srsran_ss_type_str(info->dci_ctx.ss_type),
-  //   info->dci_ctx.location.ncce,
-  //   info->dci_ctx.location.L,
-  //   info->measure.epre_dBfs,
-  //   info->measure.rsrp_dBfs,
-  //   info->measure.norm_corr,
-  //   info->nof_bits,
-  //   info->result.crc ? "OK" : "KO");
-  // }
+  for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_sibs.pdcch_info_count; pdcch_idx++) {
+    const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_sibs.pdcch_info[pdcch_idx]);
+    printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
+    "nof_bits=%d; crc=%s;\n",
+    srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
+    info->dci_ctx.rnti,
+    info->dci_ctx.coreset_id,
+    srsran_ss_type_str(info->dci_ctx.ss_type),
+    info->dci_ctx.location.ncce,
+    info->dci_ctx.location.L,
+    info->measure.epre_dBfs,
+    info->measure.rsrp_dBfs,
+    info->measure.norm_corr,
+    info->nof_bits,
+    info->result.crc ? "OK" : "KO");
+  }
   if (nof_found_dci < 1) {
     printf("SIBDecoder -- No DCI found :'(\n");
     return SRSRAN_ERROR;
@@ -140,6 +152,7 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   printf("SIBDecoder -- Found DCI: %s\n", str);
 
   pdsch_cfg = {};
+  pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
 
   if (srsran_ra_dl_dci_to_grant_nr(&base_carrier, slot, &pdsch_hl_cfg, 
       &dci_sibs, &pdsch_cfg, &pdsch_cfg.grant) < SRSRAN_SUCCESS) {

@@ -354,7 +354,15 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     printf("RACHDecoder -- Found DCI: %s\n", str);
     tc_rnti = dci_rach[dci_id].ctx.rnti;
 
+    if (state->rach_found) {
+      result->found_rach = true;
+      result->new_rnti_number += 1;
+      result->new_rntis_found.emplace_back(tc_rnti);
+      continue;
+    }
+
     srsran_sch_cfg_nr_t pdsch_cfg = {};
+    pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
     dci_rach[dci_id].ctx.coreset_start_rb = start_rb;
 
     if (srsran_ra_dl_dci_to_grant_nr(&pdsch_carrier, slot, &pdsch_hl_cfg, 
@@ -461,7 +469,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     }
 
     // asn1::json_writer js_msg4;
-    // task_scheduler_nrscope->rrc_setup.to_json(js_msg4);
+    // result->rrc_setup.to_json(js_msg4);
     // printf("rrcSetup content: %s\n", js_msg4.to_string().c_str());
     asn1::cbit_ref bref_cg((result->rrc_setup).crit_exts.rrc_setup().
       master_cell_group.data(), (result->rrc_setup).crit_exts.rrc_setup().
@@ -471,9 +479,9 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
       return SRSRAN_ERROR;
     }        
     
-    // asn1::json_writer js;
-    // task_scheduler_nrscope->master_cell_group.to_json(js);
-    // printf("masterCellGroup: %s\n", js.to_string().c_str());
+    asn1::json_writer js;
+    result->master_cell_group.to_json(js);
+    printf("masterCellGroup: %s\n", js.to_string().c_str());
 
     if (!(result->master_cell_group).sp_cell_cfg.recfg_with_sync.new_ue_id){
       c_rnti = tc_rnti;
@@ -486,8 +494,6 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
       known_rnti vector in the end of the threads. */
     result->new_rnti_number += 1;
     result->new_rntis_found.emplace_back(c_rnti);
-    // task_scheduler_nrscope->nof_known_rntis += 1;
-    // task_scheduler_nrscope->known_rntis.emplace_back(c_rnti);
 
     srsran_softbuffer_rx_free(&softbuffer);
   }

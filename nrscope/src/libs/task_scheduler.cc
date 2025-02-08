@@ -169,7 +169,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
     ERROR("Error checking table 13-11");
     return SRSRAN_ERROR;
   }
-  // std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
+  std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
 
   task_scheduler_state.cell.u = (int)args_t_->ssb_scs; 
   task_scheduler_state.coreset0_args_t.n_0 = (coreset_zero_cfg.O * 
@@ -189,24 +189,12 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
   memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, 
     sizeof(srsue::nr::cell_search::cfg_t));
 
-  // initiate resampler here
-  resample_ratio = resample_ratio_;
-  float As=60.0f;
-  resampler = msresamp_crcf_create(resample_ratio,As);
-  resampler_delay = msresamp_crcf_get_delay(resampler);
-  /* don't hardcode it; change later */
-  pre_resampling_slot_sz = raw_srate_ / 1000 / 
-    SRSRAN_NOF_SLOTS_PER_SF_NR(args_t_->ssb_scs); 
-  temp_x_sz = pre_resampling_slot_sz + (int)ceilf(resampler_delay) + 10;
-  temp_y_sz = (uint32_t)(temp_x_sz * resample_ratio * 2);
-  temp_x = SRSRAN_MEM_ALLOC(std::complex<float>, temp_x_sz);
-  temp_y = SRSRAN_MEM_ALLOC(std::complex<float>, temp_y_sz);
-
   return SRSRAN_SUCCESS;
 }
 
 int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
   task_scheduler_lock.lock();
+  double now = get_now_timestamp_in_double();
   /* This slot contains SIBs decoder's result */
   if (now_result.sib_result) {
     if (now_result.found_sib1 && !task_scheduler_state.sib1_found) {
@@ -266,14 +254,29 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
           task_scheduler_state.known_rntis.push_back(
             now_result.new_rntis_found[i]);
+          task_scheduler_state.last_seen.push_back(
+            now);
         }
         task_scheduler_state.rach_found = true;
       } else {
         /* We already found the RACH, we just append the new RNTIs */
-        task_scheduler_state.nof_known_rntis += now_result.new_rnti_number;
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-          task_scheduler_state.known_rntis.push_back(
-            now_result.new_rntis_found[i]);
+          bool is_in = false;
+          for (unsigned long int j = 0; 
+              j < task_scheduler_state.known_rntis.size(); j ++){
+            if (now_result.new_rntis_found[i] == 
+                task_scheduler_state.known_rntis[j]){
+              is_in = true;
+              break;
+            }
+          }
+          if (!is_in) {
+            task_scheduler_state.nof_known_rntis += 1;
+            task_scheduler_state.known_rntis.push_back(
+              now_result.new_rntis_found[i]);
+            task_scheduler_state.last_seen.push_back(
+              now);
+          }
         }
       }
 
@@ -301,6 +304,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
               srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
             log_node.dl_dci = result.dl_dcis[i];
             log_node.bwp_id = result.dl_dcis[i].bwp_id;
+            task_scheduler_state.last_seen[i] = now;
             if(local_log){
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -320,6 +324,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
               srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
             log_node.ul_dci = result.ul_dcis[i];
             log_node.bwp_id = result.ul_dcis[i].bwp_id;
+            task_scheduler_state.last_seen[i] = now;
             if(local_log){
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -331,6 +336,28 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
       }
     }
   }
+
+  /* Check the last seen time for each UE in the list*/
+  std::vector<double>::iterator last_seen_iter = 
+    task_scheduler_state.last_seen.begin();
+  std::vector<uint16_t>::iterator ue_list_iter = 
+    task_scheduler_state.known_rntis.begin();
+
+  while(last_seen_iter != task_scheduler_state.last_seen.end() &&
+    ue_list_iter != task_scheduler_state.known_rntis.end()) {
+      if(now - *last_seen_iter > 5) {
+        // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
+        //   << std::endl;
+        last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
+        ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
+        --task_scheduler_state.nof_known_rntis;
+      }
+      else {
+        ++last_seen_iter;
+        ++ue_list_iter;
+      }
+  }
+
   return SRSRAN_SUCCESS;
 }
 

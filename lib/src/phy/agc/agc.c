@@ -30,7 +30,7 @@ int srsran_agc_init_acc(srsran_agc_t* q, srsran_agc_mode_t mode, uint32_t nof_fr
   bzero(q, sizeof(srsran_agc_t));
   q->mode        = mode;
   q->nof_frames  = nof_frames;
-  q->max_gain_db = 90.0;
+  q->max_gain_db = 93.0;
   q->min_gain_db = 0.0;
   if (nof_frames > 0) {
     q->y_tmp = srsran_vec_f_malloc(nof_frames);
@@ -41,6 +41,14 @@ int srsran_agc_init_acc(srsran_agc_t* q, srsran_agc_mode_t mode, uint32_t nof_fr
     q->y_tmp = NULL;
   }
   q->target = SRSRAN_AGC_DEFAULT_TARGET;
+  srsran_agc_reset(q);
+  return SRSRAN_SUCCESS;
+}
+
+int srsran_agc_set_min_max_gain(srsran_agc_t* q, float min_gain, float max_gain)
+{
+  q->min_gain_db = min_gain;
+  q->max_gain_db = max_gain;
   srsran_agc_reset(q);
   return SRSRAN_SUCCESS;
 }
@@ -220,6 +228,8 @@ void srsran_agc_process(srsran_agc_t* q, cf_t* signal, uint32_t len)
   if (!q->uhd_handler) {
     srsran_vec_sc_prod_cfc(signal, srsran_convert_dB_to_amplitude(q->gain_db), signal, len);
   }
+
+  printf("[AGC test] trigger process\n");
 
   // Run FSM state
   switch (q->state) {

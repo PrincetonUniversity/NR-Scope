@@ -113,4 +113,17 @@ SRSRAN_API int srsran_ra_dl_nr_freq(const srsran_carrier_nr_t*    carrier,
                                     const srsran_dci_dl_nr_t*     dci_dl,
                                     srsran_sch_grant_nr_t*        grant);
 
+/**
+ * @brief Calculates the number of MIMO layers
+ *
+ * @remark Defined by TS 38.214 V15.10.0 5.1.6.2 DM-RS reception procedure
+ *
+ * @param cfg PDSCH NR configuration by upper layers
+ * @param dci Provides PUSCH NR DCI
+ * @return The number of layers if the provided data is valid, 
+ * otherwise it returns SRSRAN_ERROR code
+ */
+SRSRAN_API int srsran_dl_nr_mimo_layers(const srsran_sch_hl_cfg_nr_t* cfg,
+                                        const srsran_dci_dl_nr_t*     dci);
+
 #endif // SRSRAN_RA_DL_NR_H

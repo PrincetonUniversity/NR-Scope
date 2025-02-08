@@ -84,6 +84,17 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
       }
       std::cout << "    rx_gain: " << radios[i].rf_args.rx_gain << std::endl;
 
+      if(config_yaml[setting_name]["min_rx_gain"]){
+        radios[i].min_rx_gain = 
+          config_yaml[setting_name]["min_rx_gain"].as<float>();
+      }
+      std::cout << "    AGC min_rx_gain: " << radios[i].min_rx_gain << std::endl;
+
+      if(config_yaml[setting_name]["max_rx_gain"]){
+        radios[i].max_rx_gain = 
+          config_yaml[setting_name]["max_rx_gain"].as<float>();
+      }
+      std::cout << "    AGC max_rx_gain: " << radios[i].max_rx_gain << std::endl;
 
       if(config_yaml[setting_name]["nof_carriers"]){
         radios[i].rf_args.nof_carriers = 

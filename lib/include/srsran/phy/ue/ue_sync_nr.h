@@ -24,6 +24,7 @@
 
 #include "srsran/phy/common/timestamp.h"
 #include "srsran/phy/sync/ssb.h"
+#include "srsran/phy/agc/agc.h"
 
 #include <stdio.h>
 #include <pthread.h>
@@ -102,6 +103,10 @@ typedef struct SRSRAN_API {
   float avg_delay_us; ///< Current average delay
 
   float resample_ratio;
+
+  // AGC
+  srsran_agc_t agc;
+  bool         do_agc;
 } srsran_ue_sync_nr_t;
 
 typedef struct SRSRAN_API {
@@ -200,5 +205,11 @@ SRSRAN_API int srsran_ue_sync_nr_zerocopy_nrscope(srsran_ue_sync_nr_t* q,
  * @return SRSRAN_SUCCESS if no error occurs, SRSRAN_ERROR code otherwise
  */
 SRSRAN_API int srsran_ue_sync_nr_feedback(srsran_ue_sync_nr_t* q, const srsran_csi_trs_measurements_t* measurements);
+
+SRSRAN_API int srsran_ue_sync_nr_start_agc(srsran_ue_sync_nr_t* q,
+                                SRSRAN_AGC_CALLBACK(set_gain_callback),
+                                float init_gain_value,
+                                float min_rx_gain,
+                                float max_rx_gain);
 
 #endif // SRSRAN_UE_SYNC_NR_H

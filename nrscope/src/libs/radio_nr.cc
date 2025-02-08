@@ -6,6 +6,12 @@
 #define RING_BUF_SIZE 10000
 #define RING_BUF_MODULUS (RING_BUF_SIZE - 1)
 
+static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
+{ 
+  printf("[AGC gain adj] new rx gain: %f\n", gain_db);
+  ((srsran::radio_interface_phy *)h)->set_rx_gain(gain_db);
+}
+
 Radio::Radio() : 
   logger(srslog::fetch_basic_logger("PHY")), 
   srsran_searcher(logger),
@@ -15,8 +21,8 @@ Radio::Radio() :
   raido_shared = std::make_shared<srsran::radio>();
   radio = nullptr;
 
-  nof_trials = 100;
-  nof_trials_scan = 500;
+  nof_trials = 2000;
+  nof_trials_scan = 200;
   sf_round = 0;
   srsran_searcher_args_t.max_srate_hz = 92.16e6;
   srsran_searcher_args_t.ssb_min_scs = srsran_subcarrier_spacing_15kHz;
@@ -148,7 +154,7 @@ int Radio::ScanInitandStart(){
   // resampling rate (output/input)
   float r = (float)rf_args.srsran_srate_hz/(float)rf_args.srate_hz;
   // resampling filter stop-band attenuation [dB]    
-  float As=60.0f;
+  float As=TARGET_STOPBAND_SUPPRESSION_DB;
   msresamp_crcf q[CS_RESAMPLE_WORKER_NUM];
   uint32_t temp_x_sz;
   uint32_t temp_y_sz;
@@ -472,9 +478,10 @@ int Radio::RadioInitandStart(){
 
   // initialize resampling tool
   // resampling rate (output/input)
+
   float r = (float)rf_args.srsran_srate_hz/(float)rf_args.srate_hz;
   // resampling filter stop-band attenuation [dB]     
-  float As=60.0f;
+  float As=TARGET_STOPBAND_SUPPRESSION_DB;
   msresamp_crcf q[RESAMPLE_WORKER_NUM];
   uint32_t temp_x_sz;
   uint32_t temp_y_sz;
@@ -747,6 +754,9 @@ int Radio::SyncandDownlinkInit(){
     return SRSRAN_ERROR;
   }
 
+  srsran_ue_sync_nr_start_agc(&ue_sync_nr, radio_set_rx_gain_wrapper, 
+    rf_args.rx_gain, min_rx_gain, max_rx_gain);
+
   return SRSRAN_SUCCESS;
 }
 
@@ -845,6 +855,8 @@ int Radio::DecodeAndProcess(){
         RING_BUF_MODULUS sf index; we copy wanted data to 0 sf idx
         assumption: no way when we are decoding this sf the fetch thread has 
         go around the whole ring and modify this sf again */
+      std::cout << "pre_resampling_sf_sz: " << pre_resampling_sf_sz 
+        << std::endl;
       srsran_vec_cf_copy(rx_buffer, rx_buffer + 
         (first_time ? 0 : ((next_consume_at % RING_BUF_MODULUS + 1) * 
         pre_resampling_sf_sz)) + (slot_idx * slot_sz), slot_sz);
@@ -856,7 +868,6 @@ int Radio::DecodeAndProcess(){
 
       if (first_time) {
         /* If the next result is not set */
-        NRScopeTask::task_scheduler_lock.lock();
         task_scheduler_nrscope.next_result.sf_round = sf_round;
         task_scheduler_nrscope.next_result.slot.idx = slot.idx;
         if (outcome.sfn == 1023){
@@ -866,7 +877,6 @@ int Radio::DecodeAndProcess(){
           task_scheduler_nrscope.next_result.outcome.sfn = outcome.sfn + 1;
         }
         
-        NRScopeTask::task_scheduler_lock.unlock();
       }
 
       if (task_scheduler_nrscope.AssignTask(sf_round, slot, outcome, rx_buffer) 

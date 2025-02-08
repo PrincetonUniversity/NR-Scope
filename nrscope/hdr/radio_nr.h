@@ -19,6 +19,8 @@
 // For cell scan
 #define CS_RESAMPLE_WORKER_NUM 4
 
+#define TARGET_STOPBAND_SUPPRESSION_DB 60.0f;
+
 class Radio{
   public:
     int                                           rf_index;
@@ -84,6 +86,10 @@ class Radio{
     bool to_google;
     std::string google_credential;
     std::string google_dataset_id;
+
+    /* AGC */
+    float min_rx_gain;
+    float max_rx_gain;
 
     Radio();  //constructor
     ~Radio(); //deconstructor
