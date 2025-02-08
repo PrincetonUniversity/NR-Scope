@@ -753,3 +753,6 @@ ${CMAKE_CURRENT_BINARY_DIR}/nrscope/src/to_google.py)
 
 configure_file(${PROJECT_SOURCE_DIR}/nrscope/hidden_bwp_db/369.txt
 ${CMAKE_CURRENT_BINARY_DIR}/nrscope/src/369.txt)
+
+configure_file(${PROJECT_SOURCE_DIR}/nrscope/hidden_bwp_db/826.txt
+${CMAKE_CURRENT_BINARY_DIR}/nrscope/src/826.txt)
