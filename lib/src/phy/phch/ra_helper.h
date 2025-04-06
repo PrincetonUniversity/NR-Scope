@@ -47,8 +47,15 @@ static int ra_helper_freq_type0(const srsran_carrier_nr_t*    carrier,
                                 srsran_sch_grant_nr_t*        grant)
 {
   uint32_t P = ra_helper_type0_P(carrier->nof_prb, cfg->rbg_size_cfg_1);
+  // printf("carrier->nof_prb: %d\n", carrier->nof_prb);
+  // printf("cfg->rbg_size_cfg_1: %d\n", cfg->rbg_size_cfg_1);
+  // printf("P: %d\n", P);
 
   uint32_t N_rbg      = (int)ceilf((float)(carrier->nof_prb + (carrier->start % P)) / P);
+  // printf("N_rbg: %d\n", N_rbg);
+  // printf("riv: %d\n", riv);
+
+
   uint32_t rbg_offset = 0;
   for (uint32_t i = 0; i < N_rbg; i++) {
     uint32_t rbg_size = P;
@@ -57,6 +64,7 @@ static int ra_helper_freq_type0(const srsran_carrier_nr_t*    carrier,
     } else if ((i == N_rbg - 1) && ((carrier->nof_prb + carrier->start) % P) > 0) {
       rbg_size = (carrier->nof_prb + carrier->start) % P;
     }
+    printf("riv & (1 << (N_rbg - i - 1)): %d\n", riv & (1 << (N_rbg - i - 1)));
     if (riv & (1 << (N_rbg - i - 1))) {
       for (uint32_t j = 0; j < rbg_size; j++) {
         if (rbg_offset + j < carrier->nof_prb) {

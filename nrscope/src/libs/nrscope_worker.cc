@@ -319,7 +319,7 @@ void NRScopeWorker::Run() {
     }    
 
     std::thread rach_thread;
-    if (worker_state.rach_inited) {
+    if (worker_state.rach_inited && !worker_state.rach_found) {
       if (worker_state.cpu_affinity) {
         cpu_set_t cpu_set_rach;
         CPU_ZERO(&cpu_set_rach);

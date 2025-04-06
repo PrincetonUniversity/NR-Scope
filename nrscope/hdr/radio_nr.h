@@ -51,6 +51,7 @@ class Radio{
     uint32_t                                      nof_trials;
     uint32_t                                      nof_trials_scan;
     cell_search_result_t                          cell;
+    uint16_t                                      fixed_rnti;
 
     coreset0_args                                 coreset0_args_t;
     srsran_coreset_t                              coreset0_t;

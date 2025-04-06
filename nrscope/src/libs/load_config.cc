@@ -179,6 +179,13 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
         radios[i].nof_workers = 1;
       }
 
+      if(config_yaml[setting_name]["rnti"]){
+        radios[i].fixed_rnti = 
+          config_yaml[setting_name]["rnti"].as<uint16_t>();
+      }else{
+        radios[i].fixed_rnti = 0;
+      }
+
       radios[i].nof_threads = radios[i].nof_threads * radios[i].nof_bwps;
 
       // std::cout << "    nof_thread: " << radios[i].nof_thread << std::endl;

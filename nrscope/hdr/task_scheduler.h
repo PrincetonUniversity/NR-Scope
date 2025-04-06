@@ -16,6 +16,7 @@ public:
   WorkState task_scheduler_state;
   uint32_t nof_workers;
   std::thread scheduler_thread;
+  uint16_t fixed_rnti;
 
   std::vector<std::unique_ptr <NRScopeWorker> > workers;
   /* Slot results reorder buffer */
@@ -41,7 +42,8 @@ public:
                    uint8_t nof_bwps,
                    bool cpu_affinity,
                    cell_searcher_args_t args_t,
-                   uint32_t nof_workers_);
+                   uint32_t nof_workers_,
+                   uint16_t fixed_rnti_);
 
   int DecodeMIB(cell_searcher_args_t* args_t_, 
                 srsue::nr::cell_search::ret_t* cs_ret_,

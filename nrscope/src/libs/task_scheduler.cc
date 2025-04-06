@@ -27,10 +27,12 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
                                        uint8_t nof_bwps,
                                        bool cpu_affinity,
                                        cell_searcher_args_t args_t,
-                                       uint32_t nof_workers_){
+                                       uint32_t nof_workers_,
+                                       uint16_t fixed_rnti_){
   local_log = local_log_;
   to_google = to_google_;
   rf_index = rf_index_;
+  fixed_rnti = fixed_rnti_;
   task_scheduler_state.nof_threads = nof_threads;
   task_scheduler_state.nof_rnti_worker_groups = nof_rnti_worker_groups;
   task_scheduler_state.nof_bwps = nof_bwps;
@@ -221,34 +223,37 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         /* The first time that we found the RACH */
         task_scheduler_state.rrc_setup = now_result.rrc_setup;
         task_scheduler_state.master_cell_group = now_result.master_cell_group;
-        task_scheduler_state.nof_known_rntis += now_result.new_rnti_number;
-        for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-          task_scheduler_state.known_rntis.push_back(
-            now_result.new_rntis_found[i]);
-          task_scheduler_state.last_seen.push_back(
-            now);
-        }
+        task_scheduler_state.nof_known_rntis += 1;
+        task_scheduler_state.known_rntis.push_back(fixed_rnti);
+        task_scheduler_state.last_seen.push_back(now);
+        std::cout << "Listening to fixed: " << fixed_rnti << std::endl;
+        // for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
+        //   task_scheduler_state.known_rntis.push_back(
+        //     now_result.new_rntis_found[i]);
+        //   task_scheduler_state.last_seen.push_back(
+        //     now);
+        // }
         task_scheduler_state.rach_found = true;
       } else {
-        /* We already found the RACH, we just append the new RNTIs */
-        for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-          bool is_in = false;
-          for (unsigned long int j = 0; 
-              j < task_scheduler_state.known_rntis.size(); j ++){
-            if (now_result.new_rntis_found[i] == 
-                task_scheduler_state.known_rntis[j]){
-              is_in = true;
-              break;
-            }
-          }
-          if (!is_in) {
-            task_scheduler_state.nof_known_rntis += 1;
-            task_scheduler_state.known_rntis.push_back(
-              now_result.new_rntis_found[i]);
-            task_scheduler_state.last_seen.push_back(
-              now);
-          }
-        }
+        // /* We already found the RACH, we just append the new RNTIs */
+        // for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
+        //   bool is_in = false;
+        //   for (unsigned long int j = 0; 
+        //       j < task_scheduler_state.known_rntis.size(); j ++){
+        //     if (now_result.new_rntis_found[i] == 
+        //         task_scheduler_state.known_rntis[j]){
+        //       is_in = true;
+        //       break;
+        //     }
+        //   }
+        //   if (!is_in) {
+        //     task_scheduler_state.nof_known_rntis += 1;
+        //     task_scheduler_state.known_rntis.push_back(
+        //       now_result.new_rntis_found[i]);
+        //     task_scheduler_state.last_seen.push_back(
+        //       now);
+        //   }
+        // }
       }
 
       /* Since we got the RACH, we can now init the RACH decoder*/
@@ -309,25 +314,25 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
   }
 
   /* Check the last seen time for each UE in the list*/
-  std::vector<double>::iterator last_seen_iter = 
-    task_scheduler_state.last_seen.begin();
-  std::vector<uint16_t>::iterator ue_list_iter = 
-    task_scheduler_state.known_rntis.begin();
+  // std::vector<double>::iterator last_seen_iter = 
+  //   task_scheduler_state.last_seen.begin();
+  // std::vector<uint16_t>::iterator ue_list_iter = 
+  //   task_scheduler_state.known_rntis.begin();
 
-  while(last_seen_iter != task_scheduler_state.last_seen.end() &&
-    ue_list_iter != task_scheduler_state.known_rntis.end()) {
-      if(now - *last_seen_iter > 5) {
-        // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
-        //   << std::endl;
-        last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
-        ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
-        --task_scheduler_state.nof_known_rntis;
-      }
-      else {
-        ++last_seen_iter;
-        ++ue_list_iter;
-      }
-  }
+  // while(last_seen_iter != task_scheduler_state.last_seen.end() &&
+  //   ue_list_iter != task_scheduler_state.known_rntis.end()) {
+  //     if(now - *last_seen_iter > 5) {
+  //       // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
+  //       //   << std::endl;
+  //       last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
+  //       ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
+  //       --task_scheduler_state.nof_known_rntis;
+  //     }
+  //     else {
+  //       ++last_seen_iter;
+  //       ++ue_list_iter;
+  //     }
+  // }
 
   return SRSRAN_SUCCESS;
 }
