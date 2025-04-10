@@ -212,6 +212,10 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
   srsran_csi_trs_measurements_t measurements = {};
   srsran_pbch_msg_nr_t          pbch_msg     = {};
   uint32_t                      half_frame   = q->sf_idx / (SRSRAN_NOF_SF_X_FRAME / 2);
+  if (q->use_gpsdo) {
+    // reply on the gpsdo completely.
+    return SRSRAN_SUCCESS;
+  }
 
   // Check if the SSB selected candidate index shall be received in this subframe
   bool is_ssb_opportunity = (q->sf_idx == srsran_ssb_candidate_sf_idx(&q->ssb, q->ssb_idx, half_frame > 0));
@@ -219,7 +223,7 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
   // Use SSB periodicity
   if (q->ssb.cfg.periodicity_ms >= 10) {
     // SFN match with the periodicity
-    is_ssb_opportunity = is_ssb_opportunity && (half_frame == 0) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
+    is_ssb_opportunity = is_ssb_opportunity && (q->sf_idx <= 5) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
   }
 
   if (!is_ssb_opportunity) {
@@ -227,7 +231,7 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
   }
 
   // Measure PSS/SSS and decode PBCH
-  if (srsran_ssb_track(&q->ssb, buffer, q->N_id, q->ssb_idx, half_frame, &measurements, &pbch_msg) < SRSRAN_SUCCESS) {
+  if (srsran_ssb_track(&q->ssb, buffer, q->N_id, q->ssb_idx, q->sf_idx <= 5, &measurements, &pbch_msg) < SRSRAN_SUCCESS) {
     ERROR("Error finding SSB");
     return SRSRAN_ERROR;
   }

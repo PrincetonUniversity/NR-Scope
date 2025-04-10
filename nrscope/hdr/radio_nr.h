@@ -79,6 +79,7 @@ class Radio{
     bool rk_initialized = false;
 
     bool cpu_affinity;
+    bool use_gpsdo;
 
     std::string log_name;
     bool local_log;

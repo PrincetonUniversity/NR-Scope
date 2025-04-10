@@ -103,6 +103,7 @@ typedef struct SRSRAN_API {
   float avg_delay_us; ///< Current average delay
 
   float resample_ratio;
+  bool use_gpsdo;
 
   // AGC
   srsran_agc_t agc;

@@ -179,6 +179,13 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
         radios[i].nof_workers = 1;
       }
 
+      if(config_yaml[setting_name]["use_gpsdo"]){
+        radios[i].use_gpsdo = 
+          config_yaml[setting_name]["use_gpsdo"].as<bool>();
+      }else{
+        radios[i].use_gpsdo = true;
+      }
+
       radios[i].nof_threads = radios[i].nof_threads * radios[i].nof_bwps;
 
       // std::cout << "    nof_thread: " << radios[i].nof_thread << std::endl;

@@ -15,6 +15,7 @@ usrp_setting_0:
   nof_bwps: 1 # number of BWP of the cell
   nof_workers: 4 # using worker pool to asynchronously process the slot data
   cpu_affinity: false # pin the worker's thread into CPU or not.
+  use_gpsdo: true # gpsdo not required but recommended, as the software synchronization on a higher bandwidth cell has overflows and missed DCIs
 
   log_name: "a.csv"
   google_dataset_id: "ngscope5g_dci_log_wanhr"

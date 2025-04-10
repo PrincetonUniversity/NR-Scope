@@ -731,6 +731,8 @@ int Radio::SyncandDownlinkInit(){
     logger.error("Error initiating UE SYNC NR object");
     return SRSRAN_ERROR;
   }
+  ue_sync_nr.use_gpsdo = use_gpsdo;
+
   // Be careful of all the frequency setting (SSB/center downlink and etc.)!
   ssb_cfg.srate_hz = 
     task_scheduler_nrscope.task_scheduler_state.args_t.srate_hz;
@@ -829,6 +831,7 @@ int Radio::DecodeAndProcess(){
   
   uint64_t next_consume_at = 0;
   bool first_time = true;
+  bool expect_sib1 = true;
   task_scheduler_nrscope.task_scheduler_state.sib1_inited = true;
   while (true) {
     sem_wait(&smph_sf_data_prod_cons); 
@@ -877,6 +880,39 @@ int Radio::DecodeAndProcess(){
         }
         
       }
+      if (expect_sib1 && 
+           task_scheduler_nrscope.task_scheduler_state.sib1_found) {
+         switch (task_scheduler_nrscope.task_scheduler_state.sib1.
+           serving_cell_cfg_common.ssb_periodicity_serving_cell) {
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms5:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 5;
+             break;
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms10:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 10;
+             break;
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms20:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 20;
+             break;
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms40:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 40;
+             break;
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms80:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 80;
+             break;
+           case asn1::rrc_nr::serving_cell_cfg_common_s::
+                ssb_periodicity_serving_cell_e_::ms160:
+             ue_sync_nr.ssb.cfg.periodicity_ms = 160;
+             break;
+           default:
+             break;
+         }
+         expect_sib1 = false;
+       }
 
       if (task_scheduler_nrscope.AssignTask(sf_round, slot, outcome, rx_buffer) 
           < SRSRAN_SUCCESS) {
