@@ -46,6 +46,7 @@ extern "C" {
 #define SRSRAN_NOF_SLOTS_PER_SF_NR(x) ((int)pow(2.0, x)) // frame struture in 5G NR, added by Haoran
 #define SRSRAN_NSLOTS_X_FRAME (SRSRAN_NOF_SLOTS_PER_SF * SRSRAN_NOF_SF_X_FRAME)
 #define SRSRAN_NSLOTS_X_FRAME_NR(x) (SRSRAN_NOF_SLOTS_PER_SF_NR(x) * SRSRAN_NOF_SF_X_FRAME) // added by Haoran
+#define SRSRAN_SIB1_SSB_PERIODIC(x) (x < 6 : ) // added by Haoran
 
 #define SRSRAN_NSOFT_BITS 250368 // Soft buffer size for Category 1 UE
 

@@ -215,13 +215,18 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
 
   // Check if the SSB selected candidate index shall be received in this subframe
   bool is_ssb_opportunity = (q->sf_idx == srsran_ssb_candidate_sf_idx(&q->ssb, q->ssb_idx, half_frame > 0));
+  printf("is_ssb_opportunity: %d\n", is_ssb_opportunity);
+  printf("q->sf_idx: %d\n", q->sf_idx);
 
   // Use SSB periodicity
   if (q->ssb.cfg.periodicity_ms >= 10) {
     // SFN match with the periodicity
-    is_ssb_opportunity = is_ssb_opportunity && (half_frame == 0) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
+    printf("q->sfn: %d, q->ssb.cfg.periodicity_ms / 10: %d\n", q->sfn, q->ssb.cfg.periodicity_ms / 10);
+    printf("q->sfn \% q->ssb.cfg.periodicity_ms / 10: %d\n", q->sfn % q->ssb.cfg.periodicity_ms / 10);
+    printf("half_frame: %d\n", half_frame);
+    is_ssb_opportunity = is_ssb_opportunity && (q->sf_idx <= 5) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
   }
-
+  printf("is_ssb_opportunity: %d\n", is_ssb_opportunity);
   if (!is_ssb_opportunity) {
     return SRSRAN_SUCCESS;
   }
