@@ -14,6 +14,7 @@ endif()
 add_executable(test_comm test_comm_path.cc)
 add_executable(google_client google_client_test.cc)
 add_executable(google_client_cc google_client_cc_test.cc)
+add_executable(rrc_reconf_test rrc_reconf_test.cc)
 
 target_link_libraries(test_comm srsue_phy
                                 srsran_common
@@ -39,7 +40,20 @@ target_link_libraries(google_client_cc srsue_phy
                                        ${SRSRAN_SOURCES}
                                        ${CMAKE_THREAD_LIBS_INIT}
                                        ${Boost_LIBRARIES}
-                                       ${YAML_CPP_LIBRARIES})                                
+                                       ${YAML_CPP_LIBRARIES})    
+                                       
+target_link_libraries(rrc_reconf_test srsue_phy
+                                      srsran_common
+                                      srsran_phy
+                                      srsran_radio
+                                      rrc_nr_asn1
+                                      nrscope_libs
+                                      test_libs
+                                      ${SRSUE_SOURCES} 
+                                      ${SRSRAN_SOURCES}
+                                      ${CMAKE_THREAD_LIBS_INIT}
+                                      ${Boost_LIBRARIES}
+                                      ${YAML_CPP_LIBRARIES}) 
 
 if(PUSH_TO_GOOGLE)
   target_link_libraries(google_client ${PYTHON_LIBRARIES})

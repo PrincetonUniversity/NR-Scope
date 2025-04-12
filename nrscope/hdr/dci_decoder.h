@@ -11,7 +11,8 @@ class DCIDecoder{
     srsran_sch_hl_cfg_nr_t pdsch_hl_cfg;
     srsran_sch_hl_cfg_nr_t pusch_hl_cfg;
     srsran_softbuffer_rx_t softbuffer;
-    srsran_dci_cfg_nr_t dci_cfg;
+    srsran_dci_cfg_nr_t dci_cfg; // DCI format without carrier aggregation
+    srsran_dci_cfg_nr_t dci_cfg_ca; // DCI format with carrier aggregation
     srsran_ue_dl_nr_args_t ue_dl_args;
     srsran_pdcch_cfg_nr_t  pdcch_cfg;
     

@@ -377,9 +377,9 @@ void NRScopeWorker::Run() {
       }
       gettimeofday(&t1, NULL);
       std::cout << "sf_round: " << (int)slot_result.sf_round
-      << "sfn: " << (int)slot_result.outcome.sfn 
-      << "slot: " << (int)slot_result.slot.idx 
-      << "time: " << (int)(t1.tv_usec - t0.tv_usec) << std::endl;
+      << ", sfn: " << (int)slot_result.outcome.sfn 
+      << ", slot: " << (int)slot_result.slot.idx 
+      << ", time: " << (int)(t1.tv_usec - t0.tv_usec) << std::endl;
     }
 
     if(sibs_thread.joinable()){

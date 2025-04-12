@@ -991,6 +991,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   q->K = dci_msg->nof_bits + 24U;                                  // Payload size including CRC
   q->M = (1U << dci_msg->ctx.location.L) * (SRSRAN_NRE - 3U) * 6U; // Number of RE
   q->E = q->M * 2;                                                 // Number of Rate-Matched bits
+  // printf("dci_msg->nof_bits: %d\n", dci_msg->nof_bits);
 
   // Check number of estimates is correct
   if (ce->nof_re != q->M) {

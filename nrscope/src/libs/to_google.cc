@@ -192,6 +192,9 @@ namespace ToGoogle{
           pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
             new_entry.dl_dci.ports : new_entry.ul_dci.ports),
           PyDict_SetItemString(pDict, "ports", pInt);
+          pInt = PyLong_FromLong(new_entry.dci_format == "1_1" ? 
+            new_entry.dl_dci.cc_id : new_entry.ul_dci.cc_id),
+          PyDict_SetItemString(pDict, "carrier_index", pInt);
 
           PyList_SetItem(pList[rf_id], list_count[rf_id], pDict);
           list_count[rf_id] += 1;
