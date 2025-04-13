@@ -435,12 +435,13 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     dci_cfg.pusch_nof_cbg = 0;
   }
   
-  if(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.csi_meas_cfg_present){
-    dci_cfg.report_trigger_size = master_cell_group.sp_cell_cfg.
-    sp_cell_cfg_ded.csi_meas_cfg.setup().report_trigger_size;
-  }else{
-    dci_cfg.report_trigger_size = 0; ///< determined by reportTriggerSize
-  }
+  dci_cfg.report_trigger_size = 2;
+  // if(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.csi_meas_cfg_present){
+  //   dci_cfg.report_trigger_size = master_cell_group.sp_cell_cfg.
+  //   sp_cell_cfg_ded.csi_meas_cfg.setup().report_trigger_size;
+  // }else{
+  //   dci_cfg.report_trigger_size = 0; ///< determined by reportTriggerSize
+  // }
 
   if(bwp_ul_ded_s_ptr->pusch_cfg.setup().transform_precoder == 
      asn1::rrc_nr::pusch_cfg_s::transform_precoder_opts::disabled){
@@ -586,8 +587,9 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     pdsch_cfg_common_present ? sib1.serving_cell_cfg_common.dl_cfg_common.
     init_dl_bwp.pdsch_cfg_common.setup().pdsch_time_domain_alloc_list.size() : 0
     );
-  dci_cfg.nof_aperiodic_zp = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
-    aperiodic_zp_csi_rs_res_sets_to_add_mod_list.size();
+  dci_cfg.nof_aperiodic_zp = 3;
+    // bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+    // aperiodic_zp_csi_rs_res_sets_to_add_mod_list.size();
   // maxCodeBlockGroupsPerTransportBlock
   if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
       pdsch_serving_cell_cfg_present && master_cell_group.sp_cell_cfg.
