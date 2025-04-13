@@ -179,7 +179,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
                                    search_spaces_to_add_mod_list[ss_id].
                                    search_space_id;
       pdcch_cfg.search_space[ss_id].coreset_id = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
-                                            ctrl_res_set_to_add_mod_list[ss_id].
+                                            search_spaces_to_add_mod_list[ss_id].
                                             ctrl_res_set_id;
       
       printf("pdcch_cfg.search_space[%d].coreset_id in bwp%u: %u\n", ss_id, 
@@ -220,32 +220,32 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     ctrl_res_set_to_add_mod_list.size(); crst_id++){
     srsran_coreset_t coreset_n;
     coreset_n.id = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
-                  ctrl_res_set_to_add_mod_list[0].ctrl_res_set_id; 
+                  ctrl_res_set_to_add_mod_list[crst_id].ctrl_res_set_id; 
 
     printf("to addmod coreset_n.id in bwp0: %u\n", coreset_n.id);
     coreset_n.duration = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
-                          ctrl_res_set_to_add_mod_list[0].dur;
+                          ctrl_res_set_to_add_mod_list[crst_id].dur;
     for(int i = 0; i < 45; i++){
       coreset_n.freq_resources[i] = bwp_dl_ded_s_ptr->pdcch_cfg.
-                                    setup().ctrl_res_set_to_add_mod_list[0].
+                                    setup().ctrl_res_set_to_add_mod_list[crst_id].
                                     freq_domain_res.get(45-i-1);
     }
     coreset_n.offset_rb = 0;
     if (bwp_dl_ded_s_ptr->pdcch_cfg.
-        setup().ctrl_res_set_to_add_mod_list[0].precoder_granularity == 
+        setup().ctrl_res_set_to_add_mod_list[crst_id].precoder_granularity == 
         asn1::rrc_nr::ctrl_res_set_s::precoder_granularity_opts::same_as_reg_bundle){
       coreset_n.precoder_granularity = srsran_coreset_precoder_granularity_reg_bundle;
     }else if (bwp_dl_ded_s_ptr->pdcch_cfg.
-              setup().ctrl_res_set_to_add_mod_list[0].precoder_granularity == 
+              setup().ctrl_res_set_to_add_mod_list[crst_id].precoder_granularity == 
               asn1::rrc_nr::ctrl_res_set_s::precoder_granularity_opts::all_contiguous_rbs){
       coreset_n.precoder_granularity = srsran_coreset_precoder_granularity_contiguous;
     }
 
     if (bwp_dl_ded_s_ptr->pdcch_cfg.
-      setup().ctrl_res_set_to_add_mod_list[0].cce_reg_map_type.type() == 
+      setup().ctrl_res_set_to_add_mod_list[crst_id].cce_reg_map_type.type() == 
       asn1::rrc_nr::ctrl_res_set_s::cce_reg_map_type_c_::types_opts::
       non_interleaved || bwp_dl_ded_s_ptr->pdcch_cfg.
-      setup().ctrl_res_set_to_add_mod_list[0].cce_reg_map_type.type() == 
+      setup().ctrl_res_set_to_add_mod_list[crst_id].cce_reg_map_type.type() == 
       asn1::rrc_nr::ctrl_res_set_s::cce_reg_map_type_c_::types_opts::nulltype){
       coreset_n.mapping_type = srsran_coreset_mapping_type_non_interleaved; 
       coreset_n.interleaver_size = srsran_coreset_bundle_size_n2; // doesn't matter, fill a random value
@@ -254,7 +254,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     }else{
       coreset_n.mapping_type = srsran_coreset_mapping_type_interleaved; 
       switch(bwp_dl_ded_s_ptr->pdcch_cfg.
-            setup().ctrl_res_set_to_add_mod_list[0].cce_reg_map_type.
+            setup().ctrl_res_set_to_add_mod_list[crst_id].cce_reg_map_type.
             interleaved().interleaver_size){
         case asn1::rrc_nr::ctrl_res_set_s::cce_reg_map_type_c_::interleaved_s_::
             interleaver_size_e_::n2:
@@ -279,10 +279,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
           break;
       }
       coreset_n.shift_index = bwp_dl_ded_s_ptr->pdcch_cfg.
-        setup().ctrl_res_set_to_add_mod_list[0].cce_reg_map_type.
+        setup().ctrl_res_set_to_add_mod_list[crst_id].cce_reg_map_type.
         interleaved().shift_idx;
       switch(bwp_dl_ded_s_ptr->pdcch_cfg.
-            setup().ctrl_res_set_to_add_mod_list[0].cce_reg_map_type.
+            setup().ctrl_res_set_to_add_mod_list[crst_id].cce_reg_map_type.
             interleaved().reg_bundle_size){
         case asn1::rrc_nr::ctrl_res_set_s::cce_reg_map_type_c_::interleaved_s_::
             reg_bundle_size_e_::n2:
@@ -308,10 +308,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
       }
     }
     coreset_n.dmrs_scrambling_id_present = bwp_dl_ded_s_ptr->pdcch_cfg.
-      setup().ctrl_res_set_to_add_mod_list[0].pdcch_dmrs_scrambling_id_present;
+      setup().ctrl_res_set_to_add_mod_list[crst_id].pdcch_dmrs_scrambling_id_present;
     if (coreset_n.dmrs_scrambling_id_present){
       coreset_n.dmrs_scrambling_id = bwp_dl_ded_s_ptr->pdcch_cfg.
-        setup().ctrl_res_set_to_add_mod_list[0].pdcch_dmrs_scrambling_id;
+        setup().ctrl_res_set_to_add_mod_list[crst_id].pdcch_dmrs_scrambling_id;
     }
     printf("coreset_dmrs_scrambling id: %u\n", coreset_n.dmrs_scrambling_id);
 
@@ -324,6 +324,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
 
     if(crst_id == 0){
       coreset1_t = coreset_n;
+    }else {
+      ERROR("Unhandled situation for CORESET, please raise an issue!");
     }
   }
   
@@ -1051,11 +1053,14 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       total_ul_dci += nof_ul_dci;
     }
 
-    if (nof_ul_dci > 0 || nof_dl_dci > 0) {
-      // The UE is either using CA or not, so if we find the DCI with CA,
-      // we don't need to try further.
-      continue;
-    }
+    // if (nof_ul_dci > 0 || nof_dl_dci > 0) {
+    //   // The UE is either using CA or not, so if we find the DCI with CA,
+    //   // we don't need to try further.
+    //   continue;
+    // }
+
+    memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
+    memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
  
     // Set the DCI size for the non-carrier aggregation UEs.
     if (srsran_ue_dl_nr_set_pdcch_config(ue_dl_tmp, &pdcch_cfg, &dci_cfg)) {
