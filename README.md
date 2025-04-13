@@ -39,7 +39,7 @@ The main features are as follows:
 5. RRCSetup (MSG 4) decoding for continuously UE attatch detection.
 6. Threaded DCI decoding for detected UEs.
 7. SIB, RRCSetup and DCI decoding are threaded for performance and independent processing.
-8. Can concurrently decode up to 64 UEs (max number we can create for now) in the same base station.
+8. Can concurrently decode up to 64 UEs (max number we can create with groundtruth) in the same base station. In T-Mobile cell, we can decode up to hundreds of UEs.
 9. Accurate DCIs, PRB and bit rate estimation for each UEs (please stay tuned for our paper).
 10. Local logging functions in `.csv` file and remote google BigQuery uploading function in BigQuery table.
 11. Support using multiple USRPs to decode multiple base stations independently, each has its own log.
