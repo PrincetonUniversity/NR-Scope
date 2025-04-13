@@ -1053,11 +1053,11 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       total_ul_dci += nof_ul_dci;
     }
 
-    // if (nof_ul_dci > 0 || nof_dl_dci > 0) {
-    //   // The UE is either using CA or not, so if we find the DCI with CA,
-    //   // we don't need to try further.
-    //   continue;
-    // }
+    if (nof_ul_dci > 0 || nof_dl_dci > 0) {
+      // The UE is either using CA or not, so if we find the DCI with CA,
+      // we don't need to try further.
+      continue;
+    }
 
     memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
     memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
@@ -1068,26 +1068,26 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       return SRSRAN_ERROR;
     }
 
-    nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(ue_dl_tmp, 
+    int nof_dl_dci_nca = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(ue_dl_tmp, 
       slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, 
       dci_dl_tmp, 4);
 
-    if (nof_dl_dci < SRSRAN_SUCCESS) {
+    if (nof_dl_dci_nca < SRSRAN_SUCCESS) {
       ERROR("Error in blind search");
     }
 
-    nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(ue_dl_tmp, slot_tmp, 
+    int nof_ul_dci_nca = srsran_ue_dl_nr_find_ul_dci(ue_dl_tmp, slot_tmp, 
       sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, 
       dci_ul_tmp, 4);
 
-    if(nof_dl_dci > 0){
+    if(nof_dl_dci_nca > 0){
       dci_dl[rnti_idx] = dci_dl_tmp[0];
-      total_dl_dci += nof_dl_dci;
+      total_dl_dci += nof_dl_dci_nca;
     }
 
-    if(nof_ul_dci > 0){
+    if(nof_ul_dci_nca > 0){
       dci_ul[rnti_idx] = dci_ul_tmp[0];
-      total_ul_dci += nof_ul_dci;
+      total_ul_dci += nof_ul_dci_nca;
     }
   }  
 
