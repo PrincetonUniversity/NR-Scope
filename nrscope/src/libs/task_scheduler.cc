@@ -278,8 +278,9 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
     for (uint8_t b = 0; b < task_scheduler_state.nof_bwps; b++) {
       DCIFeedback result = results[b];
       if((result.dl_grants.size()>0 or result.ul_grants.size()>0)){
-        for (uint32_t i = 0; i < result.dl_grants.size(); i++){
-          if(result.dl_grants[i].grant.rnti != 0){
+        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++){
+          if(result.dl_grants[i].grant.rnti == 
+             task_scheduler_state.known_rntis[i]){
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
@@ -298,7 +299,8 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             }
           }
 
-          if(result.ul_grants[i].grant.rnti != 0){
+          if(result.ul_grants[i].grant.rnti == 
+             task_scheduler_state.known_rntis[i]){
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
@@ -317,6 +319,50 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             }
           }
         } 
+
+        int id = task_scheduler_state.nof_known_rntis;
+        if (result.dl_grants.size() == task_scheduler_state.nof_known_rntis + 1) {
+          // for the motorola worker
+          if(result.dl_grants[id].grant.rnti == task_scheduler_state.fixed_rnti){
+            LogNode log_node;
+            log_node.slot_idx = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp = get_now_timestamp_in_double();
+            log_node.grant = result.dl_grants[id];
+            log_node.dci_format = 
+              srsran_dci_format_nr_string(result.dl_dcis[id].ctx.format);
+            log_node.dl_dci = result.dl_dcis[id];
+            log_node.bwp_id = result.dl_dcis[id].bwp_id;
+            task_scheduler_state.last_seen[id] = now;
+            if(local_log){
+              NRScopeLog::push_node(log_node, rf_index);
+            }
+            if(to_google){
+              ToGoogle::push_google_node(log_node, rf_index);
+            }
+          }
+        }
+        if (result.ul_grants.size() == task_scheduler_state.nof_known_rntis + 1) {
+          if(result.ul_grants[id].grant.rnti == 
+             task_scheduler_state.fixed_rnti){
+            LogNode log_node;
+            log_node.slot_idx = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp = get_now_timestamp_in_double();
+            log_node.grant = result.ul_grants[id];
+            log_node.dci_format = 
+              srsran_dci_format_nr_string(result.ul_dcis[id].ctx.format);
+            log_node.ul_dci = result.ul_dcis[id];
+            log_node.bwp_id = result.ul_dcis[id].bwp_id;
+            task_scheduler_state.last_seen[id] = now;
+            if(local_log){
+              NRScopeLog::push_node(log_node, rf_index);
+            }
+            if(to_google){
+              ToGoogle::push_google_node(log_node, rf_index);
+            }
+          }
+        }
       }
     }
   }
