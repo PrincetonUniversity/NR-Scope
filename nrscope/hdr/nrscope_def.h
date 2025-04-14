@@ -202,6 +202,8 @@ typedef struct WorkState_ WorkState;
     bool rach_inited; // RACHDecoder is initialized.
     bool dci_inited; // DCIDecoder is initialized.
 
+    uint16_t fixed_rnti;
+
     uint32_t nof_known_rntis;
     std::vector<uint16_t> known_rntis;
     /* The time that the UE is last seen by us, if it's too long (5 second), 
@@ -267,6 +269,7 @@ namespace NRScopeTask{
   extern std::mutex queue_lock;
   extern std::mutex task_scheduler_lock;
   extern std::mutex worker_locks[128];
+  extern std::mutex moto_worker_locks[128];
 }
 
 

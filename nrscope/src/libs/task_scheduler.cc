@@ -41,15 +41,27 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
     SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
   task_scheduler_state.cpu_affinity = cpu_affinity;
   nof_workers = nof_workers_;
+  nof_moto_workers = nof_workers_;
+  task_scheduler_state.fixed_rnti = fixed_rnti_;
   std::cout << "Starting workers..." << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
     NRScopeWorker *worker = new NRScopeWorker();
     std::cout << "New worker " << i << " is going to start... "<< std::endl;
-    if(worker->InitWorker(task_scheduler_state, i) < SRSRAN_SUCCESS) {
+    if(worker->InitWorker(task_scheduler_state, i, false) < SRSRAN_SUCCESS) {
       ERROR("Error initializing worker %d", i);
       return NR_FAILURE;
     }
     workers.emplace_back(std::unique_ptr<NRScopeWorker> (worker));
+  }
+
+  for (uint32_t i = 0; i < nof_moto_workers; i ++) {
+    NRScopeWorker *worker = new NRScopeWorker();
+    std::cout << "New worker " << i << " is going to start... "<< std::endl;
+    if(worker->InitWorker(task_scheduler_state, i, true) < SRSRAN_SUCCESS) {
+      ERROR("Error initializing worker %d", i);
+      return NR_FAILURE;
+    }
+    moto_workers.emplace_back(std::unique_ptr<NRScopeWorker> (worker));
   }
 
   std::cout << "Workers started..." << std::endl;
@@ -224,39 +236,37 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         task_scheduler_state.rrc_setup = now_result.rrc_setup;
         task_scheduler_state.master_cell_group = now_result.master_cell_group;
         task_scheduler_state.nof_known_rntis += 1;
-        task_scheduler_state.known_rntis.push_back(fixed_rnti);
-        task_scheduler_state.last_seen.push_back(now);
-        std::cout << "Listening to fixed: " << fixed_rnti << std::endl;
-        // for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-        //   task_scheduler_state.known_rntis.push_back(
-        //     now_result.new_rntis_found[i]);
-        //   task_scheduler_state.last_seen.push_back(
-        //     now);
-        // }
+        // task_scheduler_state.known_rntis.push_back(fixed_rnti);
+        // task_scheduler_state.last_seen.push_back(now);
+        // std::cout << "Listening to fixed: " << fixed_rnti << std::endl;
+        for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
+          task_scheduler_state.known_rntis.push_back(
+            now_result.new_rntis_found[i]);
+          task_scheduler_state.last_seen.push_back(now);
+        }
         task_scheduler_state.rach_found = true;
       } else {
-        // /* We already found the RACH, we just append the new RNTIs */
-        // for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-        //   bool is_in = false;
-        //   for (unsigned long int j = 0; 
-        //       j < task_scheduler_state.known_rntis.size(); j ++){
-        //     if (now_result.new_rntis_found[i] == 
-        //         task_scheduler_state.known_rntis[j]){
-        //       is_in = true;
-        //       break;
-        //     }
-        //   }
-        //   if (!is_in) {
-        //     task_scheduler_state.nof_known_rntis += 1;
-        //     task_scheduler_state.known_rntis.push_back(
-        //       now_result.new_rntis_found[i]);
-        //     task_scheduler_state.last_seen.push_back(
-        //       now);
-        //   }
-        // }
+        /* We already found the RACH, we just append the new RNTIs */
+        for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
+          bool is_in = false;
+          for (unsigned long int j = 0; 
+              j < task_scheduler_state.known_rntis.size(); j ++){
+            if (now_result.new_rntis_found[i] == 
+                task_scheduler_state.known_rntis[j]){
+              is_in = true;
+              break;
+            }
+          }
+          if (!is_in) {
+            task_scheduler_state.nof_known_rntis += 1;
+            task_scheduler_state.known_rntis.push_back(
+              now_result.new_rntis_found[i]);
+            task_scheduler_state.last_seen.push_back(now);
+          }
+        }
       }
 
-      /* Since we got the RACH, we can now init the RACH decoder*/
+      /* Since we got the RACH, we can now init the DCI decoder*/
       task_scheduler_state.dci_inited = true;
     }
   }
@@ -268,9 +278,8 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
     for (uint8_t b = 0; b < task_scheduler_state.nof_bwps; b++) {
       DCIFeedback result = results[b];
       if((result.dl_grants.size()>0 or result.ul_grants.size()>0)){
-        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++){
-          if(result.dl_grants[i].grant.rnti == 
-              task_scheduler_state.known_rntis[i]){
+        for (uint32_t i = 0; i < result.dl_grants.size(); i++){
+          if(result.dl_grants[i].grant.rnti != 0){
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
@@ -289,8 +298,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             }
           }
 
-          if(result.ul_grants[i].grant.rnti == 
-              task_scheduler_state.known_rntis[i]){
+          if(result.ul_grants[i].grant.rnti != 0){
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
@@ -314,25 +322,25 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
   }
 
   /* Check the last seen time for each UE in the list*/
-  // std::vector<double>::iterator last_seen_iter = 
-  //   task_scheduler_state.last_seen.begin();
-  // std::vector<uint16_t>::iterator ue_list_iter = 
-  //   task_scheduler_state.known_rntis.begin();
+  std::vector<double>::iterator last_seen_iter = 
+    task_scheduler_state.last_seen.begin();
+  std::vector<uint16_t>::iterator ue_list_iter = 
+    task_scheduler_state.known_rntis.begin();
 
-  // while(last_seen_iter != task_scheduler_state.last_seen.end() &&
-  //   ue_list_iter != task_scheduler_state.known_rntis.end()) {
-  //     if(now - *last_seen_iter > 5) {
-  //       // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
-  //       //   << std::endl;
-  //       last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
-  //       ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
-  //       --task_scheduler_state.nof_known_rntis;
-  //     }
-  //     else {
-  //       ++last_seen_iter;
-  //       ++ue_list_iter;
-  //     }
-  // }
+  while(last_seen_iter != task_scheduler_state.last_seen.end() &&
+    ue_list_iter != task_scheduler_state.known_rntis.end()) {
+      if(now - *last_seen_iter > 5) {
+        // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
+        //   << std::endl;
+        last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
+        ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
+        --task_scheduler_state.nof_known_rntis;
+      }
+      else {
+        ++last_seen_iter;
+        ++ue_list_iter;
+      }
+  }
 
   return SRSRAN_SUCCESS;
 }
@@ -350,7 +358,7 @@ int TaskSchedulerNRScope::UpdateStateandLog() {
   //   std::cout << i << ", slot: " << slot_results[i].slot.idx << std::endl;
   // }
   while (//(slot_results[0] < next_result || slot_results[0] == next_result) && 
-  slot_results.size() > 0) {
+  slot_results.size() > 1) {
     // if (slot_results[0] < next_result){
     //   slot_results.erase(slot_results.begin());
     //   continue;
@@ -410,6 +418,7 @@ int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
                                      cf_t* rx_buffer_){
   /* Find the first idle worker */
   bool found_worker = false;
+  bool found_moto_worker = false;
   // std::cout << "Assigning sf_round: " << sf_round << ", sfn: " << outcome.sfn 
   //   << ", slot.idx: " << slot.idx << std::endl;
   for (uint32_t i = 0; i < nof_workers; i ++) {
@@ -428,6 +437,26 @@ int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
     }
     worker_locks[i].unlock();
     if (found_worker) {
+      break;
+    }
+  }
+
+  for (uint32_t i = 0; i < nof_moto_workers; i ++) {
+    moto_worker_locks[i].lock();
+    bool busy = true;
+    busy = moto_workers[i].get()->busy;
+    if (!busy) {
+      found_moto_worker = true;
+      /* Copy the rx_buffer_ to the worker's rx_buffer. This won't be 
+      interfering with other threads? */
+      moto_workers[i].get()->CopySlotandBuffer(sf_round, slot, outcome, rx_buffer_);
+      /* Update the worker's state */
+      moto_workers[i].get()->SyncState(&task_scheduler_state);
+      /* Set the worker's sem to let the task run */
+      sem_post(&moto_workers[i].get()->smph_has_job);
+    }
+    moto_worker_locks[i].unlock();
+    if (found_moto_worker) {
       break;
     }
   }

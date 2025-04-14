@@ -64,7 +64,7 @@ static int ra_helper_freq_type0(const srsran_carrier_nr_t*    carrier,
     } else if ((i == N_rbg - 1) && ((carrier->nof_prb + carrier->start) % P) > 0) {
       rbg_size = (carrier->nof_prb + carrier->start) % P;
     }
-    printf("riv & (1 << (N_rbg - i - 1)): %d\n", riv & (1 << (N_rbg - i - 1)));
+    // printf("riv & (1 << (N_rbg - i - 1)): %d\n", riv & (1 << (N_rbg - i - 1)));
     if (riv & (1 << (N_rbg - i - 1))) {
       for (uint32_t j = 0; j < rbg_size; j++) {
         if (rbg_offset + j < carrier->nof_prb) {

@@ -8,6 +8,7 @@ std::vector<SlotResult> global_slot_results;
 std::mutex queue_lock;
 std::mutex task_scheduler_lock;
 std::mutex worker_locks[128];
+std::mutex moto_worker_locks[128];
 
 NRScopeWorker::NRScopeWorker() : 
   rf_buffer_t(1),
@@ -22,6 +23,7 @@ NRScopeWorker::NRScopeWorker() :
   worker_state.rach_found = false;
 
   initializing = false;
+  is_moto = false;
 
   worker_state.nof_known_rntis = 0;
   worker_state.known_rntis.resize(worker_state.nof_known_rntis);
@@ -31,7 +33,7 @@ NRScopeWorker::NRScopeWorker() :
 
 NRScopeWorker::~NRScopeWorker(){ }
 
-int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_){
+int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_, bool is_moto_){
   worker_id = worker_id_;
   /* Copy initial values */
   worker_state.nof_threads = task_scheduler_state.nof_threads;
@@ -41,6 +43,7 @@ int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_){
   worker_state.args_t = task_scheduler_state.args_t;
   worker_state.slot_sz = task_scheduler_state.slot_sz;
   worker_state.cpu_affinity = task_scheduler_state.cpu_affinity;
+  is_moto = is_moto_;
   /* Size of one subframe */
   rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(
     worker_state.args_t.ssb_scs) * worker_state.slot_sz);
@@ -119,7 +122,7 @@ int NRScopeWorker::InitDCIDecoders() {
     for(uint8_t j = 0; j < worker_state.nof_bwps; j++){
       DCIDecoder *decoder = new DCIDecoder(100);
       if(decoder->DCIDecoderandReceptionInit(&worker_state, j, 
-          rf_buffer_t.to_cf_t()) < SRSASN_SUCCESS){
+          rf_buffer_t.to_cf_t(), is_moto) < SRSASN_SUCCESS){
         ERROR("DCIDecoder Init Error");
         return SRSRAN_ERROR;
       }
@@ -172,12 +175,22 @@ int NRScopeWorker::SyncState(WorkState* task_scheduler_state) {
 
   worker_state.all_sibs_found = task_scheduler_state->all_sibs_found;
 
-  worker_state.nof_known_rntis = task_scheduler_state->nof_known_rntis;
-  worker_state.known_rntis.resize(worker_state.nof_known_rntis);
-  for (long unsigned int i = 0; i < worker_state.nof_known_rntis; i ++) {
-    worker_state.known_rntis[i] = task_scheduler_state->known_rntis[i];
+  if (is_moto) {
+    worker_state.nof_known_rntis = task_scheduler_state->nof_known_rntis + 1;
+    worker_state.known_rntis.resize(worker_state.nof_known_rntis);
+    for (long unsigned int i = 0; i < worker_state.nof_known_rntis-1; i ++) {
+      worker_state.known_rntis[i] = task_scheduler_state->known_rntis[i];
+    }
+    worker_state.known_rntis[worker_state.nof_known_rntis-1] = 
+      task_scheduler_state->fixed_rnti;
+  } else {
+    worker_state.nof_known_rntis = task_scheduler_state->nof_known_rntis;
+    worker_state.known_rntis.resize(worker_state.nof_known_rntis);
+    for (long unsigned int i = 0; i < worker_state.nof_known_rntis; i ++) {
+      worker_state.known_rntis[i] = task_scheduler_state->known_rntis[i];
+    }
   }
-
+  
   return SRSRAN_SUCCESS;
 }
 
@@ -267,9 +280,16 @@ void NRScopeWorker::Run() {
   while (true) {
     /* When there is a job, the semaphore is set and buffer is copied */
     sem_wait(&smph_has_job);
-    worker_locks[worker_id].lock();
-    busy = true;
-    worker_locks[worker_id].unlock();
+    if (is_moto) {
+      moto_worker_locks[worker_id].lock();
+      busy = true;
+      moto_worker_locks[worker_id].unlock();
+    } else {
+      worker_locks[worker_id].lock();
+      busy = true;
+      worker_locks[worker_id].unlock();
+    }
+    
     struct timeval t0, t1;
 
     // std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn
@@ -319,7 +339,7 @@ void NRScopeWorker::Run() {
     }    
 
     std::thread rach_thread;
-    if (worker_state.rach_inited && !worker_state.rach_found) {
+    if (worker_state.rach_inited) {
       if (worker_state.cpu_affinity) {
         cpu_set_t cpu_set_rach;
         CPU_ZERO(&cpu_set_rach);
@@ -406,9 +426,15 @@ void NRScopeWorker::Run() {
     queue_lock.lock();
     global_slot_results.push_back(slot_result);
     queue_lock.unlock();
-    worker_locks[worker_id].lock();
-    busy = false;
-    worker_locks[worker_id].unlock();
+    if (is_moto) {
+      moto_worker_locks[worker_id].lock();
+      busy = false;
+      moto_worker_locks[worker_id].unlock();
+    } else {
+      worker_locks[worker_id].lock();
+      busy = false;
+      worker_locks[worker_id].unlock();
+    }
   }
 }
 }

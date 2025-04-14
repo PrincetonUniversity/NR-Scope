@@ -37,6 +37,8 @@ public:
   std::vector <float> ul_prb_rate;
   std::vector <float> ul_prb_bits_rate;
 
+  bool is_moto;
+
   uint64_t sf_round;
   srsran_slot_cfg_t slot; /* Current slot. */
   srsran_ue_sync_nr_outcome_t outcome; /* Sync outcome, including the sfn */
@@ -47,7 +49,7 @@ public:
   /* This is called right after entering the radio_nr.cc,
     The cell's information is set to the worker,
     so the worker can set its buffer.*/
-  int InitWorker(WorkState task_scheduler_state, int worker_id_);
+  int InitWorker(WorkState task_scheduler_state, int worker_id_, bool is_moto);
 
   /* Start the worker thread */
   void StartWorker();

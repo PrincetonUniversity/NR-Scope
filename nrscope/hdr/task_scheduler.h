@@ -15,10 +15,12 @@ public:
   should sync with it each time the task is assigned. */
   WorkState task_scheduler_state;
   uint32_t nof_workers;
+  uint32_t nof_moto_workers;
   std::thread scheduler_thread;
   uint16_t fixed_rnti;
 
   std::vector<std::unique_ptr <NRScopeWorker> > workers;
+  std::vector<std::unique_ptr <NRScopeWorker> > moto_workers;
   /* Slot results reorder buffer */
   std::vector<SlotResult> slot_results;
   /* The next slot result that task_scheduler expects*/

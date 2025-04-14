@@ -57,7 +57,8 @@ class DCIDecoder{
 
     int DCIDecoderandReceptionInit(WorkState* state,
                                    int bwp_id,
-                                   cf_t* input[SRSRAN_MAX_PORTS]);
+                                   cf_t* input[SRSRAN_MAX_PORTS],
+                                   bool is_moto);
 
     int DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
                         WorkState* state,
