@@ -1094,6 +1094,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       // the rnti will not be copied if no dci found
       if(dci_dl[dci_idx_dl].ctx.rnti == 
           sharded_rntis[dci_decoder_id][dci_idx_dl]){
+        std::cout << "dci_idx_dl: " << dci_idx_dl << std::endl;
+        std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_dl] << std::endl;
         sharded_results[dci_decoder_id].dl_dcis[dci_idx_dl] = 
           dci_dl[dci_idx_dl];
         char str[1024] = {};
@@ -1173,6 +1175,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++){
       if(dci_ul[dci_idx_ul].ctx.rnti == 
           sharded_rntis[dci_decoder_id][dci_idx_ul]){
+        std::cout << "dci_idx_ul: " << dci_idx_ul << std::endl;
+        std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_ul] << std::endl;
         sharded_results[dci_decoder_id].ul_dcis[dci_idx_ul] = dci_ul[dci_idx_ul];
         char str[1024] = {};
         srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, 

@@ -180,9 +180,14 @@ int NRScopeWorker::SyncState(WorkState* task_scheduler_state) {
     worker_state.known_rntis.resize(worker_state.nof_known_rntis);
     for (long unsigned int i = 0; i < worker_state.nof_known_rntis-1; i ++) {
       worker_state.known_rntis[i] = task_scheduler_state->known_rntis[i];
+      std::cout << "rnti_id: " << i << "rnti: " << worker_state.known_rntis[i] 
+        << std::endl;
     }
     worker_state.known_rntis[worker_state.nof_known_rntis-1] = 
       task_scheduler_state->fixed_rnti;
+    std::cout << "rnti_id: " << worker_state.nof_known_rntis-1 << 
+        "rnti: " << worker_state.known_rntis[worker_state.nof_known_rntis-1]
+        << std::endl;
   } else {
     worker_state.nof_known_rntis = task_scheduler_state->nof_known_rntis;
     worker_state.known_rntis.resize(worker_state.nof_known_rntis);

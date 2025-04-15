@@ -252,11 +252,12 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
           for (unsigned long int j = 0; 
               j < task_scheduler_state.known_rntis.size(); j ++){
             if (now_result.new_rntis_found[i] == 
-                task_scheduler_state.known_rntis[j]){
+                task_scheduler_state.known_rntis[j] || 
+                now_result.new_rntis_found[i] == fixed_rnti){
               is_in = true;
               break;
             }
-          }
+          } 
           if (!is_in) {
             task_scheduler_state.nof_known_rntis += 1;
             task_scheduler_state.known_rntis.push_back(
