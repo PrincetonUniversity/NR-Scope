@@ -1113,8 +1113,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
           srsran_sch_cfg_nr_t pdsch_cfg = {};
           pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
           pdsch_hl_cfg.mcs_table = srsran_mcs_table_256qam;
-          pdsch_hl_cfg.rbg_size_cfg_1 = bwp_dl_ded_s_ptr->pdsch_cfg.
-            setup().rbg_size == asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_::cfg1 ? 
+          pdsch_hl_cfg.rbg_size_cfg_1 = bwp_dl_ded_s_ptr->pdsch_cfg.setup().
+            rbg_size == asn1::rrc_nr::pdsch_cfg_s::rbg_size_e_::cfg1 ? 
             true : false;
           // printf("pdsch_hl_cfg.dmrs_typeA.additional_pos: %d\n", 
           //  pdsch_hl_cfg.dmrs_typeA.additional_pos);
