@@ -605,24 +605,27 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   if (master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.
       pdsch_serving_cell_cfg_present && master_cell_group.sp_cell_cfg.
       sp_cell_cfg_ded.pdsch_serving_cell_cfg_present) {
-    switch(master_cell_group.sp_cell_cfg.
-      sp_cell_cfg_ded.pdsch_serving_cell_cfg.setup().code_block_group_tx.
-      setup().max_code_block_groups_per_transport_block) {
-      case asn1::rrc_nr::pdsch_code_block_group_tx_s::
-           max_code_block_groups_per_transport_block_e_::n2: 
-        dci_cfg.pdsch_nof_cbg = 2;
-        break;
-      case asn1::rrc_nr::pdsch_code_block_group_tx_s::
-           max_code_block_groups_per_transport_block_e_::n4: 
-        dci_cfg.pdsch_nof_cbg = 4;
-        break;
-      case asn1::rrc_nr::pdsch_code_block_group_tx_s::
-           max_code_block_groups_per_transport_block_e_::n8: 
-        dci_cfg.pdsch_nof_cbg = 8;
-        break;
-      default:
-        dci_cfg.pdsch_nof_cbg = 0;
-        break;
+    if (master_cell_group.sp_cell_cfg.
+      sp_cell_cfg_ded.pdsch_serving_cell_cfg.setup().code_block_group_tx_present) {
+        switch(master_cell_group.sp_cell_cfg.
+        sp_cell_cfg_ded.pdsch_serving_cell_cfg.setup().code_block_group_tx.
+        setup().max_code_block_groups_per_transport_block) {
+        case asn1::rrc_nr::pdsch_code_block_group_tx_s::
+            max_code_block_groups_per_transport_block_e_::n2: 
+          dci_cfg.pdsch_nof_cbg = 2;
+          break;
+        case asn1::rrc_nr::pdsch_code_block_group_tx_s::
+            max_code_block_groups_per_transport_block_e_::n4: 
+          dci_cfg.pdsch_nof_cbg = 4;
+          break;
+        case asn1::rrc_nr::pdsch_code_block_group_tx_s::
+            max_code_block_groups_per_transport_block_e_::n8: 
+          dci_cfg.pdsch_nof_cbg = 8;
+          break;
+        default:
+          dci_cfg.pdsch_nof_cbg = 0;
+          break;
+      }
     }
   }
   dci_cfg.nof_dl_to_ul_ack = bwp_ul_ded_s_ptr->pucch_cfg.setup().
