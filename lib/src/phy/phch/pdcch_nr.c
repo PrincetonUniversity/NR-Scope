@@ -991,6 +991,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   q->K = dci_msg->nof_bits + 24U;                                  // Payload size including CRC
   q->M = (1U << dci_msg->ctx.location.L) * (SRSRAN_NRE - 3U) * 6U; // Number of RE
   q->E = q->M * 2;                                                 // Number of Rate-Matched bits
+  // printf("dci_msg->nof_bits: %d\n", dci_msg->nof_bits);
 
   // Check number of estimates is correct
   if (ce->nof_re != q->M) {
@@ -1129,8 +1130,10 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   uint32_t checksum2 = srsran_bit_pack(&ptr, 24);
   res->crc           = checksum1 == checksum2;
 
-  // printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
-  // srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
+  // if (res->crc){
+  //   printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
+  //   srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
+  // }
 
   // uint32_t checksum_diff = checksum1 > checksum2 ? checksum1 - checksum2 : checksum2 - checksum1;
   // printf("checksum diff: %u\n", checksum_diff);

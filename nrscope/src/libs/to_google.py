@@ -86,6 +86,7 @@ def create_table_with_position_and_time(credential, dataset_id_input, nof_usrp):
           bigquery.SchemaField("harq_feedback", "INTEGER", mode="REQUIRED"),
           bigquery.SchemaField("bwp", "INTEGER", mode="REQUIRED"),
           bigquery.SchemaField("ports", "INTEGER", mode="REQUIRED"),
+          bigquery.SchemaField("carrier_index", "INTEGER", mode="REQUIRED"),
       ]
 
       table = bigquery.Table(table_id, schema=schema)

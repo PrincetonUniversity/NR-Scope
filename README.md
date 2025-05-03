@@ -33,20 +33,21 @@ NR-Scope and NG-Scope are open source products of NSF Award CNS-2223556 (IMR: MT
 The main features are as follows:
 
 1. Supports 5G SA cells with 15kHz and 30kHz SCS, tested with 10MHz, 15 MHz, 20MHz, 40MHz and 100MHz cell bandwidth.
-2. 5G SA cell search and MIB decoding.
-3. SIB 1 and all other SIBs decoding.
-4. RRCSetup (MSG 4) decoding for continuously UE attatch detection.
-5. Threaded DCI decoding for detected UEs.
-6. SIB, RRCSetup and DCI decoding are threaded for performance and independent processing.
-7. Can concurrently decode up to 64 UEs (max number we can create for now) in the same base station.
-8. Accurate DCIs, PRB and bit rate estimation for each UEs (please stay tuned for our paper).
-9. Local logging functions in `.csv` file and remote google BigQuery uploading function in BigQuery table.
-10. Support using multiple USRPs to decode multiple base stations independently, each has its own log.
-11. Cell search for all possible frequencies in a separate file and the results are stored in `.csv` log file.
-12. Non-initial (BWP id > 0) and plaintext (configured in SIB 1 or MSG 4) BWPs decoding in separate DCI decoder threads.
-13. Threaded resampling function for better-fidelity TwinRX USRP X310 daughterboard (better signal quality but doesn't support 5G sampling rate without resampling).
-14. Worker pool function is implemented. Each worker works on the slot data asynchronously. Now the processing doesn't need to keep up with the short slot time, and the throughput is increase through more workers.
-15. Stay tuned... 😄
+2. Carrier aggregation decoding, NR-Scope would use one SDR to try to decode both carrier aggregated and not carrier aggregated UEs within the RAN. Tested in commercial T-Mobile 15MHz FDD and 100MHz TDD cells.
+3. 5G SA cell search and MIB decoding.
+4. SIB 1 and all other SIBs decoding.
+5. RRCSetup (MSG 4) decoding for continuously UE attatch detection.
+6. Threaded DCI decoding for detected UEs.
+7. SIB, RRCSetup and DCI decoding are threaded for performance and independent processing.
+8. Can concurrently decode up to 64 UEs (max number we can create with groundtruth) in the same base station. In T-Mobile cell, we can decode up to hundreds of UEs.
+9. Accurate DCIs, PRB and bit rate estimation for each UEs (please stay tuned for our paper).
+10. Local logging functions in `.csv` file and remote google BigQuery uploading function in BigQuery table.
+11. Support using multiple USRPs to decode multiple base stations independently, each has its own log.
+12. Cell search for all possible frequencies in a separate file and the results are stored in `.csv` log file.
+13. Non-initial (BWP id > 0) and plaintext (configured in SIB 1 or MSG 4) BWPs decoding in separate DCI decoder threads.
+14. Threaded resampling function for better-fidelity TwinRX USRP X310 daughterboard (better signal quality but doesn't support 5G sampling rate without resampling).
+15. Worker pool function is implemented. Each worker works on the slot data asynchronously. Now the processing doesn't need to keep up with the short slot time, and the throughput is increase through more workers.
+16. Stay tuned... 😄
 
 Please refer to the [wiki page](https://github.com/PrincetonUniversity/NG-Scope-5G/wiki) for more feature description and documentation.
 

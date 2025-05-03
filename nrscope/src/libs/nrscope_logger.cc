@@ -26,7 +26,7 @@ namespace NRScopeLog{
         "tb_scaling_field,modulation,mcs_index,transport_block_size,code_rate,"
         "redundancy_version,new_data_indicator,nof_re,nof_bits,mcs_table,"
         "xoverhead,harq_id,downlink_assignment_index,tpc,pucch_resource,"
-        "harq_feedback,bwp,ports");
+        "harq_feedback,bwp,ports,carrier_index");
       fclose(pFile);
     }
     run_log = true;
@@ -72,7 +72,7 @@ namespace NRScopeLog{
     }
 
     snprintf(buff, sizeof(buff), "%f,%d,%d,%d,%s,%s,%d,%s,%d,%d,%d,%d,%d,%f,%d,"
-            "%d,%d,%s,%d,%d,%f,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%d,%d", 
+            "%d,%d,%s,%d,%d,%f,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d", 
             input_node.timestamp,
             input_node.system_frame_idx,
             input_node.slot_idx,
@@ -112,7 +112,9 @@ namespace NRScopeLog{
               "1_1" ? input_node.dl_dci.harq_feedback : 0,
             input_node.bwp_id,
             input_node.dci_format == 
-              "1_1" ? input_node.dl_dci.ports : input_node.ul_dci.ports
+              "1_1" ? input_node.dl_dci.ports : input_node.ul_dci.ports,
+            input_node.dci_format == 
+              "1_1" ? input_node.dl_dci.cc_id : input_node.ul_dci.cc_id
     );
     FILE* pFile = fopen(filename[rf_index].c_str(), "a");
     

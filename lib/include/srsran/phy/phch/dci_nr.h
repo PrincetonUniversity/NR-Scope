@@ -134,7 +134,7 @@ typedef struct SRSRAN_API {
  */
 typedef struct SRSRAN_API {
   srsran_dci_ctx_t ctx; ///< DCI context
-  uint8_t          payload[50];
+  uint8_t          payload[80];
   uint32_t         nof_bits;
 } srsran_dci_msg_nr_t;
 
