@@ -53,11 +53,11 @@ Please refer to the [wiki page](https://github.com/PrincetonUniversity/NG-Scope-
 
 ## Notice about the base stations
 
-If you are working with srsRAN base stations, please check out the `srsran` branch. The only difference is that during DCI decoding, the 64 QAM MCS table is used, while the `main` branch uses 256 QAM MCS table, which is widely used in the commercial base stations. This information could be encrypted during the communication, thus it's set manually.
+If you are working with srsRAN base stations, please check out the `srsran` branch. The only difference is that during DCI decoding, the 64 QAM MCS table is selected, while the `main` branch uses 256 QAM MCS table, which is widely used in the commercial base stations. This MCS table information could be encrypted during the communication, thus it's set manually.
 
-The `main` branch will decode the DCIs based on the RRCSetup decoded during the RACH, and will try to decode both with and without carrier aggregation bits in the DCI, which can decode the DCIs for most of the UEs. In the `fixed_rnti` branch, we add another worker group to manually include the RRCReconfiguration information in their DCI decoder, the RRCReconfiguration is encrypted and can't be decoded by NR-Scope. Also, you can set a known RNTI in the config file in `fixed_rnti` branch, but currently it will be assigned to the worker group using RRCReconfiguration. 
+The `main` branch will decode the DCIs based on the RRCSetup decoded during the RACH, and will try to decode DCIs both with and without carrier aggregation bits. According to our experience with T-Mobile cells, it can decode the DCIs for most of the UEs in the RAN. In the `fixed_rnti` branch, we add another worker group to manually include the RRCReconfiguration information in their DCI decoders, because the RRCReconfiguration is encrypted and can't be decoded by NR-Scope. In this case, NR-Scope can decode nearly all of the UEs in the cells we tested with (~ 99%). Also, you can set a known RNTI in the config file in `fixed_rnti` branch, then this RNTI will be assigned to the worker group using the manually configuered RRCReconfiguration. 
 
-For a commercial cell, if you notice a lot of RACHes but can't find further DCIs, this could be that the UEs are using updated configuration in the RRCReconfiguration. Please raise an issue and discuss with us, and if you could provide the RRCReconfiguration (from your phone), we can help you config NR-Scope properly.
+For a commercial cell, if you see a lot of RACH information but can't find further DCIs, this is because that the UEs are using updated configuration in the RRCReconfiguration. Please raise an issue and discuss with us, and if you could provide the RRCReconfiguration (from your phone), we can help you config NR-Scope properly.
 
 ## Requirements
 
