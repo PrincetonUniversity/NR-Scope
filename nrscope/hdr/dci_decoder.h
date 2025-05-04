@@ -19,6 +19,8 @@ class DCIDecoder{
     cell_search_result_t cell;
     srsran_coreset_t coreset0_t;
     srsran_search_space_t* search_space;
+    asn1::rrc_nr::bwp_dl_ded_s * bwp_dl_ded_s_ptr = NULL;
+    asn1::rrc_nr::bwp_ul_ded_s * bwp_ul_ded_s_ptr = NULL;
 
     asn1::rrc_nr::sib1_s sib1;
     asn1::rrc_nr::cell_group_cfg_s master_cell_group;
