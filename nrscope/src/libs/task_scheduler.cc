@@ -420,6 +420,7 @@ int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
       workers[i].get()->SyncState(&task_scheduler_state);
       /* Set the worker's sem to let the task run */
       sem_post(&workers[i].get()->smph_has_job);
+      workers[i].get()->busy = true;
     }
     worker_locks[i].unlock();
     if (found_worker) {
