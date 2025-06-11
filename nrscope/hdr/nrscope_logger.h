@@ -23,6 +23,8 @@ namespace NRScopeLog{
 
   void push_node(ScanLogNode input_node, int rf_index);
 
+  void push_node(RACHLogNode input_node, int rf_index);
+
   /***
    * ...
    * 
@@ -31,6 +33,9 @@ namespace NRScopeLog{
   void write_entry(LogNode input_node, int rf_index);
 
   void write_entry(ScanLogNode input_node, int rf_index);
+
+  void write_entry(RACHLogNode input_node, int rf_index);
+
 
   /***
    * ...

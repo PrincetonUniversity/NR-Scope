@@ -159,6 +159,14 @@ typedef struct LogNode_ LogNode;
     uint8_t bwp_id;
   };
 
+typedef struct RACHLogNode_ RACHLogNode;
+  struct RACHLogNode_{
+    double timestamp;
+    int system_frame_idx;
+    int slot_idx;
+    uint16_t rnti;
+  };
+
 typedef struct ScanLogNode_ ScanLogNode;
   struct ScanLogNode_{
     uint32 gscn;

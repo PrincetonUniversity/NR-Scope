@@ -242,7 +242,16 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
           task_scheduler_state.known_rntis.push_back(
             now_result.new_rntis_found[i]);
-          task_scheduler_state.last_seen.push_back(now);
+          task_scheduler_state.last_seen.push_back(
+            now);
+          RACHLogNode rach_log_node;
+          rach_log_node.timestamp = now;
+          rach_log_node.system_frame_idx = now_result.outcome.sfn;
+          rach_log_node.slot_idx = now_result.slot.idx;
+          rach_log_node.rnti = now_result.new_rntis_found[i];
+          if (local_log){
+            NRScopeLog::push_node(rach_log_node, rf_index);
+          }
         }
         task_scheduler_state.rach_found = true;
       } else {
@@ -262,7 +271,16 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             task_scheduler_state.nof_known_rntis += 1;
             task_scheduler_state.known_rntis.push_back(
               now_result.new_rntis_found[i]);
-            task_scheduler_state.last_seen.push_back(now);
+            task_scheduler_state.last_seen.push_back(
+              now);
+            RACHLogNode rach_log_node;
+            rach_log_node.timestamp = now;
+            rach_log_node.system_frame_idx = now_result.outcome.sfn;
+            rach_log_node.slot_idx = now_result.slot.idx;
+            rach_log_node.rnti = now_result.new_rntis_found[i];
+            if (local_log){
+              NRScopeLog::push_node(rach_log_node, rf_index);
+            }
           }
         }
       }
@@ -285,7 +303,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
-            log_node.timestamp = get_now_timestamp_in_double();
+            log_node.timestamp = now;
             log_node.grant = result.dl_grants[i];
             log_node.dci_format = 
               srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
@@ -305,7 +323,7 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
             LogNode log_node;
             log_node.slot_idx = now_result.slot.idx;
             log_node.system_frame_idx = now_result.outcome.sfn;
-            log_node.timestamp = get_now_timestamp_in_double();
+            log_node.timestamp = now;
             log_node.grant = result.ul_grants[i];
             log_node.dci_format = 
               srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);

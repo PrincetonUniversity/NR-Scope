@@ -2,7 +2,9 @@
 
 namespace NRScopeLog{
   std::vector<std::string> filename;
+  std::vector<std::string> rach_filename;
   std::vector< std::queue<LogNode> > log_queue;
+  std::vector <std::queue<RACHLogNode> > rach_log_queue;
   std::vector< std::queue<ScanLogNode> > scan_log_queue;
   std::thread log_thread;
   std::mutex lock;
@@ -10,7 +12,23 @@ namespace NRScopeLog{
   bool run_log;
   bool is_cell_scan;
 
-  void init_logger(std::vector<std::string> filename_input){
+  void init_rach_logger(std::vector< std::string > filename_input) {
+    rach_filename.resize(filename_input.size());
+    rach_log_queue.resize(filename_input.size());
+    for (uint32_t f_id = 0; f_id < filename_input.size(); f_id++){
+      std::string rach_fn = filename_input[f_id];
+      rach_fn.insert(rach_fn.size()-4, "_rach");
+      rach_filename[f_id] = rach_fn;
+      // std::queue<LogNode> log_queue_empty;
+      // log_queue.emplace_back(log_queue_empty);
+      FILE* pFile = fopen(rach_filename[f_id].c_str(), "a");
+      // Transform the input_node into one log entry row.
+      fprintf(pFile, "%s\n", "timestamp,system_frame_index,slot_index,rnti");
+      fclose(pFile);
+    }
+  }
+
+  void init_logger(std::vector< std::string > filename_input){
     is_cell_scan = false;
     filename.resize(filename_input.size());
     log_queue.resize(filename_input.size());
@@ -29,6 +47,7 @@ namespace NRScopeLog{
         "harq_feedback,bwp,ports,carrier_index");
       fclose(pFile);
     }
+    init_rach_logger(filename_input);
     run_log = true;
     log_thread = std::thread{logger_thread};
   }
@@ -57,6 +76,12 @@ namespace NRScopeLog{
   void push_node(ScanLogNode input_node, int rf_index){
     lock.lock();
     scan_log_queue[rf_index].push(input_node);
+    lock.unlock();
+  }
+
+  void push_node(RACHLogNode input_node, int rf_index) {
+    lock.lock();
+    rach_log_queue[rf_index].push(input_node);
     lock.unlock();
   }
 
@@ -139,6 +164,22 @@ namespace NRScopeLog{
     fclose(pFile);
   }
 
+  void write_entry(RACHLogNode input_node, int rf_index) {
+    // Write the data in a CSV format.
+    memset(buff, 0, sizeof(buff));
+
+    snprintf(buff, sizeof(buff), "%f,%d,%d,%d", 
+            input_node.timestamp,
+            input_node.system_frame_idx,
+            input_node.slot_idx,
+            input_node.rnti);
+    FILE* pFile = fopen(rach_filename[rf_index].c_str(), "a");
+    
+    // Transform the input_node into one log entry row.
+    fprintf(pFile, "%s\n", buff);
+    fclose(pFile);
+  }
+
   void logger_thread(){
     struct sigaction sigIntHandler;
 
@@ -173,7 +214,17 @@ namespace NRScopeLog{
             printf("new_node_timestamp: %f\n", new_node.timestamp);
             log_queue[rf_index].pop();
             lock.unlock();
-          }else{
+          }
+          if(rach_log_queue[rf_index].size() > 0) {
+            lock.lock();
+            RACHLogNode new_node = rach_log_queue[rf_index].front();
+            write_entry(new_node, rf_index);
+            rach_log_queue[rf_index].pop();
+            lock.unlock();
+          }
+        
+          if (log_queue[rf_index].size() == 0 && 
+              rach_log_queue[rf_index].size() == 0){
             usleep(1000);
           }
         }
