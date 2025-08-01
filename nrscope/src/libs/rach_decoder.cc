@@ -258,8 +258,8 @@ int RachDecoder::RACHReceptionInit(WorkState* state,
     freq_info_dl.scs_specific_carrier_list[0].carrier_bw;
   double dl_center_frequency = pointA + pdsch_carrier.nof_prb * 
     NRSCOPE_NSC_PER_RB_NR * SRSRAN_SUBC_SPACING_NR(state->args_t.ssb_scs) / 2;
-  std::cout << "dl_center_frequency: " << dl_center_frequency << std::endl;
-  std::cout << "pointA: " << pointA << std::endl;
+  // std::cout << "dl_center_frequency: " << dl_center_frequency << std::endl;
+  // std::cout << "pointA: " << pointA << std::endl;
 
   arg_scs_pdsch.coreset_offset_scs = (state->srsran_searcher_cfg_t.ssb_freq_hz -
     dl_center_frequency) / cell.abs_pdcch_scs;
