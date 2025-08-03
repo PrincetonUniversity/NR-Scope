@@ -307,7 +307,7 @@ static int ofdm_init_nr_nrscope_30khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
   }
   // Plan MBSFN
   if (q->fft_plan.size) {
-    printf("srsran_dft_replan\n");
+    // printf("srsran_dft_replan\n");
     // Replan if it was initialised previously
     if (srsran_dft_replan(&q->fft_plan, q->cfg.symbol_sz)) {
       ERROR("Replanning DFT plan");
@@ -550,7 +550,7 @@ static int ofdm_init_nr_nrscope_15khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
   }
   // Plan MBSFN
   if (q->fft_plan.size) {
-    printf("srsran_dft_replan\n");
+    // printf("srsran_dft_replan\n");
     // Replan if it was initialised previously
     if (srsran_dft_replan(&q->fft_plan, q->cfg.symbol_sz)) {
       ERROR("Replanning DFT plan");
