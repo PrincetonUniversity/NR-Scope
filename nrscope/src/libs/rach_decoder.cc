@@ -488,7 +488,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     }else{
       c_rnti = result->master_cell_group.sp_cell_cfg.recfg_with_sync.new_ue_id;
     }
-    std::cout << "c-rnti: " << c_rnti << std::endl;
+    // std::cout << "c-rnti: " << c_rnti << std::endl;
 
     /* Add the new rntis into a different list and update the 
       known_rnti vector in the end of the threads. */

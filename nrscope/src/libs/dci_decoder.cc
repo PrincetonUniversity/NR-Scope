@@ -335,15 +335,15 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     sib1.serving_cell_cfg_common.dl_cfg_common.freq_info_dl.offset_to_point_a * 
     SRSRAN_SUBC_SPACING_NR(srsran_subcarrier_spacing_15kHz) * 
     NRSCOPE_NSC_PER_RB_NR;
-  std::cout << "pointA: " << pointA << std::endl;
+  // std::cout << "pointA: " << pointA << std::endl;
 
   double coreset1_center_freq_hz = pointA + srsran_coreset_get_bw(&coreset1_t) / 
     2 * cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR;
-  std::cout << "previous offset: " << arg_scs.coreset_offset_scs << std::endl;
+  // std::cout << "previous offset: " << arg_scs.coreset_offset_scs << std::endl;
   arg_scs.coreset_offset_scs = (base_carrier.ssb_center_freq_hz - 
     coreset1_center_freq_hz) / cell.abs_pdcch_scs;
-  std::cout << "current offset: " << arg_scs.coreset_offset_scs << std::endl;
-  std::cout << "bwp_id: " << bwp_id << std::endl;
+  // std::cout << "current offset: " << arg_scs.coreset_offset_scs << std::endl;
+  // std::cout << "bwp_id: " << bwp_id << std::endl;
   
   // set ra search space directly from the RRC Setup
   for (uint32_t ss_id = 0; ss_id < bwp_dl_ded_s_ptr->
@@ -576,7 +576,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
       dci_cfg.harq_ack_codebok = srsran_pdsch_harq_ack_codebook_none;
       break;
   }  
-  std::cout << "before ack codebook" << std::endl;
+  // std::cout << "before ack codebook" << std::endl;
 
   // For DCI 0_1
   ///< Set to true if HARQ-ACK codebook is set to dynamic with 2 sub-codebooks
@@ -673,7 +673,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
       dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
       break;
   }
-  std::cout << "pdsch resource alloc: " << dci_cfg.pdsch_alloc_type << std::endl;
+  // std::cout << "pdsch resource alloc: " << dci_cfg.pdsch_alloc_type << std::endl;
 
   if(bwp_dl_ded_s_ptr->pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a_present){
     if(bwp_dl_ded_s_ptr->pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a.setup().
@@ -1091,8 +1091,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       // the rnti will not be copied if no dci found
       if(dci_dl[dci_idx_dl].ctx.rnti == 
           sharded_rntis[dci_decoder_id][dci_idx_dl]){
-        std::cout << "dci_idx_dl: " << dci_idx_dl << std::endl;
-        std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_dl] << std::endl;
+        // std::cout << "dci_idx_dl: " << dci_idx_dl << std::endl;
+        // std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_dl] << std::endl;
         sharded_results[dci_decoder_id].dl_dcis[dci_idx_dl] = 
           dci_dl[dci_idx_dl];
         char str[1024] = {};
@@ -1171,8 +1171,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++){
       if(dci_ul[dci_idx_ul].ctx.rnti == 
           sharded_rntis[dci_decoder_id][dci_idx_ul]){
-        std::cout << "dci_idx_ul: " << dci_idx_ul << std::endl;
-        std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_ul] << std::endl;
+        // std::cout << "dci_idx_ul: " << dci_idx_ul << std::endl;
+        // std::cout << "rnti: " << sharded_rntis[dci_decoder_id][dci_idx_ul] << std::endl;
         sharded_results[dci_decoder_id].ul_dcis[dci_idx_ul] = dci_ul[dci_idx_ul];
         char str[1024] = {};
         srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, 
