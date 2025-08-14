@@ -179,9 +179,23 @@ int Radio::ScanInitandStart(){
     }
   }
 
+  std::vector<srsran_band_helper::nr_band_ss_raster> scan_raster;
+  if (!band_list.empty()) {
+    for (const auto& b : band_list) {
+      for (const auto& entry : srsran_band_helper::nr_band_ss_raster_table) {
+        if (entry.band == b) {
+          scan_raster.push_back(entry);
+        }
+      }
+    }
+  } else {
+    scan_raster.assign(srsran_band_helper::nr_band_ss_raster_table.begin(),
+                        srsran_band_helper::nr_band_ss_raster_table.end());
+  }
+
+
   // Traverse GSCN per band
-  for (const srsran_band_helper::nr_band_ss_raster& ss_raster : 
-    srsran_band_helper::nr_band_ss_raster_table) {
+  for (const srsran_band_helper::nr_band_ss_raster& ss_raster : scan_raster) {
     std::cout << "Start scaning band " << ss_raster.band 
       << " with scs idx " << ss_raster.scs << std::endl;
     std::cout << "gscn " << ss_raster.gscn_first << " to gscn " 

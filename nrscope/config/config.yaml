@@ -1,6 +1,7 @@
 nof_usrp_dev: 1
 usrp_setting_0:
   ssb_freq: 622850000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
+  # band_list: [1,2,3,78] # Scan specific bands with the cell scan function. Will do full scan if left commented.
   rf_args: "clock=external,type=b200" # For B210
   # rf_args: "clock=external,type=x300,serial=32B0F2F,master_clock_rate=200000000,sampling_rate=25000000" ## For TwinRX daughterboard
   # rf_args: "clock=external,type=x300,sampling_rate=23040000" ## For CBX daughterboard

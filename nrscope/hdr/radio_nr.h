@@ -3,6 +3,7 @@
 
 #include "cstdio"
 #include "memory"
+#include <vector>
 
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/rach_decoder.h"
@@ -42,7 +43,7 @@ class Radio{
     srsran_subcarrier_spacing_t                   ssb_scs;
     srsran::srsran_band_helper                    bands;
     srsran_ue_dl_nr_sratescs_info                 arg_scs;
-
+    std::vector<uint16_t>                         band_list;
     /* from cell_search.cc */
     srsue::nr::cell_search                        srsran_searcher; 
     srsue::nr::cell_search::cfg_t                 srsran_searcher_cfg_t;

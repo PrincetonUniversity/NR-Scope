@@ -90,6 +90,14 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
       }
       std::cout << "    AGC min_rx_gain: " << radios[i].min_rx_gain << std::endl;
 
+      if(config_yaml[setting_name]["band_list"]){
+        radios[i].band_list= config_yaml[setting_name]["band_list"].as<std::vector<uint16_t> >();
+        std::cout << "    band_list: ";
+        for(const auto& b : radios[i].band_list)
+          std::cout << b << "";
+        std::cout << std::endl;
+      }
+
       if(config_yaml[setting_name]["max_rx_gain"]){
         radios[i].max_rx_gain = 
           config_yaml[setting_name]["max_rx_gain"].as<float>();
