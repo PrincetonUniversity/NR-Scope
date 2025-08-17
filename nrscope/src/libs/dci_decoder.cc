@@ -516,7 +516,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   }
 
   // get_nof_rbgs(uint32_t bwp_nof_prb, uint32_t bwp_start, bool config1_or_2)
-  dci_cfg.nof_rb_groups = 0;
+  // dci_cfg.nof_rb_groups = 0;
   // if(dci_cfg.pusch_alloc_type == srsran_resource_alloc_type0){
   //   if(bwp_ul_ded_s_ptr->pusch_cfg.setup().rbg_size_present){
   //     // BWP start prb is set to 0 since this is the only scenario that we see

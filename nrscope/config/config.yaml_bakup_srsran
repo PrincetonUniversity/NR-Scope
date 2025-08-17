@@ -1,21 +1,21 @@
 nof_usrp_dev: 1
 usrp_setting_0:
-  ssb_freq: 2506950000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
+  ssb_freq: 2518950000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
   rf_args: "clock=external,type=x300" # For B210
   # rf_args: "clock=external,type=x300,serial=32B0F2F,master_clock_rate=200000000,sampling_rate=25000000" ## For TwinRX daughterboard
   # rf_args: "clock=external,type=x300,sampling_rate=23040000" ## For CBX daughterboard
-  rx_gain: 31.5 # for x310 CBX, max rx gain is 31.5, for b210, it's around 80, for x310 TwinRX, max rx gain is 90
+  rx_gain: 30 # for x310 CBX, max rx gain is 31.5, for b210, it's around 80, for x310 TwinRX, max rx gain is 90
   min_rx_gain: 0
   max_rx_gain: 31.5
-  srate_hz: 184320000 # the sampling rate of USRP, integer division of 200MHz for TwinRX, and 5G sampling rate for CBX: 11520000 or 23040000
-  srsran_srate_hz: 184320000 # the sampling for real signal processing, should be in 5G sampling rate, multiple of 1.92 MHz. 
+  srate_hz: 23040000 # the sampling rate of USRP, integer division of 200MHz for TwinRX, and 5G sampling rate for CBX: 11520000 or 23040000
+  srsran_srate_hz: 23040000 # the sampling for real signal processing, should be in 5G sampling rate, multiple of 1.92 MHz. 
   nof_carriers: 1 # srsRAN rf setting, always set to be 1 for now. 
   nof_antennas: 1 # srsRAN rf setting, always set to be 1 for now.
   scs_index: 1 #(0: 15kHz, 1: 30kHz, ..., the u in standard)
   rf_log_level: "debug"
-  nof_rnti_worker_groups: 1 # number of of threads for DCI decoding, each will divide the UEs into small groups
+  nof_rnti_worker_groups: 2 # number of of threads for DCI decoding, each will divide the UEs into small groups
   nof_bwps: 1 # number of BWP of the cell
-  nof_workers: 40 # using worker pool to asynchronously process the slot data
+  nof_workers: 8 # using worker pool to asynchronously process the slot data
   cpu_affinity: false # pin the worker's thread into CPU or not.
 
   log_name: "a.csv"
