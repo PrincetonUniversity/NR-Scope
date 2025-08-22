@@ -436,7 +436,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   }
   
   if (is_moto) {
-    dci_cfg.report_trigger_size = 2;
+    dci_cfg.report_trigger_size = 1;
   } else {
     if(master_cell_group.sp_cell_cfg.sp_cell_cfg_ded.csi_meas_cfg_present){
       dci_cfg.report_trigger_size = master_cell_group.sp_cell_cfg.
@@ -645,9 +645,9 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     }
   }
 
-  /* for carrier aggregation*/
-  dci_cfg.carrier_indicator_size = 0; 
-  dci_cfg.multiple_scell = false; 
+  // /* for carrier aggregation*/
+  // dci_cfg.carrier_indicator_size = 0; 
+  // dci_cfg.multiple_scell = false; 
 
   dci_cfg.pdsch_tci = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
     ctrl_res_set_to_add_mod_list[0].tci_present_in_dci_present ? true : false; 
@@ -752,6 +752,10 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
         break;
     }
   }
+
+  // T-Mobile RRC Recfg
+  dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
+  dci_cfg.report_trigger_size = 2;
 
   pdsch_hl_cfg.alloc = dci_cfg.pdsch_alloc_type;
   pusch_hl_cfg.alloc = dci_cfg.pusch_alloc_type;
@@ -932,6 +936,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     }
   }
 
+  dci_cfg.multiple_scell = true;
   memcpy(&dci_cfg_ca, &dci_cfg, sizeof(srsran_dci_cfg_nr_t));
   dci_cfg_ca.multiple_scell = true;
   dci_cfg_ca.carrier_indicator_size = 3;

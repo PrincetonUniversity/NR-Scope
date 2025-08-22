@@ -400,50 +400,50 @@ static uint32_t dci_nr_format_0_1_sizeof(const srsran_dci_cfg_nr_t* cfg, srsran_
 
   // Identifier for DCI formats – 1 bit
   count += 1;
-  // printf("dci_size: %u, DCI format added size: %u\n", count, 1);
+  printf("dci_size: %u, DCI format added size: %u\n", count, 1);
 
   // Carrier indicator – 0 or 3 bits
   count += cfg->carrier_indicator_size;
-  // printf("dci_size: %u, Carrier Indicator added size: %u\n", count, cfg->carrier_indicator_size);
+  printf("dci_size: %u, Carrier Indicator added size: %u\n", count, cfg->carrier_indicator_size);
 
   // UL/SUL indicator – 0 bit for UEs not configured with supplementaryUplink ... otherwise, 1 bit
   count += cfg->enable_sul ? 1 : 0;
-  // printf("dci_size: %u, UL/SUL Indicator added size: %u\n", count, cfg->enable_sul ? 1 : 0);
+  printf("dci_size: %u, UL/SUL Indicator added size: %u\n", count, cfg->enable_sul ? 1 : 0);
 
   // Bandwidth part indicator – 0, 1 or 2 bits
   count += dci_nr_bwp_id_size(cfg->nof_ul_bwp);
-  // printf("dci_size: %u, BWP Indicator added size: %u\n", count, dci_nr_bwp_id_size(cfg->nof_ul_bwp));
+  printf("dci_size: %u, BWP Indicator added size: %u\n", count, dci_nr_bwp_id_size(cfg->nof_ul_bwp));
 
   // Frequency domain resource assignment
   count += dci_nr_freq_resource_size(cfg->pusch_alloc_type, cfg->nof_rb_groups, cfg->bwp_ul_active_bw);
-  // printf("dci_size: %u, Freq domain Indicator added size: %u\n", count, dci_nr_freq_resource_size(cfg->pusch_alloc_type, cfg->nof_rb_groups, cfg->bwp_ul_active_bw));
+  printf("dci_size: %u, Freq domain Indicator added size: %u\n", count, dci_nr_freq_resource_size(cfg->pusch_alloc_type, cfg->nof_rb_groups, cfg->bwp_ul_active_bw));
 
   // Time domain resource assigment - 0, 1, 2, 3, or 4 bits
   count += dci_nr_time_res_size(cfg->nof_ul_time_res);
-  // printf("dci_size: %u, Time domain Indicator added size: %u\n", count, dci_nr_time_res_size(cfg->nof_ul_time_res));
+  printf("dci_size: %u, Time domain Indicator added size: %u\n", count, dci_nr_time_res_size(cfg->nof_ul_time_res));
   // Frequency hopping flag - 0 or 1 bit:
   if (cfg->pusch_alloc_type == srsran_resource_alloc_type0 || !cfg->enable_hopping) {
     count += 0;
   } else {
     count += 1;
   }
-  // printf("dci_size: %u, frequency hopping added size: %u\n", count, (cfg->pusch_alloc_type == srsran_resource_alloc_type0 || !cfg->enable_hopping)?0:1);
+  printf("dci_size: %u, frequency hopping added size: %u\n", count, (cfg->pusch_alloc_type == srsran_resource_alloc_type0 || !cfg->enable_hopping)?0:1);
 
   // Modulation and coding scheme – 5 bits
   count += 5;
-  // printf("dci_size: %u, MCS Indicator added size: %u\n", count, 5);
+  printf("dci_size: %u, MCS Indicator added size: %u\n", count, 5);
 
   // New data indicator – 1 bit
   count += 1;
-  // printf("dci_size: %u, new data Indicator added size: %u\n", count, 1);
+  printf("dci_size: %u, new data Indicator added size: %u\n", count, 1);
 
   // Redundancy version – 2 bits
   count += 2;
-  // printf("dci_size: %u, redundancy version Indicator added size: %u\n", count, 2);
+  printf("dci_size: %u, redundancy version Indicator added size: %u\n", count, 2);
 
   // HARQ process number – 4 bits
   count += 4;
-  // printf("dci_size: %u, HARQ process number added size: %u\n", count, 4);
+  printf("dci_size: %u, HARQ process number added size: %u\n", count, 4);
 
   // 1st DAI - 1 or 2 bits
   if (cfg->harq_ack_codebok == srsran_pdsch_harq_ack_codebook_semi_static) {
@@ -451,65 +451,65 @@ static uint32_t dci_nr_format_0_1_sizeof(const srsran_dci_cfg_nr_t* cfg, srsran_
   } else {
     count += 2;
   }
-  // printf("dci_size: %u, DAI 1 number added size: %u\n", count, (cfg->harq_ack_codebok == srsran_pdsch_harq_ack_codebook_semi_static)?1:2);
+  printf("dci_size: %u, DAI 1 number added size: %u\n", count, (cfg->harq_ack_codebok == srsran_pdsch_harq_ack_codebook_semi_static)?1:2);
 
   // 2st DAI - 0 or 2 bits
   if (cfg->dynamic_dual_harq_ack_codebook) {
     count += 2;
   }
-  // printf("dci_size: %u, DAI 2 number added size: %u\n", count, cfg->dynamic_dual_harq_ack_codebook?2:0);
+  printf("dci_size: %u, DAI 2 number added size: %u\n", count, cfg->dynamic_dual_harq_ack_codebook?2:0);
 
   // TPC command for scheduled PUSCH – 2 bits
   count += 2;
-  // printf("dci_size: %u, TPC number added size: %u\n", count, 2);
+  printf("dci_size: %u, TPC number added size: %u\n", count, 2);
 
   // SRS resource indicator
   count += dci_nr_srs_id_size(cfg);
-  // printf("dci_size: %u, SRS number added size: %u\n", count, dci_nr_srs_id_size(cfg));
+  printf("dci_size: %u, SRS number added size: %u\n", count, dci_nr_srs_id_size(cfg));
 
   // Precoding information and number of layers
   if (!cfg->pusch_tx_config_non_codebook && cfg->nof_ul_layers > 1) {
     ERROR("Precoding information > 1. Not implemented");
     return 0;
   }
-  // printf("dci_size: %u, Precoding number added size: %u\n", count, 0);
+  printf("dci_size: %u, Precoding number added size: %u\n", count, 0);
 
   // Antenna ports
   count += dci_nr_ul_ports_size(cfg);
-  // printf("dci_size: %u, Antenna ports number added size: %u\n", count, dci_nr_ul_ports_size(cfg));
+  printf("dci_size: %u, Antenna ports number added size: %u\n", count, dci_nr_ul_ports_size(cfg));
 
   // SRS request - 2 or 3 bits
   count += cfg->enable_sul ? 3 : 2;
-  // printf("dci_size: %u, SRS request number added size: %u\n", count, cfg->enable_sul ? 3 : 2);
+  printf("dci_size: %u, SRS request number added size: %u\n", count, cfg->enable_sul ? 3 : 2);
 
   // CSI request - 0, 1, 2, 3, 4, 5, or 6 bits
   count += SRSRAN_MIN(6, cfg->report_trigger_size);
-  // printf("dci_size: %u, CSI request added size: %u\n", count, SRSRAN_MIN(6, cfg->report_trigger_size));
+  printf("dci_size: %u, CSI request added size: %u\n", count, SRSRAN_MIN(6, cfg->report_trigger_size));
 
   // CBG transmission information - 0, 2, 4, 6, or 8 bits
   count += cfg->pusch_nof_cbg;
-  // printf("dci_size: %u, CBG added size: %u\n", count, cfg->pusch_nof_cbg);
+  printf("dci_size: %u, CBG added size: %u\n", count, cfg->pusch_nof_cbg);
 
   // PTRS-DMRS association - 0 or 2 bits
   count += dci_nr_ptrs_size(cfg);
-  // printf("dci_size: %u, PTRS-DMRS added size: %u\n", count, dci_nr_ptrs_size(cfg));
+  printf("dci_size: %u, PTRS-DMRS added size: %u\n", count, dci_nr_ptrs_size(cfg));
 
   // beta_offset indicator – 0 or 2 bits
   if (cfg->pusch_dynamic_betas) {
     count += 2;
   }
-  // printf("dci_size: %u, beta_offset added size: %u\n", count, cfg->pusch_dynamic_betas?2:0);
+  printf("dci_size: %u, beta_offset added size: %u\n", count, cfg->pusch_dynamic_betas?2:0);
 
   // DMRS sequence initialization - 0 or 1 bit
   if (!cfg->enable_transform_precoding) {
     count += 1;
   }
-  // printf("dci_size: %u, DMRS sequence initialization added size: %u\n", count, (!cfg->enable_transform_precoding)?1:0);
+  printf("dci_size: %u, DMRS sequence initialization added size: %u\n", count, (!cfg->enable_transform_precoding)?1:0);
 
   // UL-SCH indicator – 1 bit
   count += 1;
-  // printf("dci_size: %u, UL-SCH added size: %u\n", count, 1);
-  // printf("final dci_size: %u\n", count);
+  printf("dci_size: %u, UL-SCH added size: %u\n", count, 1);
+  printf("final dci_size: %u\n", count);
   return count;
 }
 
@@ -1349,33 +1349,33 @@ static uint32_t dci_nr_format_1_1_sizeof(const srsran_dci_cfg_nr_t* cfg, srsran_
 
   // Identifier for DCI formats – 1 bits
   count += 1;
-  // printf("dci_size: %u, dci_format added size: %u\n", count, 1);
+  printf("dci_size: %u, dci_format added size: %u\n", count, 1);
 
   // Carrier indicator – 0 or 3 bits
   count += (int)cfg->carrier_indicator_size;
-  // printf("dci_size: %u, carrier_indicator added size: %u\n", count, (int)cfg->carrier_indicator_size);
+  printf("dci_size: %u, carrier_indicator added size: %u\n", count, (int)cfg->carrier_indicator_size);
 
   // Bandwidth part indicator – 0, 1 or 2 bits
   count += (int)dci_nr_bwp_id_size(cfg->nof_dl_bwp);
-  // printf("dci_size: %u, bwp_indicator added size: %u\n", count, (int)dci_nr_bwp_id_size(cfg->nof_dl_bwp));
+  printf("dci_size: %u, bwp_indicator added size: %u\n", count, (int)dci_nr_bwp_id_size(cfg->nof_dl_bwp));
 
   // Frequency domain resource assignment
   count += dci_nr_freq_resource_size(cfg->pdsch_alloc_type, cfg->nof_rb_groups, cfg->bwp_dl_active_bw);
-  // printf("dci_size: %u, frequency_resource added size: %u\n", count, dci_nr_freq_resource_size(cfg->pdsch_alloc_type, cfg->nof_rb_groups, cfg->bwp_dl_active_bw));
+  printf("dci_size: %u, frequency_resource added size: %u\n", count, dci_nr_freq_resource_size(cfg->pdsch_alloc_type, cfg->nof_rb_groups, cfg->bwp_dl_active_bw));
 
   // Time domain resource assignment – 0, 1, 2, 3, or 4 bits
   count += dci_nr_time_res_size(cfg->nof_dl_time_res);
-  // printf("dci_size: %u, time_resource added size: %u\n", count, dci_nr_time_res_size(cfg->nof_dl_time_res));
+  printf("dci_size: %u, time_resource added size: %u\n", count, dci_nr_time_res_size(cfg->nof_dl_time_res));
 
   // VRB-to-PRB mapping – 0 or 1
   if (cfg->pdsch_alloc_type != srsran_resource_alloc_type0 && cfg->pdsch_inter_prb_to_prb) {
     count += 1;
   }
-  // printf("dci_size: %u, vrb_prb_mapping added size: %u\n", count, cfg->pdsch_alloc_type != srsran_resource_alloc_type0 && cfg->pdsch_inter_prb_to_prb);
+  printf("dci_size: %u, vrb_prb_mapping added size: %u\n", count, cfg->pdsch_alloc_type != srsran_resource_alloc_type0 && cfg->pdsch_inter_prb_to_prb);
 
   // PRB bundling size indicator – 0 or 1 bits
   // ... not implemented
-  // printf("dci_size: %u, prb_bundling added size: %u (not implemented)\n", count, 0);
+  printf("dci_size: %u, prb_bundling added size: %u (not implemented)\n", count, 0);
 
   // Rate matching indicator – 0, 1, or 2 bits
   if (cfg->pdsch_rm_pattern1) {
@@ -1384,43 +1384,43 @@ static uint32_t dci_nr_format_1_1_sizeof(const srsran_dci_cfg_nr_t* cfg, srsran_
   if (cfg->pdsch_rm_pattern2) {
     count += 1;
   }
-  // printf("dci_size: %u, rate matching added size: %u\n", count, cfg->pdsch_rm_pattern1?1:0 + cfg->pdsch_rm_pattern2?1:0);
+  printf("dci_size: %u, rate matching added size: %u\n", count, cfg->pdsch_rm_pattern1?1:0 + cfg->pdsch_rm_pattern2?1:0);
 
   // ZP CSI-RS trigger - 0, 1, or 2 bits
   count += (int)SRSRAN_CEIL_LOG2(cfg->nof_aperiodic_zp + 1);
-  // printf("dci_size: %u, zp_csi_rs_trigger added size: %u\n", count, (int)SRSRAN_CEIL_LOG2(cfg->nof_aperiodic_zp + 1));
+  printf("dci_size: %u, zp_csi_rs_trigger added size: %u\n", count, (int)SRSRAN_CEIL_LOG2(cfg->nof_aperiodic_zp + 1));
 
   // For transport block 1:
   // Modulation and coding scheme – 5 bits
   count += 5;
-  // printf("dci_size: %u, mcs added size: %u\n", count, 5);
+  printf("dci_size: %u, mcs added size: %u\n", count, 5);
 
   // New data indicator – 1 bit
   count += 1;
-  // printf("dci_size: %u, new_data_indicator added size: %u\n", count, 1);
+  printf("dci_size: %u, new_data_indicator added size: %u\n", count, 1);
 
   // Redundancy version – 2 bits
   count += 2;
-  // printf("dci_size: %u, rv added size: %u\n", count, 2);
+  printf("dci_size: %u, rv added size: %u\n", count, 2);
 
   // For transport block 2:
   if (cfg->pdsch_2cw) { // maybe enable this by default, since this is not optional in standards. But phone can work with srsgNB.
     // Modulation and coding scheme – 5 bits
     count += 5;
-    // printf("dci_size: %u, tb2_modulation_coding_scheme added size: %u\n", count, 5);
+    printf("dci_size: %u, tb2_modulation_coding_scheme added size: %u\n", count, 5);
 
     // New data indicator – 1 bit
     count += 1;
-    // printf("dci_size: %u, tb2_new_data_indicator added size: %u\n", count, 1);
+    printf("dci_size: %u, tb2_new_data_indicator added size: %u\n", count, 1);
 
     // Redundancy version – 2 bits
     count += 2;
-    // printf("dci_size: %u, tb2_redundancy_version added size: %u\n", count, 2);
+    printf("dci_size: %u, tb2_redundancy_version added size: %u\n", count, 2);
   }
 
   // HARQ process number – 4 bits
   count += 4;
-  // printf("dci_size: %u, HARQ_process_number added size: %u\n", count, 4);
+  printf("dci_size: %u, HARQ_process_number added size: %u\n", count, 4);
 
   // Downlink assignment index (dynamic HARQ-ACK codebook only)
   if (cfg->harq_ack_codebok == srsran_pdsch_harq_ack_codebook_dynamic) {
@@ -1430,48 +1430,48 @@ static uint32_t dci_nr_format_1_1_sizeof(const srsran_dci_cfg_nr_t* cfg, srsran_
       count += 2;
     }
   }
-  // printf("dci_size: %u, DAI added size: %u\n", count, cfg->multiple_scell?4:2);
+  printf("dci_size: %u, DAI added size: %u\n", count, cfg->multiple_scell?4:2);
 
   // TPC command for scheduled PUCCH – 2 bits
   count += 2;
-  // printf("dci_size: %u, tpc added size: %u\n", count, 2);
+  printf("dci_size: %u, tpc added size: %u\n", count, 2);
 
   // PUCCH resource indicator – 3 bits
   count += 3;
-  // printf("dci_size: %u, PUCCH resource indicator added size: %u\n", count, 3);
+  printf("dci_size: %u, PUCCH resource indicator added size: %u\n", count, 3);
 
   // PDSCH-to-HARQ_feedback timing indicator – 0, 1, 2, or 3 bits
   count += (int)SRSRAN_CEIL_LOG2(cfg->nof_dl_to_ul_ack);
-  // printf("dci_size: %u, PDSCH-to-HARQ_feedback  added size: %u\n", count, (int)SRSRAN_CEIL_LOG2(cfg->nof_dl_to_ul_ack));
+  printf("dci_size: %u, PDSCH-to-HARQ_feedback  added size: %u\n", count, (int)SRSRAN_CEIL_LOG2(cfg->nof_dl_to_ul_ack));
 
   // Antenna port(s) – 4, 5, or 6 bits
   count += dci_nr_dl_ports_size(cfg);
-  // printf("dci_size: %u, antenna_ports added size: %u\n", count, dci_nr_dl_ports_size(cfg));
+  printf("dci_size: %u, antenna_ports added size: %u\n", count, dci_nr_dl_ports_size(cfg));
 
   // Transmission configuration indication – 0 or 3 bits
   if (cfg->pdsch_tci) {
     count += 3;
   }
-  // printf("dci_size: %u, pdsch_tci added size: %u\n", count, cfg->pdsch_tci?3:0);
+  printf("dci_size: %u, pdsch_tci added size: %u\n", count, cfg->pdsch_tci?3:0);
 
   // SRS request – 2 or 3 bits
   count += cfg->enable_sul ? 3 : 2;
-  // printf("dci_size: %u, srs_request added size: %u\n", count, cfg->enable_sul ? 3 : 2);
+  printf("dci_size: %u, srs_request added size: %u\n", count, cfg->enable_sul ? 3 : 2);
 
   // CBG transmission information (CBGTI) – 0, 2, 4, 6, or 8 bits
   count += cfg->pdsch_nof_cbg;
-  // printf("dci_size: %u, cbg_transmission_info added size: %u\n", count, cfg->pdsch_nof_cbg);
+  printf("dci_size: %u, cbg_transmission_info added size: %u\n", count, cfg->pdsch_nof_cbg);
 
   // CBG flushing out information (CBGFI) – 0 or 1 bit
   if (cfg->pdsch_cbg_flush) {
     count += 1;
   }
-  // printf("dci_size: %u, cbg_flushing_info added size: %u\n", count, cfg->pdsch_cbg_flush?1:0);
+  printf("dci_size: %u, cbg_flushing_info added size: %u\n", count, cfg->pdsch_cbg_flush?1:0);
 
   // DMRS sequence initialization – 1 bit
   count += 1;
-  // printf("dci_size: %u, dmrs_sequence_init added size: %u\n", count, 1);
-
+  printf("dci_size: %u, dmrs_sequence_init added size: %u\n", count, 1);
+  printf("total dci_size: %d\n", count);
   return count;
 }
 
