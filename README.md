@@ -50,6 +50,7 @@ The main features are as follows:
 16. Band list can be configured for cell scan functions.
 17. A circular buffer is used for slot data dispatch among workers, now the CPU/worker number requirement is largely reduced.
 18. PCI can be configured in the config.yaml. If configured, NR-Scope will proceed only if the detected cell's PCI matches what is configured.
+19. X410 can be used for NR-Scope.
 19. Stay tuned... 😄
 
 Please refer to the [wiki page](https://github.com/PrincetonUniversity/NG-Scope-5G/wiki) for more feature description and documentation.

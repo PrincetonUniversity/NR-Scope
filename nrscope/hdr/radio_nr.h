@@ -77,6 +77,8 @@ class Radio{
     sem_t smph_sf_data_prod_cons;
     sem_t smph_sf_data_finished;
 
+    std::atomic<bool> exit_decode_process;
+
     bool resample_needed;
     resampler_kit rk[RESAMPLE_WORKER_NUM];
     bool rk_initialized = false;

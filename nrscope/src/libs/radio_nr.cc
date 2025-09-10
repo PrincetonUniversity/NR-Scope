@@ -24,9 +24,11 @@ Radio::Radio() :
   nof_trials = 2000;
   nof_trials_scan = 200;
   sf_round = 0;
-  srsran_searcher_args_t.max_srate_hz = 184.32e6;
+  srsran_searcher_args_t.max_srate_hz = 245.76e6;
   srsran_searcher_args_t.ssb_min_scs = srsran_subcarrier_spacing_15kHz;
   srsran_searcher.init(srsran_searcher_args_t);
+
+  exit_decode_process = false;
 
   ssb_cfg = {};
   ue_sync_nr = {};
@@ -796,7 +798,13 @@ int Radio::FetchAndResample(){
   while(true){
     int current_value;
     sem_getvalue(&smph_sf_data_finished, &current_value); 
-    std::cout << "current value: " << current_value << std::endl;
+    // std::cout << "current value: " << current_value << std::endl;
+    if (!in_sync && current_value < 5) {
+      ERROR("Can't sync to the cell,"
+            "please get better signal quality, exiting...");
+      exit_decode_process = true;
+      break;
+    }
     sem_wait(&smph_sf_data_finished);
     
     outcome.timestamp = last_rx_time.get(0);  
@@ -860,7 +868,7 @@ int Radio::DecodeAndProcess(){
   uint64_t next_consume_at = 0;
   bool first_time = true;
   task_scheduler_nrscope.task_scheduler_state.sib1_inited = true;
-  while (true) {
+  while (!exit_decode_process) {
     sem_wait(&smph_sf_data_prod_cons); 
     // std::cout << "current_consume_at: " << (first_time ? 0 : 
     //   ((next_consume_at % RING_BUF_MODULUS + 1))) << std::endl;
@@ -921,6 +929,7 @@ int Radio::DecodeAndProcess(){
               }
           } while(1);
         }
+        first_time = false;
       }
       
       // Add the data into a circular buffer
@@ -946,7 +955,6 @@ int Radio::DecodeAndProcess(){
     std::cout << "consumer time_spend: " << (int)(t1.tv_usec - t0.tv_usec) 
       << "(us)" << std::endl;
     next_consume_at++;
-    first_time = false;
   } // true loop
   
   return SRSRAN_SUCCESS;
@@ -957,7 +965,7 @@ int Radio::RadioCapture(){
   std::thread fetch_thread {&Radio::FetchAndResample, this};
   std::thread deco_thread {&Radio::DecodeAndProcess, this};
 
-  while (true) {}
+  while (!exit_decode_process) {}
   
   return SRSRAN_SUCCESS;
 }

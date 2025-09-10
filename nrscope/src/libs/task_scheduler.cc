@@ -163,7 +163,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
     ERROR("Error checking table 13-11");
     return SRSRAN_ERROR;
   }
-  std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
+  // std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
 
   task_scheduler_state.cell.u = (int)args_t_->ssb_scs; 
   task_scheduler_state.coreset0_args_t.n_0 = (coreset_zero_cfg.O * 
