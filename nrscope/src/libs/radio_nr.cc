@@ -8,7 +8,7 @@
 
 static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
 { 
-  printf("[AGC gain adj] new rx gain: %f\n", gain_db);
+  // printf("[AGC gain adj] new rx gain: %f\n", gain_db);
   ((srsran::radio_interface_phy *)h)->set_rx_gain(gain_db);
 }
 
@@ -603,7 +603,6 @@ int Radio::RadioInitandStart(){
         srsran_vec_cf_zero(pre_resampling_rx_buffer, pre_resampling_slot_sz);
       }
       // srsran_vec_cf_copy(rx_buffer, rx_buffer + slot_sz, slot_sz);
-
       srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
 
       if (not radio->rx_now(rf_buffer, rf_timestamp)) {
@@ -745,7 +744,7 @@ int Radio::SyncandDownlinkInit(){
   ue_sync_nr_args.max_srate_hz    = srsran_searcher_args_t.max_srate_hz;
   ue_sync_nr_args.min_scs         = srsran_searcher_args_t.ssb_min_scs;
   ue_sync_nr_args.nof_rx_channels = 1;
-  ue_sync_nr_args.disable_cfo     = false;
+  ue_sync_nr_args.disable_cfo     = true;
   ue_sync_nr_args.pbch_dmrs_thr   = 0.5;
   ue_sync_nr_args.cfo_alpha       = 0.1;
   ue_sync_nr_args.recv_obj        = radio.get();
@@ -831,6 +830,8 @@ int Radio::FetchAndResample(){
       target sf boundary yet after resampling, all meaningful data will reside 
       the target sf arr area and the original raw extra part 
       beyond the boundary doesn't matter */
+    struct timeval t2, t3;
+    gettimeofday(&t2, NULL);
     if (srsran_ue_sync_nr_zerocopy_twinrx_nrscope(
         &ue_sync_nr, rf_buffer_t.to_cf_t(), &outcome, rk, resample_needed, 
         RESAMPLE_WORKER_NUM) < SRSRAN_SUCCESS) {
@@ -838,6 +839,9 @@ int Radio::FetchAndResample(){
       logger.error("SYNC: error in zerocopy");
       return false;
     }
+    gettimeofday(&t3, NULL);
+    std::cout << "zerocopy time: " << (t3.tv_usec - t2.tv_usec) 
+      << "(us)" << std::endl;
     /* If in sync, update slot index. 
       The synced data is stored in rf_buffer_t.to_cf_t()[0] */
     if (outcome.in_sync){

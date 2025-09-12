@@ -40,7 +40,21 @@ int main(int argc, char** argv){
   std::vector<std::thread> radio_threads;
 
   for (auto& my_radio : radios) {
-    radio_threads.emplace_back(&Radio::RadioThread, &my_radio);
+    // cpu_set_t cpu_set;
+    // CPU_ZERO(&cpu_set);
+    // CPU_SET(0, &cpu_set);
+    // CPU_SET(1, &cpu_set);
+    // CPU_SET(2, &cpu_set);
+    // CPU_SET(3, &cpu_set);
+    // CPU_SET(4, &cpu_set);
+    // CPU_SET(5, &cpu_set);
+    // CPU_SET(6, &cpu_set);
+    // CPU_SET(7, &cpu_set);
+    // std::thread radio_thread = ;      
+    radio_threads.emplace_back(std::thread{&Radio::RadioThread, &my_radio});
+    // assert(pthread_setaffinity_np(
+    //   radio_threads[radio_threads.size()-1].native_handle(), 
+    //   sizeof(cpu_set_t), &cpu_set) == 0);
   }
 
   for (auto& t : radio_threads) {

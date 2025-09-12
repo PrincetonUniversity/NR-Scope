@@ -281,18 +281,26 @@ static int ue_sync_nr_recv(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_timesta
   }
 
   // Receive
+  // struct timeval t2, t3;
+  // gettimeofday(&t2, NULL);
   if (q->recv_callback(q->recv_obj, q->tmp_buffer, (uint32_t)((float)nof_samples/(float)q->resample_ratio), timestamp) < SRSRAN_SUCCESS) {
     return SRSRAN_ERROR;
   }
+  // gettimeofday(&t3, NULL);
+  // printf("recv callback time: %ld\n", t3.tv_usec - t2.tv_usec);
 
   // Compensate CFO
+  // struct timeval t4, t5;
+  // gettimeofday(&t4, NULL);
   for (uint32_t chan = 0; chan < q->nof_rx_channels; chan++) {
     if (buffer[chan] != 0 && !q->disable_cfo) {
       srsran_vec_apply_cfo(buffer[chan], -q->cfo_hz / q->srate_hz, buffer[chan], (int)q->sf_sz);
-      // printf("q->cfo_hz: %f\n", q->cfo_hz);
+      printf("q->cfo_hz: %f\n", q->cfo_hz);
       // printf("ue_sync_nr.c q->sf_sz: %u\n", q->sf_sz);
     }
   }
+  // gettimeofday(&t5, NULL);
+  // printf("compensate cfo time: %ld\n", t5.tv_usec - t4.tv_usec);
 
   return SRSRAN_SUCCESS;
 }
@@ -384,10 +392,14 @@ int srsran_ue_sync_nr_zerocopy_twinrx_nrscope(srsran_ue_sync_nr_t* q, cf_t** buf
   }
 
   // Receive
+  // struct timeval t2, t3;
+  // gettimeofday(&t2, NULL);
   if (ue_sync_nr_recv(q, buffer, &outcome->timestamp) < SRSRAN_SUCCESS) {
     ERROR("Error receiving baseband");
     return SRSRAN_ERROR;
   }
+  // gettimeofday(&t3, NULL);
+  // printf("ue_sync_nr_recv time: %ld\n", t3.tv_usec - t2.tv_usec);
 
   // resample
   if (resample_needed) {

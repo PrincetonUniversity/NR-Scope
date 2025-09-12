@@ -343,7 +343,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
   // }
 
   if (nof_found_dci < 1) {
-    printf("RACHDecoder -- No DCI found :'(\n");
+    // printf("RACHDecoder -- No DCI found :'(\n");
     return SRSRAN_ERROR;
   }
 

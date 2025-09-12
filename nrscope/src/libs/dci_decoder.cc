@@ -1096,7 +1096,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
         char str[1024] = {};
         srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[dci_idx_dl], 
           str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- Found DCI: %s\n", str);
+        // printf("DCIDecoder -- Found DCI: %s\n", str);
         // The grant may not be decoded correctly, since srsRAN's code is not complete.
         // We can calculate the DL bandwidth for this subframe by ourselves.
         if(dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {

@@ -689,6 +689,8 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
       type = "e3x0";
     } else if (find_string(devices_str, "type=n3xx")) {
       type = "n3xx";
+    } else if (find_string(devices_str, "type=x4xx")) {
+      type = "x4xx";
     }
 
     if (not type.empty()) {
@@ -1323,6 +1325,8 @@ int rf_uhd_recv_with_time_multi(void*    h,
 
     size_t num_samps_left = nsamples - rxd_samples_total;
     size_t num_rx_samples = SRSRAN_MIN(handler->rx_nof_samples, num_samps_left);
+
+    // std::cout << "num_rx_samples: " << num_rx_samples << std::endl;
 
     for (uint32_t i = 0; i < handler->nof_rx_channels; i++) {
       if (data[i] != nullptr) {
