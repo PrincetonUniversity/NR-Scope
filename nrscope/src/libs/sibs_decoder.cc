@@ -53,6 +53,8 @@ int SIBsDecoder::SIBDecoderandReceptionInit(WorkState* state,
   ue_dl_args.pdcch.measure_evm             = true;
   ue_dl_args.nof_max_prb                   = 275;
 
+  ue_dl_args.pdcch_dmrs_corr_thr           = 0.05;
+
   if (srsran_ue_dl_nr_init_nrscope(&ue_dl_sibs, input, &ue_dl_args, arg_scs)) {
     ERROR("Error UE DL");
     return SRSRAN_ERROR;

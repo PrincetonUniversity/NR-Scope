@@ -1131,12 +1131,15 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   res->crc           = checksum1 == checksum2;
 
   // if (res->crc){
-  //   printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
-  //   srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
+  // printf("CRC={%06x, %06x}; msg=", checksum1, checksum2);
+  // srsran_vec_fprint_hex(stdout, c, dci_msg->nof_bits);
   // }
 
   // uint32_t checksum_diff = checksum1 > checksum2 ? checksum1 - checksum2 : checksum2 - checksum1;
-  // printf("checksum diff: %u\n", checksum_diff);
+  // if (checksum_diff < 65535){
+  //   printf("checksum_1: %u, checksum_2: %u, checksum diff: %u\n", 
+  //     checksum1, checksum2, checksum_diff);
+  // }
 
   uint8_t message_checksum[24] = {};
   uint8_t* ptr_message = message_checksum;

@@ -222,6 +222,7 @@ int RachDecoder::RACHReceptionInit(WorkState* state,
   ue_dl_args.pdcch.disable_simd            = false;
   ue_dl_args.pdcch.measure_evm             = true;
   ue_dl_args.nof_max_prb                   = 275;  
+  ue_dl_args.pdcch_dmrs_corr_thr           = 0.05;
 
   if (srsran_ue_dl_nr_init_nrscope(&ue_dl_rach, input, &ue_dl_args, arg_scs)) {
     ERROR("RACHDecoder -- Error UE DL");

@@ -244,6 +244,77 @@ static int ofdm_init_mbsfn_(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, srsran_dft
   return SRSRAN_SUCCESS;
 }
 
+// static int srsran_ofdm_set_phase_compensation_nrscope_30khz(srsran_ofdm_t* q, double center_freq_hz, int scs_idx, uint32_t nof_prbs)
+// {
+//   // Validate pointer
+//   if (q == NULL) {
+//     return SRSRAN_ERROR_INVALID_INPUTS;
+//   }
+
+//   // Check if the center frequency has changed
+//   if (q->cfg.phase_compensation_hz == center_freq_hz) {
+//     return SRSRAN_SUCCESS;
+//   }
+
+//   // Save the current phase compensation
+//   q->cfg.phase_compensation_hz = center_freq_hz;
+
+//   // If the center frequency is 0, NAN, INF, then skip
+//   if (!isnormal(center_freq_hz)) {
+//     return SRSRAN_SUCCESS;
+//   }
+
+//   // Extract modulation required parameters
+//   uint32_t symbol_sz = q->cfg.symbol_sz;
+//   double   scs       = (double)SRSRAN_SUBC_SPACING_NR(scs_idx); 
+//   double   srate_hz  = symbol_sz * scs;
+//   // printf("symbol_sz: %u\n", symbol_sz);
+//   // printf("srate_hz: %lf\n", srate_hz);
+//   // printf("scs: %lf\n", scs);
+
+//   // Assert parameters
+//   if (!isnormal(srate_hz)) {
+//     return SRSRAN_ERROR;
+//   }
+
+//   // Otherwise calculate the phase
+//   uint32_t count = 0;
+//   int cp2 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+//   int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2;
+//   for (uint32_t l = 0; l < q->nof_symbols * SRSRAN_NOF_SLOTS_PER_SF; l++) {
+//     int cp_len;
+//     if (l == 0 || l == q->nof_symbols) {
+//       cp_len = cp1;
+//     } else {
+//       cp_len = cp2;
+//     }
+//     // printf("cp_len: %d\n", cp_len);
+//     // printf("center_freq: %f\n", center_freq_hz);
+//     // Advance CP
+//     count += cp_len;
+//     // printf("count : %d\n", count);
+
+//     // Calculate symbol start time
+//     double t_start = (double)count / srate_hz;
+//     // printf("t_start: %f\n", t_start);
+
+//     // Calculate phase
+//     double phase_rad = -2.0 * M_PI * center_freq_hz * t_start;
+//     // printf("center_freq_hz: %f\n", center_freq_hz);
+
+//     // Calculate compensation phase in double precision and then convert to single
+//     q->phase_compensation[l] = (cf_t)cexp(I * phase_rad);
+//     // q->phase_compensation[l+q->nof_symbols/2] = (cf_t)cexp(I * phase_rad);
+//     printf("phase_compensation: %f+%fi\n", creal(q->phase_compensation[l]), cimag(q->phase_compensation[l]));
+    
+//     // Advance symbol
+//     count += symbol_sz;
+//     // printf("count: %u\n", count);
+//   }
+
+//   return SRSRAN_SUCCESS;
+// }
+
 // the fft plan for 5g NR, added by Haoran
 static int ofdm_init_nr_nrscope_30khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, srsran_dft_dir_t dir, int scs_idx)
 {
@@ -363,8 +434,9 @@ static int ofdm_init_nr_nrscope_30khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
   // change the cp setting for 5G NR
   // int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM_NR(symbol_sz) : SRSRAN_CP_LEN_EXT_NR(symbol_sz);
   
-  int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  // int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
   int cp2 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(cp) + cp2;
 
   // printf("cp1: %d\n", cp1);
   // printf("cp2: %d\n", cp2);
@@ -377,7 +449,8 @@ static int ofdm_init_nr_nrscope_30khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
     q->window_offset_n = (uint32_t)roundf((float)cp2 * cfg->rx_window_offset);
 
     for (uint32_t i = 0; i < symbol_sz; i++) {
-      q->window_offset_buffer[i] = cexpf(I * M_PI * 2.0f * (float)q->window_offset_n * (float)i / (float)symbol_sz);
+      q->window_offset_buffer[i] = cexpf(I * M_PI * 2.0f * ((float)q->window_offset_n * (float)i) / (float)symbol_sz);
+      // printf("offset: %f\n", (float)q->window_offset_n * (float)i);
     }
 
     // for (uint32_t i = symbol_sz; i < 2*symbol_sz; i++){
@@ -395,6 +468,8 @@ static int ofdm_init_nr_nrscope_30khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
     // we get a frame.
     srsran_vec_cf_zero(in_buffer, q->sf_sz);
   }
+
+  // printf("cp1 - q->window_offset_n: %d\n", cp1 - q->window_offset_n);
 
   for (int slot = 0; slot < 1; slot++) {
     // If Guru DFT was allocated, free
@@ -607,8 +682,10 @@ static int ofdm_init_nr_nrscope_15khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
   // int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM_NR(symbol_sz) : SRSRAN_CP_LEN_EXT_NR(symbol_sz);
   // printf("cp1: %d\n", cp1);
 
-  int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
   int cp2 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  // int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(cp) + cp2;
+
 
   // printf("cp1: %d\n", cp1);
   // printf("cp2: %d\n", cp2);
@@ -951,17 +1028,22 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
 
   // Otherwise calculate the phase
   uint32_t count = 0;
+  int cp2 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2;
   for (uint32_t l = 0; l < q->nof_symbols * SRSRAN_NOF_SLOTS_PER_SF; l++) {
-    uint32_t cp_len =
-        // SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM_NR(symbol_sz) : SRSRAN_CP_LEN_EXT_NR(symbol_sz);
-        SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(l % q->nof_symbols, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-    // printf("cp_len: %d\n", cp_len);
-    // printf("center_freq: %f\n", center_freq_hz);
+    int cp_len;
+    if (l == 0 || l == q->nof_symbols) {
+      cp_len = cp1;
+    } else {
+      cp_len = cp2;
+    }
     // Advance CP
     count += cp_len;
+    // printf("count : %d\n", count);
 
     // Calculate symbol start time
     double t_start = (double)count / srate_hz;
+    // printf("t_start: %f\n", t_start);
 
     // Calculate phase
     double phase_rad = -2.0 * M_PI * center_freq_hz * t_start;
