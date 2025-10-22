@@ -1018,7 +1018,7 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
     dci_sizes[dci_sizes_count++] = dci_nof_bits;
       
     // Reset the pdcch_info_count.
-    q->pdcch_info_count = 0;
+    // q->pdcch_info_count = 0;
     // Iterate all possible aggregation levels
     for (uint32_t L = 0;
         L < SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR;
@@ -1267,6 +1267,9 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
   // Iterate all possible common and UE search spaces
   for (uint32_t i = 0; i < SRSRAN_UE_DL_NR_MAX_NOF_SEARCH_SPACE && q->dl_dci_msg_count < nof_dci_msg; i++) {
     // Skip search space if not present
+    // if (q->cfg.search_space_present[i]) {
+    //   printf("search space: %d, present: %d, search space id: %d\n", i, q->cfg.search_space_present[i], q->cfg.search_space[i].id);
+    // }
     if (!q->cfg.search_space_present[i]) {
       continue;
     }

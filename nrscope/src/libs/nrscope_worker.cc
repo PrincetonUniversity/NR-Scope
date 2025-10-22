@@ -277,8 +277,8 @@ void NRScopeWorker::Run() {
     // worker_locks[worker_id].unlock();
     struct timeval t0, t1;
 
-    // std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn
-    //  << ", slot.idx: " << slot.idx << std::endl; 
+    std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn
+     << ", slot.idx: " << slot.idx << std::endl; 
 
     SlotResult slot_result = {};
     /* Set the all the results to be false, will be set inside the decoder
@@ -381,10 +381,6 @@ void NRScopeWorker::Run() {
         }
       }
       gettimeofday(&t1, NULL);
-      std::cout << "sf_round: " << (int)slot_result.sf_round
-      << ", sfn: " << (int)slot_result.outcome.sfn 
-      << ", slot: " << (int)slot_result.slot.idx 
-      << ", time: " << (int)(t1.tv_usec - t0.tv_usec) << std::endl;
     }
 
     if(sibs_thread.joinable()){

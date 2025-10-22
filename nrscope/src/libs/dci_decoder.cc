@@ -36,6 +36,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   ue_dl_args.pdcch.measure_evm             = true;
   ue_dl_args.nof_max_prb                   = 275;
 
+  ue_dl_args.pdcch_dmrs_corr_thr           = 0.05;
+
   memcpy(&coreset0_t, &state->coreset0_t, sizeof(srsran_coreset_t));
   sib1 = state->sib1;
   master_cell_group = state->master_cell_group;
@@ -181,8 +183,8 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
                                             search_spaces_to_add_mod_list[ss_id].
                                             ctrl_res_set_id;
       
-      printf("pdcch_cfg.search_space[%d].coreset_id in bwp%u: %u\n", ss_id, 
-        bwp_id, pdcch_cfg.search_space[ss_id].coreset_id);
+      // printf("pdcch_cfg.search_space[%d].coreset_id in bwp%u: %u\n", pdcch_cfg.search_space[ss_id].id, 
+        // bwp_id, pdcch_cfg.search_space[ss_id].coreset_id);
 
       pdcch_cfg.search_space[ss_id].type = srsran_search_space_type_ue;
       if(bwp_dl_ded_s_ptr->pdcch_cfg.setup().
@@ -364,6 +366,14 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     pdcch_cfg.search_space[ss_id].nof_candidates[4] = bwp_dl_ded_s_ptr->
       pdcch_cfg.setup().search_spaces_to_add_mod_list[ss_id].
       nrof_candidates.aggregation_level16;
+    // printf("ss_id: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n", 
+    //   pdcch_cfg.search_space[ss_id].id,
+    //   pdcch_cfg.search_space[ss_id].nof_candidates[0],
+    //   pdcch_cfg.search_space[ss_id].nof_candidates[1],
+    //   pdcch_cfg.search_space[ss_id].nof_candidates[2],
+    //   pdcch_cfg.search_space[ss_id].nof_candidates[3],
+    //   pdcch_cfg.search_space[ss_id].nof_candidates[4]
+    // );
   }
   
   /* if the supplementary_ul in sp_cell_cfg_ded is present. */
@@ -1048,9 +1058,28 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       total_ul_dci += nof_ul_dci;
     }
 
+    // printf("slot: %d\n", slot->idx);
+    // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
+    //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
+    //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
+    //   "nof_bits=%d; crc=%s;\n",
+    //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
+    //   info->dci_ctx.rnti,
+    //   info->dci_ctx.coreset_id,
+    //   srsran_ss_type_str(info->dci_ctx.ss_type),
+    //   info->dci_ctx.location.ncce,
+    //   info->dci_ctx.location.L,
+    //   info->measure.epre_dBfs,
+    //   info->measure.rsrp_dBfs,
+    //   info->measure.norm_corr,
+    //   info->nof_bits,
+    //   info->result.crc ? "OK" : "KO");
+    // }
+
     if (nof_ul_dci > 0 || nof_dl_dci > 0) {
       // The UE is either using CA or not, so if we find the DCI with CA,
       // we don't need to try further.
+      printf("DCIDecoder -- DCI found with CA\n");
       continue;
     }
 
@@ -1062,6 +1091,26 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
       ERROR("Error setting CORESET");
       return SRSRAN_ERROR;
     }
+
+    // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n", 
+    //   0,
+    //   ue_dl_tmp->cfg.search_space[0].id,
+    //   ue_dl_tmp->cfg.search_space[0].nof_candidates[0],
+    //   ue_dl_tmp->cfg.search_space[0].nof_candidates[1],
+    //   ue_dl_tmp->cfg.search_space[0].nof_candidates[2],
+    //   ue_dl_tmp->cfg.search_space[0].nof_candidates[3],
+    //   ue_dl_tmp->cfg.search_space[0].nof_candidates[4]
+    // );
+
+    // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n", 
+    //   1,
+    //   ue_dl_tmp->cfg.search_space[1].id,
+    //   ue_dl_tmp->cfg.search_space[1].nof_candidates[0],
+    //   ue_dl_tmp->cfg.search_space[1].nof_candidates[1],
+    //   ue_dl_tmp->cfg.search_space[1].nof_candidates[2],
+    //   ue_dl_tmp->cfg.search_space[1].nof_candidates[3],
+    //   ue_dl_tmp->cfg.search_space[1].nof_candidates[4]
+    // );
 
     int nof_dl_dci_nca = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(ue_dl_tmp, 
       slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, 
@@ -1083,6 +1132,27 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     if(nof_ul_dci_nca > 0){
       dci_ul[rnti_idx] = dci_ul_tmp[0];
       total_ul_dci += nof_ul_dci_nca;
+    }
+
+    // printf("slot: %d\n", slot->idx);
+    // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
+    //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
+    //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
+    //   "nof_bits=%d; crc=%s;\n",
+    //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
+    //   info->dci_ctx.rnti,
+    //   info->dci_ctx.coreset_id,
+    //   srsran_ss_type_str(info->dci_ctx.ss_type),
+    //   info->dci_ctx.location.ncce,
+    //   info->dci_ctx.location.L,
+    //   info->measure.epre_dBfs,
+    //   info->measure.rsrp_dBfs,
+    //   info->measure.norm_corr,
+    //   info->nof_bits,
+    //   info->result.crc ? "OK" : "KO");
+    // }
+    if (nof_dl_dci_nca > 0 || nof_ul_dci_nca > 0) {
+      printf("DCIDecoder -- DCI Found without CA\n");
     }
   }  
 

@@ -555,9 +555,9 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t sf_round,
   srsran_vec_cf_copy(s.rx_buffer, rx_buffer_, s.slot_size);
   s.processed.store(false, std::memory_order_release);
 
-  std::cout << "Storing " << i << ", sf_round: " << s.sf_round << 
-      ", sfn: " << s.outcome.sfn << ", subframe: " << s.outcome.sf_idx << 
-      ", slot: " << s.slot.idx << std::endl;
+  // std::cout << "Storing " << i << ", sf_round: " << s.sf_round << 
+  //     ", sfn: " << s.outcome.sfn << ", subframe: " << s.outcome.sf_idx << 
+  //     ", slot: " << s.slot.idx << std::endl;
 
   uint32_t next = (i + 1) % slot_data_len;
   next_slot_idx.store(next, std::memory_order_relaxed);
