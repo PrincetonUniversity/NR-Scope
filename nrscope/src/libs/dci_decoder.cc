@@ -674,12 +674,12 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   // std::cout << "pdsch resource alloc: " << dci_cfg.pdsch_alloc_type << std::endl;
 
   // T-Mobile RRC Recfg
-  // dci_cfg.report_trigger_size = 2;
-  // dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
-  // dci_cfg.multiple_scell = true;
+  dci_cfg.report_trigger_size = 2;
+  dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
+  dci_cfg.multiple_scell = true;
 
   /* for non carrier aggregation*/
-  dci_cfg.multiple_scell = false;
+  // dci_cfg.multiple_scell = false;
   dci_cfg.carrier_indicator_size = 0; 
 
   if(bwp_dl_ded_s_ptr->pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a_present){
