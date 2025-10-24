@@ -41,7 +41,7 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
   nof_workers = nof_workers_;
 
   // Maintain a ringbuffer of 1024 slot data.
-  slot_data_len = 1 << 12;
+  slot_data_len = 1 << 14;
   next_slot_idx = 0;
   current_slot_idx = 0;
 
@@ -546,6 +546,8 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t sf_round,
     // dropped_slots.fetch_add(1, std::memory_order_relaxed);
     ERROR("Overwriting the unprocessed data... Consider improving processing"
           "throughput.");
+    printf("Overwriting the unprocessed data... Consider improving processing"
+          "throughput.\n");
     // return SRSRAN_SUCCESS;
   }
 
