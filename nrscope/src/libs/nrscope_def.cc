@@ -38,7 +38,7 @@ const char* sch_xoverhead_to_str(srsran_xoverhead_t xoverhead)
 }
 
 void my_sig_handler(int s){
-  printf("Caught signal %d\n",s);
+  nrscope_logger().info("Caught signal %d", s);
   exit(0); 
 }
 

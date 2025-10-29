@@ -1,4 +1,5 @@
 #include "nrscope/hdr/rach_decoder.h"
+#include <string>
 
 std::mutex lock_rach;
 
@@ -344,7 +345,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
   // }
 
   if (nof_found_dci < 1) {
-    printf("RACHDecoder -- No DCI found :'(\n");
+    nrscope_logger().info("RACHDecoder -- No DCI found :'(");
     return SRSRAN_ERROR;
   }
 
@@ -352,7 +353,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     char str[1024] = {};
     srsran_dci_dl_nr_to_str(&(ue_dl_rach.dci), &dci_rach[dci_id], str, 
       (uint32_t)sizeof(str));
-    printf("RACHDecoder -- Found DCI: %s\n", str);
+    nrscope_logger().info("RACHDecoder -- Found DCI: %s", str);
     tc_rnti = dci_rach[dci_id].ctx.rnti;
 
     if (state->rach_found) {
@@ -373,7 +374,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     }
 
     srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-    printf("PDSCH_cfg:\n%s", str);
+    nrscope_logger().info("PDSCH_cfg:\n%s", str);
 
     if (srsran_softbuffer_rx_init_guru(&softbuffer, 
         SRSRAN_SCH_NR_MAX_NOF_CB_LDPC, SRSRAN_LDPC_MAX_LEN_ENCODED_CB) <
@@ -395,7 +396,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     // Decode PDSCH
     if (srsran_ue_dl_nr_decode_pdsch(&ue_dl_pdsch, slot, &pdsch_cfg, &pdsch_res)
         < SRSRAN_SUCCESS) {
-      printf("Error decoding PDSCH search\n");
+      nrscope_logger().info("Error decoding PDSCH search");
       return SRSRAN_ERROR;
     }
 
@@ -414,7 +415,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     }
 
     if (!pdsch_res.tb[0].crc) {
-      printf("RACHDecoder -- Error decoding PDSCH (CRC)\n");
+      nrscope_logger().info("RACHDecoder -- Error decoding PDSCH (CRC)");
 
       return SRSRAN_ERROR;
     }
@@ -458,8 +459,8 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
       }break;
       case asn1::rrc_nr::dl_ccch_msg_type_c::c1_c_::types::rrc_setup: {
         std::cout << "It's a rrc_setup, hooray!" << std::endl;
-        printf("rrc-TransactionIdentifier: %u\n", 
-          (result->rrc_setup).rrc_transaction_id);
+        nrscope_logger().info("rrc-TransactionIdentifier: %u",
+                              (result->rrc_setup).rrc_transaction_id);
         result->found_rach = true;
       }break;
       default: {
@@ -482,7 +483,8 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot,
     
     asn1::json_writer js;
     result->master_cell_group.to_json(js);
-    printf("masterCellGroup: %s\n", js.to_string().c_str());
+    std::string master_cell_group_json = js.to_string();
+    nrscope_logger().info("masterCellGroup: %s", master_cell_group_json.c_str());
 
     if (!(result->master_cell_group).sp_cell_cfg.recfg_with_sync.new_ue_id){
       c_rnti = tc_rnti;

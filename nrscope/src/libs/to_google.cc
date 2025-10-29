@@ -76,13 +76,13 @@ namespace ToGoogle{
         Py_DECREF(pCreate);
         Py_DECREF(pModule);
         PyErr_Print();
-        fprintf(stderr,"Call failed\n");
+        nrscope_logger().info("Call failed");
         return;
       }
     }else {
       if (PyErr_Occurred())
           PyErr_Print();
-      fprintf(stderr, "Cannot find function.\n");
+      nrscope_logger().info("Cannot find function.");
     }
     
     list_length = 4000;
@@ -207,12 +207,12 @@ namespace ToGoogle{
               pRFID = PyLong_FromLong(rf_id);
               PyTuple_SetItem(pClient, 3, pList[rf_id]);
               PyTuple_SetItem(pClient, 4, pRFID);
-              printf("Pushing to google...\n");
+              nrscope_logger().info("Pushing to google...");
               PyObject_CallObject(pPush, pClient);
               pList[rf_id] = PyList_New(list_length);
               // Py_DECREF(pClient);
             }else{
-              fprintf(stderr,"Creating new dict failed\n");
+              nrscope_logger().info("Creating new dict failed");
             }
           }
         }else{
@@ -222,12 +222,12 @@ namespace ToGoogle{
               pRFID = PyLong_FromLong(rf_id);
               PyTuple_SetItem(pClient, 3, pList[rf_id]);
               PyTuple_SetItem(pClient, 4, pRFID);
-              printf("Pushing to google...\n");
+              nrscope_logger().info("Pushing to google...");
               PyObject_CallObject(pPush, pClient);
               pList[rf_id] = PyList_New(list_length);
               // Py_DECREF(pClient);
             }else{
-              fprintf(stderr,"Creating new dict failed\n");
+              nrscope_logger().info("Creating new dict failed");
             }
           }
           // printf("No node in the queue...\n");

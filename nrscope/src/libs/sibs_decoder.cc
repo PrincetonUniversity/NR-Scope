@@ -1,4 +1,5 @@
 #include "nrscope/hdr/sibs_decoder.h"
+#include <string>
 
 SIBsDecoder::SIBsDecoder(){
   data_pdcch = srsran_vec_u8_malloc(SRSRAN_SLOT_MAX_NOF_BITS_NR);
@@ -129,29 +130,30 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   /* Print PDCCH blind search candidates */
   for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_sibs.pdcch_info_count; pdcch_idx++) {
     const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_sibs.pdcch_info[pdcch_idx]);
-    printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-    "nof_bits=%d; crc=%s;\n",
-    srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-    info->dci_ctx.rnti,
-    info->dci_ctx.coreset_id,
-    srsran_ss_type_str(info->dci_ctx.ss_type),
-    info->dci_ctx.location.ncce,
-    info->dci_ctx.location.L,
-    info->measure.epre_dBfs,
-    info->measure.rsrp_dBfs,
-    info->measure.norm_corr,
-    info->nof_bits,
-    info->result.crc ? "OK" : "KO");
+    nrscope_logger().info(
+        "PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
+        "nof_bits=%d; crc=%s;",
+        srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
+        info->dci_ctx.rnti,
+        info->dci_ctx.coreset_id,
+        srsran_ss_type_str(info->dci_ctx.ss_type),
+        info->dci_ctx.location.ncce,
+        info->dci_ctx.location.L,
+        info->measure.epre_dBfs,
+        info->measure.rsrp_dBfs,
+        info->measure.norm_corr,
+        info->nof_bits,
+        info->result.crc ? "OK" : "KO");
   }
   if (nof_found_dci < 1) {
-    printf("SIBDecoder -- No DCI found :'(\n");
+    nrscope_logger().info("SIBDecoder -- No DCI found :'(");
     return SRSRAN_ERROR;
   }
 
   char str[1024] = {};
   srsran_dci_dl_nr_to_str(&(ue_dl_sibs.dci), &dci_sibs, str, 
     (uint32_t)sizeof(str));
-  printf("SIBDecoder -- Found DCI: %s\n", str);
+  nrscope_logger().info("SIBDecoder -- Found DCI: %s", str);
 
   pdsch_cfg = {};
   pdsch_cfg.dmrs.typeA_pos = state->cell.mib.dmrs_typeA_pos;
@@ -163,7 +165,7 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   }
 
   srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-  printf("PDSCH_cfg:\n%s", str);
+  nrscope_logger().info("PDSCH_cfg:\n%s", str);
 
   if (srsran_softbuffer_rx_init_guru(&softbuffer, SRSRAN_SCH_NR_MAX_NOF_CB_LDPC, 
       SRSRAN_LDPC_MAX_LEN_ENCODED_CB) < SRSRAN_SUCCESS) {
@@ -181,11 +183,11 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
   // Decode PDSCH
   if (srsran_ue_dl_nr_decode_pdsch(&ue_dl_sibs, slot, &pdsch_cfg, &pdsch_res) < 
       SRSRAN_SUCCESS) {
-    printf("SIBDecoder -- Error decoding PDSCH search\n");
+    nrscope_logger().info("SIBDecoder -- Error decoding PDSCH search");
     return SRSRAN_ERROR;
   }
   if (!pdsch_res.tb[0].crc) {
-    printf("SIBDecoder -- Error decoding PDSCH (CRC)\n");
+    nrscope_logger().info("SIBDecoder -- Error decoding PDSCH (CRC)");
     return SRSRAN_ERROR;
   }
   // printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
@@ -236,7 +238,8 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
     /* Uncomment to print the decode SIBs. */
     asn1::json_writer js_sibs;
     (decoded_sib).to_json(js_sibs);
-    printf("Decoded SIBs: %s\n", js_sibs.to_string().c_str()); 
+    std::string decoded_sibs = js_sibs.to_string();
+    nrscope_logger().info("Decoded SIBs: %s", decoded_sibs.c_str());
   }else if(srsran_unlikely(asn1::rrc_nr::bcch_dl_sch_msg_type_c::c1_c_::
       types_opts::sys_info != dlsch_msg.msg.c1().type())){
     result->found_sib1 = true;
@@ -246,7 +249,8 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
     /* Uncomment to print the decode SIB1. */
     asn1::json_writer js_sib1;
     (result->sib1).to_json(js_sib1);
-    printf("Decoded SIB1: %s\n", js_sib1.to_string().c_str());
+    std::string decoded_sib1 = js_sib1.to_string();
+    nrscope_logger().info("Decoded SIB1: %s", decoded_sib1.c_str());
   }
 
   srsran_softbuffer_rx_free(&softbuffer);

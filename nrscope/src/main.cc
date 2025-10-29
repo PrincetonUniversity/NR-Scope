@@ -7,11 +7,26 @@
 
 #include "srsran/common/band_helper.h"
 #include "srsran/phy/common/phy_common_nr.h"
+#include "srsran/srslog/srslog.h"
 
 int main(int argc, char** argv){
 
   // Initialise logging infrastructure
+  srslog::sink* log_sink = srslog::create_file_sink("nrscope_flow.log");
+  if (log_sink == nullptr) {
+    std::cerr << "Failed to create logging sink for nrscope." << std::endl;
+    return NR_FAILURE;
+  }
+
+  srslog::log_channel* log_channel = srslog::create_log_channel("nrscope_channel", *log_sink);
+  if (log_channel == nullptr) {
+    std::cerr << "Failed to create logging channel for nrscope." << std::endl;
+    return NR_FAILURE;
+  }
+  srslog::set_default_sink(*log_sink);
+
   srslog::init();
+  nrscope_logger().set_level(srslog::basic_levels::info);
 
   std::string file_name = "config.yaml";
 
@@ -48,6 +63,9 @@ int main(int argc, char** argv){
       t.join();
     }
   } 
+
+  srslog::flush();
+  log_sink->flush();
 
   return NR_SUCCESS;
 }

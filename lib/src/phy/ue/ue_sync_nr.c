@@ -169,8 +169,8 @@ static int ue_sync_nr_update_ssb(srsran_ue_sync_nr_t*                 q,
 
   // Transition to track only if the measured delay is below 2.4 microseconds
   if (measurements->delay_us < 2.4f) { // <- should be abs(measurements->delay_us) < 2.4f
-    printf("Transition to SRSRAN_UE_SYNC_NR_STATE_TRACK\n");
-    printf("measurements->delay_us: %f\n", measurements->delay_us);
+    // printf("Transition to SRSRAN_UE_SYNC_NR_STATE_TRACK\n");
+    // printf("measurements->delay_us: %f\n", measurements->delay_us);
     q->state = SRSRAN_UE_SYNC_NR_STATE_TRACK;
   }
   // }else{
@@ -252,7 +252,7 @@ static int ue_sync_nr_recv(srsran_ue_sync_nr_t* q, cf_t** buffer, srsran_timesta
 
   if (q->next_rf_sample_offset > 0) {
     // Discard a number of samples from RF
-    printf("discard rf samples (next_rf_sample_offset): %u\n", (uint32_t)q->next_rf_sample_offset);
+    // printf("discard rf samples (next_rf_sample_offset): %u\n", (uint32_t)q->next_rf_sample_offset);
     if (q->recv_callback(q->recv_obj, buffer, (uint32_t)((float)q->next_rf_sample_offset/(float)q->resample_ratio), timestamp) < SRSRAN_SUCCESS) {
       return SRSRAN_ERROR;
     }

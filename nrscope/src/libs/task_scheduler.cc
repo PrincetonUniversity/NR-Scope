@@ -96,7 +96,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
 
   char str[1024] = {};
   srsran_pbch_msg_nr_mib_info(&task_scheduler_state.cell.mib, str, 1024);
-  printf("MIB: %s\n", str);
+  nrscope_logger().info("MIB: %s", str);
   // printf("MIB payload: ");
   // for (int i =0; i<SRSRAN_PBCH_MSG_NR_MAX_SZ; i++){
   //   printf("%hhu ", cs_ret_->ssb_res.pbch_msg.payload[i]);
@@ -125,7 +125,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
     char coreset_info[512] = {};
     srsran_coreset_to_str(&task_scheduler_state.coreset0_t, coreset_info, 
       sizeof(coreset_info));
-    printf("Coreset parameter: %s", coreset_info);
+    nrscope_logger().info("Coreset parameter: %s", coreset_info);
   }
 
   /* To find the position of coreset0, we need to use the offset between SSB 
@@ -163,7 +163,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
     ERROR("Error checking table 13-11");
     return SRSRAN_ERROR;
   }
-  std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
+  nrscope_logger().info("After calling coreset_zero_t_f_nrscope");
 
   task_scheduler_state.cell.u = (int)args_t_->ssb_scs; 
   task_scheduler_state.coreset0_args_t.n_0 = (coreset_zero_cfg.O * 
