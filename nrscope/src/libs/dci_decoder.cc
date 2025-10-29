@@ -88,7 +88,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
           break;
         }
         else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
+          nrscope_logger().info("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
         }
       }
     }
@@ -106,7 +106,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
           break;
         }
         else {
-          printf("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
+          nrscope_logger().info("bwp id %u does not have a ded dl config in RRCSetup", bwp_id);
         }
       }
     }
@@ -134,7 +134,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
           break;
         }
         else {
-          printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+          nrscope_logger().info("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
         }
       }
     }
@@ -151,7 +151,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
           break;
         }
         else {
-          printf("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
+          nrscope_logger().info("bwp id %u does not have a ded ul config in RRCSetup", bwp_id);
         }
       }
     }
@@ -223,7 +223,7 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
     coreset_n.id = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
                   ctrl_res_set_to_add_mod_list[crst_id].ctrl_res_set_id; 
 
-    printf("to addmod coreset_n.id in bwp0: %u\n", coreset_n.id);
+    nrscope_logger().info("to addmod coreset_n.id in bwp0: %u", coreset_n.id);
     coreset_n.duration = bwp_dl_ded_s_ptr->pdcch_cfg.setup().
                           ctrl_res_set_to_add_mod_list[crst_id].dur;
     for(int i = 0; i < 45; i++){
@@ -314,14 +314,14 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
       coreset_n.dmrs_scrambling_id = bwp_dl_ded_s_ptr->pdcch_cfg.
         setup().ctrl_res_set_to_add_mod_list[crst_id].pdcch_dmrs_scrambling_id;
     }
-    printf("coreset_dmrs_scrambling id: %u\n", coreset_n.dmrs_scrambling_id);
+    nrscope_logger().info("coreset_dmrs_scrambling id: %u", coreset_n.dmrs_scrambling_id);
 
     pdcch_cfg.coreset[coreset_n.id] = coreset_n;
     pdcch_cfg.coreset_present[coreset_n.id] = true;
 
     char coreset_info[512] = {};
     srsran_coreset_to_str(&coreset_n, coreset_info, sizeof(coreset_info));
-    printf("Coreset %d parameter: %s", coreset_n.id, coreset_info);
+    nrscope_logger().info("Coreset %d parameter: %s", coreset_n.id, coreset_info);
 
     if(crst_id == 0){
       coreset1_t = coreset_n;
@@ -1079,7 +1079,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     if (nof_ul_dci > 0 || nof_dl_dci > 0) {
       // The UE is either using CA or not, so if we find the DCI with CA,
       // we don't need to try further.
-      printf("DCIDecoder -- DCI found with CA\n");
+      nrscope_logger().info("DCIDecoder -- DCI found with CA");
       continue;
     }
 
@@ -1152,7 +1152,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     //   info->result.crc ? "OK" : "KO");
     // }
     if (nof_dl_dci_nca > 0 || nof_ul_dci_nca > 0) {
-      printf("DCIDecoder -- DCI Found without CA\n");
+      nrscope_logger().info("DCIDecoder -- DCI Found without CA");
     }
   }  
 
@@ -1166,7 +1166,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
         char str[1024] = {};
         srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[dci_idx_dl], 
           str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- Found DCI: %s\n", str);
+        nrscope_logger().info("DCIDecoder -- Found DCI: %s", str);
         // The grant may not be decoded correctly, since srsRAN's code is not complete.
         // We can calculate the DL bandwidth for this subframe by ourselves.
         if(dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {
@@ -1185,8 +1185,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
             ERROR("Error decoding PDSCH search");
             // return result;
           }
-          srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-          printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
+        srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
+        nrscope_logger().info("DCIDecoder -- PDSCH_cfg:\n%s", str);
 
           sharded_results[dci_decoder_id].dl_grants[dci_idx_dl] = pdsch_cfg;
           sharded_results[dci_decoder_id].nof_dl_used_prbs += pdsch_cfg.grant.
@@ -1243,7 +1243,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
         char str[1024] = {};
         srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, 
           (uint32_t)sizeof(str));
-        printf("DCIDecoder -- Found DCI: %s\n", str);
+        nrscope_logger().info("DCIDecoder -- Found DCI: %s", str);
         // The grant may not be decoded correctly, since srsRAN's code is not complete. 
         // We can calculate the UL bandwidth for this subframe by ourselves.
         srsran_sch_cfg_nr_t pusch_cfg = {};
@@ -1256,7 +1256,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
           // return result;
         }
         srsran_sch_cfg_nr_info(&pusch_cfg, str, (uint32_t)sizeof(str));
-        printf("DCIDecoder -- PUSCH_cfg:\n%s", str);
+        nrscope_logger().info("DCIDecoder -- PUSCH_cfg:\n%s", str);
 
         sharded_results[dci_decoder_id].ul_grants[dci_idx_ul] = pusch_cfg;
         sharded_results[dci_decoder_id].nof_ul_used_prbs += pusch_cfg.grant.

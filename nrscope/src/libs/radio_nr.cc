@@ -8,7 +8,7 @@
 
 static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
 { 
-  printf("[AGC gain adj] new rx gain: %f\n", gain_db);
+  nrscope_logger().info("[AGC gain adj] new rx gain: %f", gain_db);
   ((srsran::radio_interface_phy *)h)->set_rx_gain(gain_db);
 }
 
@@ -389,7 +389,7 @@ int Radio::ScanInitandStart(){
           scan_log_node.freq = cs_args.ssb_freq_hz;
           scan_log_node.pci = cs_ret.ssb_res.N_id;
           NRScopeLog::push_node(scan_log_node, rf_index);
-          printf("scan log triggered here\n");
+          nrscope_logger().info("scan log triggered here");
         }
       }
     }
@@ -430,14 +430,14 @@ int Radio::RadioInitandStart(){
 
   // Set sampling rate
   radio->set_rx_srate(rf_args.srate_hz);
-  std::cout << "usrp srate_hz: " << rf_args.srate_hz << std::endl;
+  nrscope_logger().info("usrp srate_hz: %f", static_cast<double>(rf_args.srate_hz));
 
   if (fabs(rf_args.srsran_srate_hz - rf_args.srate_hz) < 0.1) {
     resample_needed = false;
   } else {
     resample_needed = true;
   }
-  std::cout << "resample_needed: " << resample_needed << std::endl;
+  nrscope_logger().info("resample_needed: %d", static_cast<int>(resample_needed));
 
   // Set DL center frequency
   radio->set_rx_freq(0, (double)rf_args.dl_freq);
@@ -459,7 +459,7 @@ int Radio::RadioInitandStart(){
     SRSRAN_NOF_SLOTS_PER_SF_NR(ssb_scs));
   rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * 
     pre_resampling_slot_sz * RING_BUF_SIZE);
-  std::cout << "slot_sz: " << slot_sz << std::endl;
+  nrscope_logger().info("slot_sz: %u", slot_sz);
   srsran_vec_zero(rx_buffer, SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * 
   pre_resampling_slot_sz * RING_BUF_SIZE * sizeof(cf_t));
   /* the actual slot size after resampling */
@@ -468,7 +468,7 @@ int Radio::RadioInitandStart(){
   // Allocate pre-resampling receive buffer
   pre_resampling_rx_buffer = srsran_vec_cf_malloc(
       SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz);
-  std::cout << "pre_resampling_slot_sz: " << pre_resampling_slot_sz << std::endl;
+  nrscope_logger().info("pre_resampling_slot_sz: %u", pre_resampling_slot_sz);
   srsran_vec_zero(pre_resampling_rx_buffer, 
     SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz * 
     sizeof(cf_t));
@@ -544,7 +544,7 @@ int Radio::RadioInitandStart(){
     nof_threads, nof_rnti_worker_groups, nof_bwps, cpu_affinity ,args_t, 
     nof_workers);
 
-  std::cout << "Task scheduler started..." << std::endl;
+  nrscope_logger().info("Task scheduler started...");
   while (not ss.end()) {
     // Get SSB center frequency
     cs_args.ssb_freq_hz = ss.get_frequency();
@@ -579,7 +579,7 @@ int Radio::RadioInitandStart(){
     srsran_searcher_cfg_t.ssb_pattern = args_t.ssb_pattern;
     srsran_searcher_cfg_t.duplex_mode = args_t.duplex_mode;
     if (not srsran_searcher.start(srsran_searcher_cfg_t)) {
-      std::cout << "Searcher: failed to start cell search" << std::endl;
+      nrscope_logger().info("Searcher: failed to start cell search");
       return NR_FAILURE;
     }
     /* Set the searching frequency to ssb_freq */
@@ -664,9 +664,9 @@ int Radio::RadioInitandStart(){
       } 
     }
     if(cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND){
-      std::cout << "Cell Found!" << std::endl;
-      std::cout << "N_id: " << cs_ret.ssb_res.N_id << std::endl;
-      std::cout << "Decoding MIB..." << std::endl;
+      nrscope_logger().info("Cell Found!");
+      nrscope_logger().info("N_id: %u", cs_ret.ssb_res.N_id);
+      nrscope_logger().info("Decoding MIB...");
 
       /* And the states are updated in the task_scheduler*/
       if(task_scheduler_nrscope.DecodeMIB(&args_t, &cs_ret, 
@@ -752,7 +752,7 @@ int Radio::SyncandDownlinkInit(){
   ue_sync_nr.resample_ratio = (float)rf_args.srsran_srate_hz / 
     (float)rf_args.srate_hz;
   if (srsran_ue_sync_nr_init(&ue_sync_nr, &ue_sync_nr_args) < SRSRAN_SUCCESS) {
-    std::cout << "Error initiating UE SYNC NR object" << std::endl;
+    nrscope_logger().error("Error initiating UE SYNC NR object");
     logger.error("Error initiating UE SYNC NR object");
     return SRSRAN_ERROR;
   }
@@ -772,7 +772,7 @@ int Radio::SyncandDownlinkInit(){
   sync_cfg.ssb.srate_hz = 
     task_scheduler_nrscope.task_scheduler_state.args_t.srate_hz;
   if (srsran_ue_sync_nr_set_cfg(&ue_sync_nr, &sync_cfg) < SRSRAN_SUCCESS) {
-    printf("SYNC: failed to set cell configuration for N_id %d", sync_cfg.N_id);
+    nrscope_logger().info("SYNC: failed to set cell configuration for N_id %d", sync_cfg.N_id);
     logger.error("SYNC: failed to set cell configuration for N_id %d", 
       sync_cfg.N_id);
     return SRSRAN_ERROR;
@@ -796,7 +796,7 @@ int Radio::FetchAndResample(){
   while(true){
     int current_value;
     sem_getvalue(&smph_sf_data_finished, &current_value); 
-    std::cout << "current value: " << current_value << std::endl;
+    nrscope_logger().info("current value: %d", current_value);
     sem_wait(&smph_sf_data_finished);
     
     outcome.timestamp = last_rx_time.get(0);  
@@ -826,7 +826,7 @@ int Radio::FetchAndResample(){
     if (srsran_ue_sync_nr_zerocopy_twinrx_nrscope(
         &ue_sync_nr, rf_buffer_t.to_cf_t(), &outcome, rk, resample_needed, 
         RESAMPLE_WORKER_NUM) < SRSRAN_SUCCESS) {
-      std::cout << "SYNC: error in zerocopy" << std::endl;
+      nrscope_logger().error("SYNC: error in zerocopy");
       logger.error("SYNC: error in zerocopy");
       return false;
     }
@@ -834,7 +834,7 @@ int Radio::FetchAndResample(){
       The synced data is stored in rf_buffer_t.to_cf_t()[0] */
     if (outcome.in_sync){
       if (in_sync == false) {
-        printf("in_sync change to true\n");
+        nrscope_logger().info("in_sync change to true");
       }
       in_sync = true;
       // std::cout << "System frame idx: " << outcome.sfn << std::endl;
@@ -845,8 +845,7 @@ int Radio::FetchAndResample(){
     } 
 
     gettimeofday(&t1, NULL);  
-    std::cout << "producer time_spend: " << 
-      (t1.tv_usec - t0.tv_usec) << "(us)" << std::endl;
+    nrscope_logger().info("producer time_spend: %ld(us)", (long)(t1.tv_usec - t0.tv_usec));
   }
 
   return SRSRAN_SUCCESS;
@@ -943,8 +942,7 @@ int Radio::DecodeAndProcess(){
     sem_post(&smph_sf_data_finished);
 
     gettimeofday(&t1, NULL);
-    std::cout << "consumer time_spend: " << (int)(t1.tv_usec - t0.tv_usec) 
-      << "(us)" << std::endl;
+    nrscope_logger().info("consumer time_spend: %ld(us)", (long)(t1.tv_usec - t0.tv_usec));
     next_consume_at++;
     first_time = false;
   } // true loop

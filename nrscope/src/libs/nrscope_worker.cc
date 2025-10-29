@@ -277,8 +277,10 @@ void NRScopeWorker::Run() {
     // worker_locks[worker_id].unlock();
     struct timeval t0, t1;
 
-    std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn
-     << ", slot.idx: " << slot.idx << std::endl; 
+    nrscope_logger().info("Processing sf_round: %llu, sfn: %u, slot.idx: %d",
+                          static_cast<unsigned long long>(sf_round),
+                          outcome.sfn,
+                          slot.idx);
 
     SlotResult slot_result = {};
     /* Set the all the results to be false, will be set inside the decoder

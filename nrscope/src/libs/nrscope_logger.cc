@@ -198,7 +198,7 @@ namespace NRScopeLog{
             ScanLogNode new_node = scan_log_queue[rf_index].front();
             // Write to local disk
             write_entry(new_node, rf_index);
-            printf("new found cell written to log\n");
+            nrscope_logger().info("new found cell written to log");
             scan_log_queue[rf_index].pop();
             lock.unlock();
           }else{
@@ -211,7 +211,7 @@ namespace NRScopeLog{
             LogNode new_node = log_queue[rf_index].front();
             // Write to local disk
             write_entry(new_node, rf_index);
-            printf("new_node_timestamp: %f\n", new_node.timestamp);
+            nrscope_logger().info("new_node_timestamp: %f", new_node.timestamp);
             log_queue[rf_index].pop();
             lock.unlock();
           }

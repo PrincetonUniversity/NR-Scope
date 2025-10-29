@@ -52,6 +52,11 @@
 #define NR_FAILURE -1
 #define NR_SUCCESS 0
 
+inline srslog::basic_logger& nrscope_logger()
+{
+  return srslog::fetch_basic_logger("NRSCOPE");
+}
+
 struct cell_searcher_args_t {
   // Generic parameters
   double                      srate_hz        = 11.52e6;
