@@ -17,6 +17,8 @@
 #include "nrscope/hdr/load_config.h"
 #include "nrscope/hdr/radio_nr.h"
 
+#include "srsran/phy/ue/srsgui_plot.h"
+
 using namespace std;
 
 int get_nof_usrp(std::string file_name){
@@ -232,6 +234,12 @@ int load_config(std::vector<Radio>& radios, std::string file_name){
     for (int i = 0; i < nof_usrp; i++){
       radios[i].local_log = 
         config_yaml[setting_name]["local_log"].as<bool>();
+    }
+    
+    if (config_yaml[setting_name]["enable_gui"]) {
+      if (config_yaml[setting_name]["enable_gui"].as<bool>()) {
+        init_plots();
+      }
     }
   }else{
     for (int i = 0; i < nof_usrp; i++){

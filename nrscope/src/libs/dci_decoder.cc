@@ -674,12 +674,12 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state,
   // std::cout << "pdsch resource alloc: " << dci_cfg.pdsch_alloc_type << std::endl;
 
   // T-Mobile RRC Recfg
-  dci_cfg.report_trigger_size = 2;
-  dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
-  dci_cfg.multiple_scell = true;
+  // dci_cfg.report_trigger_size = 2;
+  // dci_cfg.pdsch_alloc_type = srsran_resource_alloc_type1;
+  // dci_cfg.multiple_scell = true;
 
   /* for non carrier aggregation*/
-  // dci_cfg.multiple_scell = false;
+  dci_cfg.multiple_scell = false;
   dci_cfg.carrier_indicator_size = 0; 
 
   if(bwp_dl_ded_s_ptr->pdsch_cfg.setup().dmrs_dl_for_pdsch_map_type_a_present){
@@ -1079,6 +1079,10 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     if (nof_ul_dci > 0 || nof_dl_dci > 0) {
       // The UE is either using CA or not, so if we find the DCI with CA,
       // we don't need to try further.
+      // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
+      // printf("M=%d\n", ue_dl_tmp->pdcch.M);
+      // printf("symbols=");
+      // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
       printf("DCIDecoder -- DCI found with CA\n");
       continue;
     }
@@ -1152,6 +1156,10 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t* slot,
     //   info->result.crc ? "OK" : "KO");
     // }
     if (nof_dl_dci_nca > 0 || nof_ul_dci_nca > 0) {
+      // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
+      // printf("M=%d\n", ue_dl_tmp->pdcch.M);
+      // printf("symbols=");
+      // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
       printf("DCIDecoder -- DCI Found without CA\n");
     }
   }  
