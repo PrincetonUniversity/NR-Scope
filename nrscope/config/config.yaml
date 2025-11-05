@@ -49,4 +49,5 @@ log_config:
   local_log: true
   push_to_google: false
   google_service_account_credential: "/home/wanhr/Downloads/nsf-2223556-222187-02b924918c95.json"
+  enable_gui: false
 

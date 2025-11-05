@@ -20,6 +20,7 @@
  */
 
 #include "srsran/phy/ue/ue_dl_nr.h"
+#include "srsran/phy/ue/srsgui_plot.h"
 #include <complex.h>
 #include <stdio.h>
 
@@ -1066,6 +1067,8 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
         if (!res.crc) {
           continue;
         }
+
+        push_node(q->pdcch.symbols, q->pdcch.M);
 
         // Detect if the DCI is the right direction
         if (!srsran_dci_nr_valid_direction(&dci_msg)) {

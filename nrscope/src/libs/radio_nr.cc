@@ -36,7 +36,7 @@ Radio::Radio() :
 
   sem_init(&smph_sf_data_prod_cons, 0, 0); 
   sem_init(&smph_sf_data_finished, 0, 9999);
-}
+} 
 
 Radio::~Radio() {
 }

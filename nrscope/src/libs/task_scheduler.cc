@@ -546,6 +546,8 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t sf_round,
     // dropped_slots.fetch_add(1, std::memory_order_relaxed);
     ERROR("Overwriting the unprocessed data... Consider improving processing"
           "throughput.");
+    printf("Overwriting the unprocessed data... Consider improving processing"
+          "throughput.\n");
     // return SRSRAN_SUCCESS;
   }
 
