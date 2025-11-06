@@ -50,7 +50,7 @@ The main features are as follows:
 16. Band list can be configured for cell scan functions.
 17. A circular buffer is used for slot data dispatch among workers, now the CPU/worker number requirement is largely reduced.
 18. PCI can be configured in the config.yaml. If configured, NR-Scope will proceed only if the detected cell's PCI matches what is configured.
-19. Enable real-time constellation graph for PDCCH symbols, by setting `enable_gui: true` in the config file, now this function only support single USRP setting.
+19. Enable real-time constellation graph for PDCCH symbols, by setting `enable_gui: true` in the config file, now this function only support single USRP setting. 
 20. Stay tuned... 😄
 
 Please refer to the [wiki page](https://github.com/PrincetonUniversity/NG-Scope-5G/wiki) for more feature description and documentation.
@@ -173,9 +173,10 @@ Cell scan entry (scan all GSCN/SSB points): /nrscope/src/scan_main.cc
 mkdir build
 cd build
 cmake ../
+cmake -DCMAKE_CXX_FLAGS="-DBOOST_TIMER_ENABLE_DEPRECATED" .. 		# If you are using Ubuntu 24.04, constraint by the srsGUI library.
 make all -j ${nof_proc}
 cd nrscope/src/
-sudo ./nrscope | tee ./$(date +"%Y-%m-%d_%H:%M:%S").txt | grep Found # This command can save the trace and show if cell or DCIs are found.
+sudo ./nrscope | tee ./$(date +"%Y-%m-%d_%H:%M:%S").txt | grep Found 	# This command can save the trace and show if cell or DCIs are found.
 
 # or to scan all 5G SA cells (in nrscope/src/)
 sudo ./nrscan
