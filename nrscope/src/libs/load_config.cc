@@ -21,6 +21,52 @@
 
 using namespace std;
 
+std::string get_debug_log_name(const std::string& file_name)
+{
+  const std::string default_log_name = "nrscope_flow.log";
+  YAML::Node        config_yaml;
+
+  try {
+    config_yaml = YAML::LoadFile(file_name);
+  } catch (const std::exception&) {
+    return default_log_name;
+  }
+
+  auto extract_log_name = [](const YAML::Node& node) -> std::string {
+    if (node && node.IsScalar()) {
+      return node.as<std::string>();
+    }
+    return "";
+  };
+
+  if (auto top_level = extract_log_name(config_yaml["debug_log_name"]); !top_level.empty()) {
+    return top_level;
+  }
+
+  YAML::Node log_cfg = config_yaml["log_config"];
+  if (auto log_cfg_name = extract_log_name(log_cfg ? log_cfg["debug_log_name"] : YAML::Node()); !log_cfg_name.empty()) {
+    return log_cfg_name;
+  }
+
+  int nof_usrp = 0;
+  if (config_yaml["nof_usrp_dev"]) {
+    nof_usrp = config_yaml["nof_usrp_dev"].as<int>();
+  }
+
+  for (int i = 0; i < nof_usrp; ++i) {
+    std::string setting_name = "usrp_setting_" + std::to_string(i);
+    YAML::Node  usrp_node    = config_yaml[setting_name];
+    if (!usrp_node) {
+      continue;
+    }
+    if (auto usrp_log_name = extract_log_name(usrp_node["debug_log_name"]); !usrp_log_name.empty()) {
+      return usrp_log_name;
+    }
+  }
+
+  return default_log_name;
+}
+
 int get_nof_usrp(std::string file_name){
   YAML::Node config_yaml = YAML::LoadFile(file_name);
   if(config_yaml["nof_usrp_dev"]){

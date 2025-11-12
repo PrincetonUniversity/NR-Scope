@@ -11,8 +11,11 @@
 
 int main(int argc, char** argv){
 
+  std::string file_name = "config.yaml";
+  std::string log_file  = get_debug_log_name(file_name);
+
   // Initialise logging infrastructure
-  srslog::sink* log_sink = srslog::create_file_sink("nrscope_flow.log");
+  srslog::sink* log_sink = srslog::create_file_sink(log_file);
   if (log_sink == nullptr) {
     std::cerr << "Failed to create logging sink for nrscope." << std::endl;
     return NR_FAILURE;
@@ -27,8 +30,6 @@ int main(int argc, char** argv){
 
   srslog::init();
   nrscope_logger().set_level(srslog::basic_levels::info);
-
-  std::string file_name = "config.yaml";
 
   int nof_usrp = get_nof_usrp(file_name);
   std::vector<Radio> radios(nof_usrp);
