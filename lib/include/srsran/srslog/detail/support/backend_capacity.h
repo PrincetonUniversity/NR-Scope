@@ -24,7 +24,7 @@
 
 /// Take this default value if users did not specify any custom size.
 #ifndef SRSLOG_QUEUE_CAPACITY
-#define SRSLOG_QUEUE_CAPACITY 8192
+#define SRSLOG_QUEUE_CAPACITY 20000
 #endif
 
 #endif // SRSLOG_DETAIL_SUPPORT_BACKEND_CAPACITY_H
