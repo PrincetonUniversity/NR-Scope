@@ -139,7 +139,7 @@ Also, you should turn on the performance mode:
 
 ```
 # This script is copied from srsRAN_Project
-cd script
+cd scripts
 sudo ./srsran_performance
 ```
 
