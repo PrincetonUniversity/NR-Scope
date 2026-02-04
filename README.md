@@ -51,7 +51,8 @@ The main features are as follows:
 17. A circular buffer is used for slot data dispatch among workers, now the CPU/worker number requirement is largely reduced.
 18. PCI can be configured in the config.yaml. If configured, NR-Scope will proceed only if the detected cell's PCI matches what is configured.
 19. Enable real-time constellation graph for PDCCH symbols, by setting `enable_gui: true` in the config file, now this function only support single USRP setting.
-20. Stay tuned... 😄
+20. User provided RRCReconfiguration is supported, please check `rrc_recfg_config` folder for more information. We provide several examples of RRCReconfiguration for different scenarios (T-Mobile FDD and TDD SA cells).
+21. Stay tuned... 😄
 
 Please refer to the [wiki page](https://github.com/PrincetonUniversity/NG-Scope-5G/wiki) for more feature description and documentation.
 
