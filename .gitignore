@@ -4,4 +4,6 @@ build/
 
 .DS_Store
 
+.cache/
+
 nrscope/twinrx_analysis/

@@ -1,0 +1,44 @@
+pdsch_cfg:
+  mcs_table: 256qam
+
+pusch_cfg:
+  mcs_table: 256qam
+
+dci_cfg:
+  report_trigger_size: 2 
+  pdsch_alloc_type: 1 # 0, 1, dynamic
+  multiple_scell: true
+
+  # Other fields and types can be configured, but we have never seen them in our observed SA cells
+  # uint32_t                   carrier_indicator_size; ///< Defined in TS 38.213 clause 10.1
+  # srsran_harq_ack_codebook_t harq_ack_codebok;       ///< PDSCH HARQ-ACK codebook mode
+  # uint32_t                   nof_rb_groups;          ///< For allocation type 0, defined in TS 38.214 clause 6.1.2.2.1
+
+  # /// Format 0_1 specific configuration (for PUSCH only)
+  # uint32_t nof_ul_bwp;          ///< Number of UL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
+  # uint32_t nof_ul_time_res;     ///< Number of dedicated PUSCH time domain resource assigment, set to 0 for default
+  # uint32_t nof_srs;             ///< Number of configured SRS resources
+  # uint32_t nof_ul_layers;       ///< Set to the maximum number of layers for PUSCH
+  # uint32_t pusch_nof_cbg;       ///< determined by maxCodeBlockGroupsPerTransportBlock for PUSCH
+  # uint32_t report_trigger_size; ///< determined by reportTriggerSize
+  # bool     enable_transform_precoding;      ///< Set to true if PUSCH transform precoding is enabled
+  # bool     dynamic_dual_harq_ack_codebook;  ///< Set to true if HARQ-ACK codebook is set to dynamic with 2 sub-codebooks
+  # bool     pusch_tx_config_non_codebook;    ///< Set to true if PUSCH txConfig is set to non-codebook
+  # bool     pusch_ptrs;                      ///< Set to true if PT-RS are enabled for PUSCH transmission
+  # bool     pusch_dynamic_betas;             ///< Set to true if beta offsets operation is not semi-static
+  # srsran_resource_alloc_t pusch_alloc_type; ///< PUSCH resource allocation type
+  # srsran_dmrs_sch_len_t   pusch_dmrs_max_len; ///< PUSCH DMRS maximum length
+
+  # /// Format 1_1 specific configuration (for PDSCH only)
+  # uint32_t nof_dl_bwp;             ///< Number of DL BWPs excluding the initial UL BWP, mentioned in the TS as N_BWP_RRC
+  # uint32_t nof_dl_time_res;        ///< Number of dedicated PDSCH time domain resource assigment
+  # uint32_t nof_aperiodic_zp;       ///< Number of aperiodic ZP CSI-RS resource sets configured
+  # uint32_t pdsch_nof_cbg;          ///< determined by maxCodeBlockGroupsPerTransportBlock for PDSCH
+  # uint32_t nof_dl_to_ul_ack;       ///< Number of entries in the dl-DataToUL-ACK
+  # bool     pdsch_inter_prb_to_prb; ///< Set to true if interleaved VRB to PRB mapping is enabled
+  # bool     pdsch_rm_pattern1;      ///< Set to true if rateMatchPatternGroup1 is configured
+  # bool     pdsch_rm_pattern2;      ///< Set to true if rateMatchPatternGroup2 is configured
+  # bool     pdsch_2cw;              ///< Set to true if maxNrofCodeWordsScheduledByDCI is set to 2 in any BWP
+  # bool     pdsch_tci;              ///< Set to true if tci-PresentInDCI is enabled
+  # bool     pdsch_cbg_flush;        ///< Set to true if codeBlockGroupFlushIndicator is true
+  # srsran_dmrs_sch_len_t   pdsch_dmrs_max_len; ///< PDSCH DMRS maximum length
