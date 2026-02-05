@@ -32,7 +32,7 @@ NR-Scope and NG-Scope are open source products of NSF Award CNS-2223556 (IMR: MT
 
 The main features are as follows:
 
-1. Supports 5G SA cells with 15kHz and 30kHz SCS, tested with 10MHz, 15 MHz, 20MHz, 40MHz and 100MHz cell bandwidth.
+1. Supports 5G SA cells with 15kHz and 30kHz SCS, tested with 10MHz, 15 MHz, 20MHz, 40MHz and 100MHz cell bandwidth, achieving 1.4% DCI missing rate under the 100MHz T-Mobile TDD cell!
 2. Carrier aggregation decoding, NR-Scope would use one SDR to try to decode both carrier aggregated and not carrier aggregated UEs within the RAN. Tested in commercial T-Mobile 15MHz FDD and 100MHz TDD cells.
 3. 5G SA cell search and MIB decoding.
 4. SIB 1 and all other SIBs decoding.
@@ -140,7 +140,7 @@ Also, you should turn on the performance mode:
 
 ```
 # This script is copied from srsRAN_Project
-cd script
+cd scripts
 sudo ./srsran_performance
 ```
 
@@ -174,9 +174,10 @@ Cell scan entry (scan all GSCN/SSB points): /nrscope/src/scan_main.cc
 mkdir build
 cd build
 cmake ../
+cmake -DCMAKE_CXX_FLAGS="-DBOOST_TIMER_ENABLE_DEPRECATED" .. 		# If you are using Ubuntu 24.04, constraint by the srsGUI library.
 make all -j ${nof_proc}
 cd nrscope/src/
-sudo ./nrscope | tee ./$(date +"%Y-%m-%d_%H:%M:%S").txt | grep Found # This command can save the trace and show if cell or DCIs are found.
+sudo ./nrscope | tee ./$(date +"%Y-%m-%d_%H:%M:%S").txt | grep Found 	# This command can save the trace and show if cell or DCIs are found.
 
 # or to scan all 5G SA cells (in nrscope/src/)
 sudo ./nrscan
