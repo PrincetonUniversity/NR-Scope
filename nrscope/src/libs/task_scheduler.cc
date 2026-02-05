@@ -1,58 +1,59 @@
 #include "nrscope/hdr/task_scheduler.h"
 
-namespace NRScopeTask{
+namespace NRScopeTask {
 
-TaskSchedulerNRScope::TaskSchedulerNRScope(){
-  task_scheduler_state.sib1_inited = false;
-  task_scheduler_state.rach_inited = false;
-  task_scheduler_state.dci_inited = false;
-  task_scheduler_state.sib1_found = false;
-  task_scheduler_state.rach_found = false;
+TaskSchedulerNRScope::TaskSchedulerNRScope()
+{
+  task_scheduler_state.sib1_inited     = false;
+  task_scheduler_state.rach_inited     = false;
+  task_scheduler_state.dci_inited      = false;
+  task_scheduler_state.sib1_found      = false;
+  task_scheduler_state.rach_found      = false;
   task_scheduler_state.nof_known_rntis = 0;
   task_scheduler_state.known_rntis.resize(task_scheduler_state.nof_known_rntis);
 
-  next_result.sf_round = 0;
-  next_result.slot.idx = 0;
+  next_result.sf_round    = 0;
+  next_result.slot.idx    = 0;
   next_result.outcome.sfn = 0;
 }
 
-TaskSchedulerNRScope::~TaskSchedulerNRScope(){
-}
+TaskSchedulerNRScope::~TaskSchedulerNRScope() {}
 
-int TaskSchedulerNRScope::InitandStart(bool local_log_,
-                                       bool to_google_,
-                                       int rf_index_,
-                                       int32_t nof_threads, 
-                                       uint32_t nof_rnti_worker_groups,
-                                       uint8_t nof_bwps,
-                                       bool cpu_affinity,
+int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
+                                       bool                 to_google_,
+                                       int                  rf_index_,
+                                       int32_t              nof_threads,
+                                       uint32_t             nof_rnti_worker_groups,
+                                       uint8_t              nof_bwps,
+                                       bool                 cpu_affinity,
                                        cell_searcher_args_t args_t,
-                                       uint32_t nof_workers_){
-  local_log = local_log_;
-  to_google = to_google_;
-  rf_index = rf_index_;
-  task_scheduler_state.nof_threads = nof_threads;
+                                       uint32_t             nof_workers_,
+                                       RRCRecfg             rrc_recfg_user_)
+{
+  local_log                                   = local_log_;
+  to_google                                   = to_google_;
+  rf_index                                    = rf_index_;
+  task_scheduler_state.nof_threads            = nof_threads;
   task_scheduler_state.nof_rnti_worker_groups = nof_rnti_worker_groups;
-  task_scheduler_state.nof_bwps = nof_bwps;
-  task_scheduler_state.args_t = args_t;
-  task_scheduler_state.slot_sz = (uint32_t)(args_t.srate_hz / 1000.0f / 
-    SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
-  task_scheduler_state.cpu_affinity = cpu_affinity;
-  nof_workers = nof_workers_;
+  task_scheduler_state.nof_bwps               = nof_bwps;
+  task_scheduler_state.args_t                 = args_t;
+  task_scheduler_state.slot_sz = (uint32_t)(args_t.srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
+  task_scheduler_state.cpu_affinity   = cpu_affinity;
+  nof_workers                         = nof_workers_;
+  task_scheduler_state.rrc_recfg_user = rrc_recfg_user_;
 
   // Maintain a ringbuffer of 1024 slot data.
-  slot_data_len = 1 << 12;
-  next_slot_idx = 0;
+  slot_data_len    = 1 << 14;
+  next_slot_idx    = 0;
   current_slot_idx = 0;
 
   slot_data = std::vector<SlotData>(slot_data_len);
-  for (auto& s: slot_data) {
-    s.sf_round = 0;
-    s.slot = {};
-    s.outcome = {};
+  for (auto& s : slot_data) {
+    s.sf_round  = 0;
+    s.slot      = {};
+    s.outcome   = {};
     s.slot_size = task_scheduler_state.slot_sz;
-    s.rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(
-      args_t.ssb_scs) * task_scheduler_state.slot_sz);
+    s.rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * task_scheduler_state.slot_sz);
     s.processed.store(true, std::memory_order_release);
   }
 
@@ -60,14 +61,14 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
   sem_init(&smph_idle, 0, nof_workers); // initially all idle
 
   std::cout << "Starting workers..." << std::endl;
-  for (uint32_t i = 0; i < nof_workers; i ++) {
-    NRScopeWorker *worker = new NRScopeWorker();
-    std::cout << "New worker " << i << " is going to start... "<< std::endl;
-    if(worker->InitWorker(task_scheduler_state, i) < SRSRAN_SUCCESS) {
+  for (uint32_t i = 0; i < nof_workers; i++) {
+    NRScopeWorker* worker = new NRScopeWorker();
+    std::cout << "New worker " << i << " is going to start... " << std::endl;
+    if (worker->InitWorker(task_scheduler_state, i) < SRSRAN_SUCCESS) {
       ERROR("Error initializing worker %d", i);
       return NR_FAILURE;
     }
-    workers.emplace_back(std::unique_ptr<NRScopeWorker> (worker));
+    workers.emplace_back(std::unique_ptr<NRScopeWorker>(worker));
   }
 
   std::cout << "Workers started..." << std::endl;
@@ -81,15 +82,15 @@ int TaskSchedulerNRScope::InitandStart(bool local_log_,
   return SRSRAN_SUCCESS;
 }
 
-int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_, 
-                        srsue::nr::cell_search::ret_t* cs_ret_,
-                        srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t_,
-                        float resample_ratio_,
-                        uint32_t raw_srate_){
+int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
+                                    srsue::nr::cell_search::ret_t* cs_ret_,
+                                    srsue::nr::cell_search::cfg_t* srsran_searcher_cfg_t_,
+                                    float                          resample_ratio_,
+                                    uint32_t                       raw_srate_)
+{
   args_t_->base_carrier.pci = cs_ret_->ssb_res.N_id;
 
-  if(srsran_pbch_msg_nr_mib_unpack(&(cs_ret_->ssb_res.pbch_msg), 
-      &task_scheduler_state.cell.mib) < SRSRAN_SUCCESS){
+  if (srsran_pbch_msg_nr_mib_unpack(&(cs_ret_->ssb_res.pbch_msg), &task_scheduler_state.cell.mib) < SRSRAN_SUCCESS) {
     ERROR("Error decoding MIB");
     return SRSRAN_ERROR;
   }
@@ -104,89 +105,81 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t* args_t_,
   // printf("\n");
 
   /* already added the msb of k_ssb */
-  task_scheduler_state.cell.k_ssb = task_scheduler_state.cell.mib.ssb_offset; 
+  task_scheduler_state.cell.k_ssb = task_scheduler_state.cell.mib.ssb_offset;
 
   // srsran_coreset0_ssb_offset returns the offset_rb relative to ssb
-  // nearly all bands in FR1 have min bandwidth 5 or 10 MHz, 
-  // so there are only 5 entries here.  
-  task_scheduler_state.coreset0_args_t.offset_rb = 
-    srsran_coreset0_ssb_offset(task_scheduler_state.cell.mib.coreset0_idx, 
-    args_t_->ssb_scs, task_scheduler_state.cell.mib.scs_common);
+  // nearly all bands in FR1 have min bandwidth 5 or 10 MHz,
+  // so there are only 5 entries here.
+  task_scheduler_state.coreset0_args_t.offset_rb = srsran_coreset0_ssb_offset(
+      task_scheduler_state.cell.mib.coreset0_idx, args_t_->ssb_scs, task_scheduler_state.cell.mib.scs_common);
 
   task_scheduler_state.coreset0_t = {};
   /* srsran_coreset_zero returns the offset_rb relative to pointA */
-  if(srsran_coreset_zero(cs_ret_->ssb_res.N_id, 
-                        0,  
-                        args_t_->ssb_scs, 
-                        task_scheduler_state.cell.mib.scs_common, 
-                        task_scheduler_state.cell.mib.coreset0_idx, 
-                        &task_scheduler_state.coreset0_t) == SRSRAN_SUCCESS){
+  if (srsran_coreset_zero(cs_ret_->ssb_res.N_id,
+                          0,
+                          args_t_->ssb_scs,
+                          task_scheduler_state.cell.mib.scs_common,
+                          task_scheduler_state.cell.mib.coreset0_idx,
+                          &task_scheduler_state.coreset0_t) == SRSRAN_SUCCESS) {
     char freq_res_str[SRSRAN_CORESET_FREQ_DOMAIN_RES_SIZE] = {};
-    char coreset_info[512] = {};
-    srsran_coreset_to_str(&task_scheduler_state.coreset0_t, coreset_info, 
-      sizeof(coreset_info));
+    char coreset_info[512]                                 = {};
+    srsran_coreset_to_str(&task_scheduler_state.coreset0_t, coreset_info, sizeof(coreset_info));
     printf("Coreset parameter: %s", coreset_info);
   }
 
-  /* To find the position of coreset0, we need to use the offset between SSB 
-    and CORESET0, because we don't know the ssb_pointA_freq_offset_Hz yet 
+  /* To find the position of coreset0, we need to use the offset between SSB
+    and CORESET0, because we don't know the ssb_pointA_freq_offset_Hz yet
     required by the srsran_coreset_zero function.
-    coreset0_t low bound freq = ssb center freq - 120 * scs (half of sc in ssb) 
-    - ssb_subcarrierOffset(from MIB) * scs - entry->offset_rb * 
+    coreset0_t low bound freq = ssb center freq - 120 * scs (half of sc in ssb)
+    - ssb_subcarrierOffset(from MIB) * scs - entry->offset_rb *
     12(sc in one rb) * scs */
-  task_scheduler_state.cell.abs_ssb_scs = 
-    SRSRAN_SUBC_SPACING_NR(args_t_->ssb_scs);
-  task_scheduler_state.cell.abs_pdcch_scs = 
-    SRSRAN_SUBC_SPACING_NR(task_scheduler_state.cell.mib.scs_common);
-  
+  task_scheduler_state.cell.abs_ssb_scs   = SRSRAN_SUBC_SPACING_NR(args_t_->ssb_scs);
+  task_scheduler_state.cell.abs_pdcch_scs = SRSRAN_SUBC_SPACING_NR(task_scheduler_state.cell.mib.scs_common);
+
   srsran::srsran_band_helper bands;
   /* defined by standards */
-  task_scheduler_state.coreset0_args_t.coreset0_lower_freq_hz = 
-    srsran_searcher_cfg_t_->ssb_freq_hz - (SRSRAN_SSB_BW_SUBC / 2) *
-    task_scheduler_state.cell.abs_ssb_scs - 
-    task_scheduler_state.coreset0_args_t.offset_rb * NRSCOPE_NSC_PER_RB_NR * 
-    task_scheduler_state.cell.abs_pdcch_scs - 
-    task_scheduler_state.cell.k_ssb * 
-    SRSRAN_SUBC_SPACING_NR(srsran_subcarrier_spacing_15kHz); 
-  task_scheduler_state.coreset0_args_t.coreset0_center_freq_hz = 
-    task_scheduler_state.coreset0_args_t.coreset0_lower_freq_hz + 
-    srsran_coreset_get_bw(&task_scheduler_state.coreset0_t) / 2 * 
-    task_scheduler_state.cell.abs_pdcch_scs * NRSCOPE_NSC_PER_RB_NR;
+  task_scheduler_state.coreset0_args_t.coreset0_lower_freq_hz =
+      srsran_searcher_cfg_t_->ssb_freq_hz - (SRSRAN_SSB_BW_SUBC / 2) * task_scheduler_state.cell.abs_ssb_scs -
+      task_scheduler_state.coreset0_args_t.offset_rb * NRSCOPE_NSC_PER_RB_NR * task_scheduler_state.cell.abs_pdcch_scs -
+      task_scheduler_state.cell.k_ssb * SRSRAN_SUBC_SPACING_NR(srsran_subcarrier_spacing_15kHz);
+  task_scheduler_state.coreset0_args_t.coreset0_center_freq_hz =
+      task_scheduler_state.coreset0_args_t.coreset0_lower_freq_hz +
+      srsran_coreset_get_bw(&task_scheduler_state.coreset0_t) / 2 * task_scheduler_state.cell.abs_pdcch_scs *
+          NRSCOPE_NSC_PER_RB_NR;
 
   coreset_zero_t_f_entry_nrscope coreset_zero_cfg;
-  /* Get coreset_zero's position in time domain, check table 38.213, 13-11, 
+  /* Get coreset_zero's position in time domain, check table 38.213, 13-11,
     because USRP can only support FR1. */
-  if(coreset_zero_t_f_nrscope(task_scheduler_state.cell.mib.ss0_idx, 
-      task_scheduler_state.cell.mib.ssb_idx, 
-      task_scheduler_state.coreset0_t.duration, &coreset_zero_cfg) < 
-      SRSRAN_SUCCESS){
+  if (coreset_zero_t_f_nrscope(task_scheduler_state.cell.mib.ss0_idx,
+                               task_scheduler_state.cell.mib.ssb_idx,
+                               task_scheduler_state.coreset0_t.duration,
+                               &coreset_zero_cfg) < SRSRAN_SUCCESS) {
     ERROR("Error checking table 13-11");
     return SRSRAN_ERROR;
   }
   std::cout << "After calling coreset_zero_t_f_nrscope" << std::endl;
 
-  task_scheduler_state.cell.u = (int)args_t_->ssb_scs; 
-  task_scheduler_state.coreset0_args_t.n_0 = (coreset_zero_cfg.O * 
-    (int)pow(2, task_scheduler_state.cell.u) + 
-    (int)floor(task_scheduler_state.cell.mib.ssb_idx * coreset_zero_cfg.M)) % 
-    SRSRAN_NSLOTS_X_FRAME_NR(task_scheduler_state.cell.u);
-  // sfn_c = 0, in even system frame, sfn_c = 1, in odd system frame    
-  task_scheduler_state.coreset0_args_t.sfn_c = (int)(floor(coreset_zero_cfg.O * 
-    pow(2, task_scheduler_state.cell.u) + 
-    floor(task_scheduler_state.cell.mib.ssb_idx * coreset_zero_cfg.M)) / 
-    SRSRAN_NSLOTS_X_FRAME_NR(task_scheduler_state.cell.u)) % 2;
-  args_t_->base_carrier.nof_prb = 
-    srsran_coreset_get_bw(&task_scheduler_state.coreset0_t);
+  task_scheduler_state.cell.u              = (int)args_t_->ssb_scs;
+  task_scheduler_state.coreset0_args_t.n_0 = (coreset_zero_cfg.O * (int)pow(2, task_scheduler_state.cell.u) +
+                                              (int)floor(task_scheduler_state.cell.mib.ssb_idx * coreset_zero_cfg.M)) %
+                                             SRSRAN_NSLOTS_X_FRAME_NR(task_scheduler_state.cell.u);
+  // sfn_c = 0, in even system frame, sfn_c = 1, in odd system frame
+  task_scheduler_state.coreset0_args_t.sfn_c =
+      (int)(floor(coreset_zero_cfg.O * pow(2, task_scheduler_state.cell.u) +
+                  floor(task_scheduler_state.cell.mib.ssb_idx * coreset_zero_cfg.M)) /
+            SRSRAN_NSLOTS_X_FRAME_NR(task_scheduler_state.cell.u)) %
+      2;
+  args_t_->base_carrier.nof_prb = srsran_coreset_get_bw(&task_scheduler_state.coreset0_t);
 
   task_scheduler_state.args_t = *args_t_;
   task_scheduler_state.cs_ret = *cs_ret_;
-  memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, 
-    sizeof(srsue::nr::cell_search::cfg_t));
+  memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
 
   return SRSRAN_SUCCESS;
 }
 
-int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
+int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result)
+{
   task_scheduler_lock.lock();
   double now = get_now_timestamp_in_double();
   /* This slot contains SIBs decoder's result */
@@ -194,16 +187,15 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
     if (now_result.found_sib1 && !task_scheduler_state.sib1_found) {
       /* The sib1 is not found in the task_scheduler's state */
       /* We only process the SIB 1 once */
-      task_scheduler_state.sib1 = now_result.sib1;
+      task_scheduler_state.sib1       = now_result.sib1;
       task_scheduler_state.sib1_found = true;
       /* Setting the size of the vector for other SIBs decoding. */
-      int nof_sibs = (task_scheduler_state.sib1).si_sched_info_present ? 
-        (task_scheduler_state.sib1).si_sched_info.sched_info_list[0].
-        sib_map_info.size() : 0;
+      int nof_sibs = (task_scheduler_state.sib1).si_sched_info_present
+                         ? (task_scheduler_state.sib1).si_sched_info.sched_info_list[0].sib_map_info.size()
+                         : 0;
       for (int i = 0; i < nof_sibs; i++) {
         task_scheduler_state.sibs_to_be_found.push_back(
-          task_scheduler_state.sib1.si_sched_info.sched_info_list[0].
-          sib_map_info[i].type.to_number());
+            task_scheduler_state.sib1.si_sched_info.sched_info_list[0].sib_map_info[i].type.to_number());
       }
       /* Since we got the SIB1, we can now init the RACH decoder*/
       task_scheduler_state.rach_inited = true;
@@ -211,25 +203,23 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
 
     if (now_result.found_sib.size() > 0) {
       /* Found sibs other than SIB 1 */
-      unsigned long int task_sibs_len = 
-        task_scheduler_state.sibs_to_be_found.size();
+      unsigned long int task_sibs_len = task_scheduler_state.sibs_to_be_found.size();
       if (task_sibs_len > 0) {
         /* There are still some sibs to be found */
-        for (unsigned long int i = 0; i < now_result.found_sib.size(); i ++) {
+        for (unsigned long int i = 0; i < now_result.found_sib.size(); i++) {
           int sib_id = now_result.found_sib[i];
-          for (unsigned long int j = 0; j < task_sibs_len; j ++) {
+          for (unsigned long int j = 0; j < task_sibs_len; j++) {
             if (sib_id == task_scheduler_state.sibs_to_be_found[j]) {
               /* If the sib_id is in the to_be_found list */
               task_scheduler_state.found_sib.push_back(sib_id);
               task_scheduler_state.sibs.push_back(now_result.sibs[i]);
-              task_scheduler_state.sibs_to_be_found.erase(
-                task_scheduler_state.sibs_to_be_found.begin() + j);
+              task_scheduler_state.sibs_to_be_found.erase(task_scheduler_state.sibs_to_be_found.begin() + j);
               break;
             }
             /* Else skip the data */
           }
         }
-      } 
+      }
       /* Or else, skip the sibs */
       if (task_scheduler_state.sibs_to_be_found.size() == 0) {
         task_scheduler_state.all_sibs_found = true;
@@ -242,20 +232,18 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
     if (now_result.found_rach) {
       if (!task_scheduler_state.rach_found) {
         /* The first time that we found the RACH */
-        task_scheduler_state.rrc_setup = now_result.rrc_setup;
+        task_scheduler_state.rrc_setup         = now_result.rrc_setup;
         task_scheduler_state.master_cell_group = now_result.master_cell_group;
         task_scheduler_state.nof_known_rntis += now_result.new_rnti_number;
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
-          task_scheduler_state.known_rntis.push_back(
-            now_result.new_rntis_found[i]);
-          task_scheduler_state.last_seen.push_back(
-            now);
+          task_scheduler_state.known_rntis.push_back(now_result.new_rntis_found[i]);
+          task_scheduler_state.last_seen.push_back(now);
           RACHLogNode rach_log_node;
-          rach_log_node.timestamp = now;
+          rach_log_node.timestamp        = now;
           rach_log_node.system_frame_idx = now_result.outcome.sfn;
-          rach_log_node.slot_idx = now_result.slot.idx;
-          rach_log_node.rnti = now_result.new_rntis_found[i];
-          if (local_log){
+          rach_log_node.slot_idx         = now_result.slot.idx;
+          rach_log_node.rnti             = now_result.new_rntis_found[i];
+          if (local_log) {
             NRScopeLog::push_node(rach_log_node, rf_index);
           }
         }
@@ -264,26 +252,22 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
         /* We already found the RACH, we just append the new RNTIs */
         for (uint32_t i = 0; i < now_result.new_rnti_number; i++) {
           bool is_in = false;
-          for (unsigned long int j = 0; 
-              j < task_scheduler_state.known_rntis.size(); j ++){
-            if (now_result.new_rntis_found[i] == 
-                task_scheduler_state.known_rntis[j]){
+          for (unsigned long int j = 0; j < task_scheduler_state.known_rntis.size(); j++) {
+            if (now_result.new_rntis_found[i] == task_scheduler_state.known_rntis[j]) {
               is_in = true;
               break;
             }
           }
           if (!is_in) {
             task_scheduler_state.nof_known_rntis += 1;
-            task_scheduler_state.known_rntis.push_back(
-              now_result.new_rntis_found[i]);
-            task_scheduler_state.last_seen.push_back(
-              now);
+            task_scheduler_state.known_rntis.push_back(now_result.new_rntis_found[i]);
+            task_scheduler_state.last_seen.push_back(now);
             RACHLogNode rach_log_node;
-            rach_log_node.timestamp = now;
+            rach_log_node.timestamp        = now;
             rach_log_node.system_frame_idx = now_result.outcome.sfn;
-            rach_log_node.slot_idx = now_result.slot.idx;
-            rach_log_node.rnti = now_result.new_rntis_found[i];
-            if (local_log){
+            rach_log_node.slot_idx         = now_result.slot.idx;
+            rach_log_node.rnti             = now_result.new_rntis_found[i];
+            if (local_log) {
               NRScopeLog::push_node(rach_log_node, rf_index);
             }
           }
@@ -298,81 +282,75 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result) {
 
   /* This slot contains the DCI decoder's result, put all the results to log */
   if (now_result.dci_result) {
-    std::vector <DCIFeedback> results = now_result.dci_feedback_results;
+    std::vector<DCIFeedback> results = now_result.dci_feedback_results;
     for (uint8_t b = 0; b < task_scheduler_state.nof_bwps; b++) {
       DCIFeedback result = results[b];
-      if((result.dl_grants.size()>0 or result.ul_grants.size()>0)){
-        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++){
-          if(result.dl_grants[i].grant.rnti == 
-              task_scheduler_state.known_rntis[i]){
+      if ((result.dl_grants.size() > 0 or result.ul_grants.size() > 0)) {
+        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++) {
+          if (result.dl_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
             LogNode log_node;
-            log_node.slot_idx = now_result.slot.idx;
-            log_node.system_frame_idx = now_result.outcome.sfn;
-            log_node.timestamp = now;
-            log_node.grant = result.dl_grants[i];
-            log_node.dci_format = 
-              srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
-            log_node.dl_dci = result.dl_dcis[i];
-            log_node.bwp_id = result.dl_dcis[i].bwp_id;
+            log_node.slot_idx                 = now_result.slot.idx;
+            log_node.system_frame_idx         = now_result.outcome.sfn;
+            log_node.timestamp                = now;
+            log_node.grant                    = result.dl_grants[i];
+            log_node.dci_format               = srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
+            log_node.dl_dci                   = result.dl_dcis[i];
+            log_node.bwp_id                   = result.dl_dcis[i].bwp_id;
             task_scheduler_state.last_seen[i] = now;
-            if(local_log){
+            if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
-            if(to_google){
+            if (to_google) {
               ToGoogle::push_google_node(log_node, rf_index);
             }
           }
 
-          if(result.ul_grants[i].grant.rnti == 
-              task_scheduler_state.known_rntis[i]){
+          if (result.ul_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
             LogNode log_node;
-            log_node.slot_idx = now_result.slot.idx;
-            log_node.system_frame_idx = now_result.outcome.sfn;
-            log_node.timestamp = now;
-            log_node.grant = result.ul_grants[i];
-            log_node.dci_format = 
-              srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
-            log_node.ul_dci = result.ul_dcis[i];
-            log_node.bwp_id = result.ul_dcis[i].bwp_id;
+            log_node.slot_idx                 = now_result.slot.idx;
+            log_node.system_frame_idx         = now_result.outcome.sfn;
+            log_node.timestamp                = now;
+            log_node.grant                    = result.ul_grants[i];
+            log_node.dci_format               = srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
+            log_node.ul_dci                   = result.ul_dcis[i];
+            log_node.bwp_id                   = result.ul_dcis[i].bwp_id;
             task_scheduler_state.last_seen[i] = now;
-            if(local_log){
+            if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
-            if(to_google){
+            if (to_google) {
               ToGoogle::push_google_node(log_node, rf_index);
             }
           }
-        } 
+        }
       }
     }
   }
 
   /* Check the last seen time for each UE in the list*/
-  std::vector<double>::iterator last_seen_iter = 
-    task_scheduler_state.last_seen.begin();
-  std::vector<uint16_t>::iterator ue_list_iter = 
-    task_scheduler_state.known_rntis.begin();
+  std::vector<double>::iterator   last_seen_iter = task_scheduler_state.last_seen.begin();
+  std::vector<uint16_t>::iterator ue_list_iter   = task_scheduler_state.known_rntis.begin();
 
-  while(last_seen_iter != task_scheduler_state.last_seen.end() &&
-    ue_list_iter != task_scheduler_state.known_rntis.end()) {
-      if(now - *last_seen_iter > 5) {
-        // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires." 
-        //   << std::endl;
-        last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
-        ue_list_iter = task_scheduler_state.known_rntis.erase(ue_list_iter);
-        --task_scheduler_state.nof_known_rntis;
-      }
-      else {
-        ++last_seen_iter;
-        ++ue_list_iter;
-      }
+  while (last_seen_iter != task_scheduler_state.last_seen.end() &&
+         ue_list_iter != task_scheduler_state.known_rntis.end()) {
+    if (now - *last_seen_iter > 5) {
+      // std::cout << "C-RNTI: " << (int)*ue_list_iter << " expires."
+      //   << std::endl;
+      last_seen_iter = task_scheduler_state.last_seen.erase(last_seen_iter);
+      ue_list_iter   = task_scheduler_state.known_rntis.erase(ue_list_iter);
+      --task_scheduler_state.nof_known_rntis;
+    } else {
+      ++last_seen_iter;
+      ++ue_list_iter;
+    }
   }
 
   return SRSRAN_SUCCESS;
 }
 
-int TaskSchedulerNRScope::UpdateStateandLog() {
-  /* Right now there is no re-order function, 
+int TaskSchedulerNRScope::UpdateStateandLog()
+{
+  /* Right now there is no re-order function,
     just update the state and log*/
   std::sort(slot_results.begin(), slot_results.end());
   // std::cout << "expected sf_round: " << next_result.sf_round << std::endl;
@@ -383,8 +361,8 @@ int TaskSchedulerNRScope::UpdateStateandLog() {
   //   std::cout << i << ", sf_round: " << slot_results[i].sf_round << std::endl;
   //   std::cout << i << ", slot: " << slot_results[i].slot.idx << std::endl;
   // }
-  while (//(slot_results[0] < next_result || slot_results[0] == next_result) && 
-  slot_results.size() > 0) {
+  while ( //(slot_results[0] < next_result || slot_results[0] == next_result) &&
+      slot_results.size() > 0) {
     // if (slot_results[0] < next_result){
     //   slot_results.erase(slot_results.begin());
     //   continue;
@@ -400,25 +378,26 @@ int TaskSchedulerNRScope::UpdateStateandLog() {
   return SRSRAN_SUCCESS;
 }
 
-void TaskSchedulerNRScope::UpdateNextResult() {
-  if (next_result.slot.idx == 
-    SRSRAN_NSLOTS_PER_FRAME_NR(task_scheduler_state.args_t.ssb_scs)-1) {
+void TaskSchedulerNRScope::UpdateNextResult()
+{
+  if (next_result.slot.idx == SRSRAN_NSLOTS_PER_FRAME_NR(task_scheduler_state.args_t.ssb_scs) - 1) {
     next_result.slot.idx = 0;
     /* We will need to increase the outcome.sfn */
     if (next_result.outcome.sfn == 1023) {
       /* We will need to increase the sf_round */
-      next_result.sf_round ++;
+      next_result.sf_round++;
       next_result.outcome.sfn = 0;
     } else {
-      next_result.outcome.sfn ++;
+      next_result.outcome.sfn++;
     }
   } else {
-    next_result.slot.idx ++;
+    next_result.slot.idx++;
   }
 }
 
-void TaskSchedulerNRScope::Run() {
-  while(true) {
+void TaskSchedulerNRScope::Run()
+{
+  while (true) {
     /* Try to extract results from the global result queue*/
     queue_lock.lock();
     auto queue_len = global_slot_results.size();
@@ -431,19 +410,20 @@ void TaskSchedulerNRScope::Run() {
     }
     queue_lock.unlock();
 
-    /* reorder the local slot_results and 
+    /* reorder the local slot_results and
       wait for the correct data for output */
     if (slot_results.size() > 0)
       UpdateStateandLog();
   }
 }
 
-int TaskSchedulerNRScope::ClaimIdleWorker() {
+int TaskSchedulerNRScope::ClaimIdleWorker()
+{
   for (;;) {
     for (uint32_t i = 0; i < nof_workers; ++i) {
       bool expected = false;
-      if (workers[i]->busy.compare_exchange_strong(expected, true,
-            std::memory_order_acq_rel, std::memory_order_relaxed)) {
+      if (workers[i]->busy.compare_exchange_strong(
+              expected, true, std::memory_order_acq_rel, std::memory_order_relaxed)) {
         return i;
       }
     }
@@ -452,19 +432,20 @@ int TaskSchedulerNRScope::ClaimIdleWorker() {
   }
 }
 
-void TaskSchedulerNRScope::TasksDispatch() {
-  while(true) {
+void TaskSchedulerNRScope::TasksDispatch()
+{
+  while (true) {
     sem_wait(&smph_data);
     sem_wait(&smph_idle);
 
     // Claim a worker
-    uint32_t wi = ClaimIdleWorker();
-    NRScopeWorker& w = *workers[wi];
+    uint32_t       wi = ClaimIdleWorker();
+    NRScopeWorker& w  = *workers[wi];
 
     const uint32_t i = current_slot_idx.load(std::memory_order_relaxed);
-    SlotData_& s = slot_data[i];
+    SlotData_&     s = slot_data[i];
 
-    // std::cout << "Slot Data " << i << ", sf_round: " << s.sf_round << 
+    // std::cout << "Slot Data " << i << ", sf_round: " << s.sf_round <<
     //   ", sfn: " << s.outcome.sfn << ", slot: " << s.slot.idx << std::endl;
 
     // Acquire pairs with producer’s release to see fully-written data
@@ -475,35 +456,35 @@ void TaskSchedulerNRScope::TasksDispatch() {
       continue;
     }
 
-    w.CopySlotandBuffer(
-      slot_data[current_slot_idx].sf_round,
-      slot_data[current_slot_idx].slot,
-      slot_data[current_slot_idx].outcome,
-      slot_data[current_slot_idx].rx_buffer);
-    
+    w.CopySlotandBuffer(slot_data[current_slot_idx].sf_round,
+                        slot_data[current_slot_idx].slot,
+                        slot_data[current_slot_idx].outcome,
+                        slot_data[current_slot_idx].rx_buffer);
+
     s.processed.store(true, std::memory_order_release);
     current_slot_idx.store((i + 1) % slot_data_len, std::memory_order_relaxed);
-    
+
     w.SyncState(&task_scheduler_state);
     sem_post(&w.smph_has_job);
   }
 }
 
-int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
-                                     srsran_slot_cfg_t slot, 
+int TaskSchedulerNRScope::AssignTask(uint64_t                    sf_round,
+                                     srsran_slot_cfg_t           slot,
                                      srsran_ue_sync_nr_outcome_t outcome,
-                                     cf_t* rx_buffer_){
+                                     cf_t*                       rx_buffer_)
+{
   /* Find the first idle worker */
   bool found_worker = false;
-  // std::cout << "Assigning sf_round: " << sf_round << ", sfn: " << outcome.sfn 
+  // std::cout << "Assigning sf_round: " << sf_round << ", sfn: " << outcome.sfn
   //   << ", slot.idx: " << slot.idx << std::endl;
-  for (uint32_t i = 0; i < nof_workers; i ++) {
+  for (uint32_t i = 0; i < nof_workers; i++) {
     worker_locks[i].lock();
     bool busy = true;
-    busy = workers[i].get()->busy;
+    busy      = workers[i].get()->busy;
     if (!busy) {
       found_worker = true;
-      /* Copy the rx_buffer_ to the worker's rx_buffer. This won't be 
+      /* Copy the rx_buffer_ to the worker's rx_buffer. This won't be
       interfering with other threads? */
       workers[i].get()->CopySlotandBuffer(sf_round, slot, outcome, rx_buffer_);
       /* Update the worker's state */
@@ -517,10 +498,10 @@ int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
       break;
     }
   }
-  
-  if (!found_worker && workers[nof_workers-1].get()->initializing) {
-    std::cout << "Workers are initializing, skip sf_rount: " << sf_round << 
-      ", sfn: " << outcome.sfn << ", slot: " << slot.idx << std::endl;
+
+  if (!found_worker && workers[nof_workers - 1].get()->initializing) {
+    std::cout << "Workers are initializing, skip sf_rount: " << sf_round << ", sfn: " << outcome.sfn
+              << ", slot: " << slot.idx << std::endl;
     return SRSRAN_ERROR;
   } else if (!found_worker) {
     ERROR("No available worker, if this constantly happens not in the intial"
@@ -530,35 +511,35 @@ int TaskSchedulerNRScope::AssignTask(uint64_t sf_round,
   } else {
     return SRSRAN_SUCCESS;
   }
-
 }
 
-int TaskSchedulerNRScope::StoreSlotData(uint64_t sf_round,
-                                     srsran_slot_cfg_t slot, 
-                                     srsran_ue_sync_nr_outcome_t outcome,
-                                     cf_t* rx_buffer_){
+int TaskSchedulerNRScope::StoreSlotData(uint64_t                    sf_round,
+                                        srsran_slot_cfg_t           slot,
+                                        srsran_ue_sync_nr_outcome_t outcome,
+                                        cf_t*                       rx_buffer_)
+{
   const uint32_t i = next_slot_idx.load(std::memory_order_relaxed);
-  SlotData_& s = slot_data[i];
+  SlotData_&     s = slot_data[i];
 
-  // Check full 
+  // Check full
   if (!slot_data[i].processed.load(std::memory_order_acquire)) {
     // Ring full → drop-newest (or switch to drop-oldest if you prefer)
     // dropped_slots.fetch_add(1, std::memory_order_relaxed);
     ERROR("Overwriting the unprocessed data... Consider improving processing"
           "throughput.");
     printf("Overwriting the unprocessed data... Consider improving processing"
-          "throughput.\n");
+           "throughput.\n");
     // return SRSRAN_SUCCESS;
   }
 
   s.sf_round = sf_round;
-  s.slot = slot;
-  s.outcome = outcome;
+  s.slot     = slot;
+  s.outcome  = outcome;
   srsran_vec_cf_copy(s.rx_buffer, rx_buffer_, s.slot_size);
   s.processed.store(false, std::memory_order_release);
 
-  // std::cout << "Storing " << i << ", sf_round: " << s.sf_round << 
-  //     ", sfn: " << s.outcome.sfn << ", subframe: " << s.outcome.sf_idx << 
+  // std::cout << "Storing " << i << ", sf_round: " << s.sf_round <<
+  //     ", sfn: " << s.outcome.sfn << ", subframe: " << s.outcome.sf_idx <<
   //     ", slot: " << s.slot.idx << std::endl;
 
   uint32_t next = (i + 1) % slot_data_len;
@@ -567,4 +548,4 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t sf_round,
   return SRSRAN_SUCCESS;
 }
 
-}
+} // namespace NRScopeTask

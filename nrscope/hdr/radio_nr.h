@@ -5,16 +5,16 @@
 #include "memory"
 #include <vector>
 
+#include "nrscope/hdr/dci_decoder.h"
+#include "nrscope/hdr/harq_tracking.h"
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/rach_decoder.h"
 #include "nrscope/hdr/sibs_decoder.h"
-#include "nrscope/hdr/dci_decoder.h"
-#include "nrscope/hdr/harq_tracking.h"
 #include "nrscope/hdr/task_scheduler.h"
 
-#include <semaphore>
-#include <liquid/liquid.h>
 #include <chrono>
+#include <liquid/liquid.h>
+#include <semaphore>
 
 #define RESAMPLE_WORKER_NUM 8
 // For cell scan
@@ -22,159 +22,162 @@
 
 #define TARGET_STOPBAND_SUPPRESSION_DB 60.0f;
 
-class Radio{
-  public:
-    int                                           rf_index;
-    srsran::rf_args_t                             rf_args;
-    std::shared_ptr<srsran::radio>                raido_shared;
-    std::shared_ptr<srsran::radio_interface_phy>  radio;
+class Radio
+{
+public:
+  int                                          rf_index;
+  srsran::rf_args_t                            rf_args;
+  std::shared_ptr<srsran::radio>               raido_shared;
+  std::shared_ptr<srsran::radio_interface_phy> radio;
 
-    srslog::basic_logger&                         logger;
+  srslog::basic_logger& logger;
 
-    srsran::rf_buffer_t                           rf_buffer_t;
-    cf_t*                                         rx_buffer;
-    cf_t*                                         pre_resampling_rx_buffer;
-    uint32_t                                      slot_sz;
-    uint32_t                                      pre_resampling_slot_sz;
-    srsran::rf_timestamp_t                        last_rx_time;
+  srsran::rf_buffer_t    rf_buffer_t;
+  cf_t*                  rx_buffer;
+  cf_t*                  pre_resampling_rx_buffer;
+  uint32_t               slot_sz;
+  uint32_t               pre_resampling_slot_sz;
+  srsran::rf_timestamp_t last_rx_time;
 
-    cell_searcher_args_t                          args_t;
-    srsue::phy_nr_sa::cell_search_args_t          cs_args;
-    srsran_subcarrier_spacing_t                   ssb_scs;
-    srsran::srsran_band_helper                    bands;
-    srsran_ue_dl_nr_sratescs_info                 arg_scs;
-    std::vector<uint16_t>                         band_list;
-    uint16_t                                      pci;
-    /* from cell_search.cc */
-    srsue::nr::cell_search                        srsran_searcher; 
-    srsue::nr::cell_search::cfg_t                 srsran_searcher_cfg_t;
-    srsue::nr::cell_search::args_t                srsran_searcher_args_t;
-    srsue::nr::cell_search::ret_t                 cs_ret;
-    uint32_t                                      nof_trials;
-    uint32_t                                      nof_trials_scan;
-    cell_search_result_t                          cell;
+  cell_searcher_args_t                 args_t;
+  srsue::phy_nr_sa::cell_search_args_t cs_args;
+  srsran_subcarrier_spacing_t          ssb_scs;
+  srsran::srsran_band_helper           bands;
+  srsran_ue_dl_nr_sratescs_info        arg_scs;
+  std::vector<uint16_t>                band_list;
+  uint16_t                             pci;
+  /* from cell_search.cc */
+  srsue::nr::cell_search         srsran_searcher;
+  srsue::nr::cell_search::cfg_t  srsran_searcher_cfg_t;
+  srsue::nr::cell_search::args_t srsran_searcher_args_t;
+  srsue::nr::cell_search::ret_t  cs_ret;
+  uint32_t                       nof_trials;
+  uint32_t                       nof_trials_scan;
+  cell_search_result_t           cell;
 
-    coreset0_args                                 coreset0_args_t;
-    srsran_coreset_t                              coreset0_t;
-    srsran_ue_sync_nr_args_t                      ue_sync_nr_args;
-    srsran_ue_sync_nr_cfg_t                       sync_cfg;
+  coreset0_args            coreset0_args_t;
+  srsran_coreset_t         coreset0_t;
+  srsran_ue_sync_nr_args_t ue_sync_nr_args;
+  srsran_ue_sync_nr_cfg_t  sync_cfg;
 
-    srsran_ue_sync_nr_t                           ue_sync_nr;
-    srsran_ue_sync_nr_outcome_t                   outcome;
-    uint64_t                                      sf_round;
-    
-    srsran_ssb_cfg_t ssb_cfg;
+  srsran_ue_sync_nr_t         ue_sync_nr;
+  srsran_ue_sync_nr_outcome_t outcome;
+  uint64_t                    sf_round;
 
-    uint32_t nof_threads;
-    uint32_t nof_rnti_worker_groups;
-    uint8_t nof_bwps;
-    uint32_t nof_workers;
+  RRCRecfg rrc_recfg;
 
-    NRScopeTask::TaskSchedulerNRScope task_scheduler_nrscope;
+  srsran_ssb_cfg_t ssb_cfg;
 
-    /* a better coordination between producer (fetch) and consumer 
-       (resample and decode) */
-    sem_t smph_sf_data_prod_cons;
-    sem_t smph_sf_data_finished;
+  uint32_t nof_threads;
+  uint32_t nof_rnti_worker_groups;
+  uint8_t  nof_bwps;
+  uint32_t nof_workers;
 
-    bool resample_needed;
-    resampler_kit rk[RESAMPLE_WORKER_NUM];
-    bool rk_initialized = false;
+  NRScopeTask::TaskSchedulerNRScope task_scheduler_nrscope;
 
-    bool cpu_affinity;
+  /* a better coordination between producer (fetch) and consumer
+     (resample and decode) */
+  sem_t smph_sf_data_prod_cons;
+  sem_t smph_sf_data_finished;
 
-    std::string log_name;
-    bool local_log;
+  bool          resample_needed;
+  resampler_kit rk[RESAMPLE_WORKER_NUM];
+  bool          rk_initialized = false;
 
-    bool to_google;
-    std::string google_credential;
-    std::string google_dataset_id;
+  bool cpu_affinity;
 
-    /* AGC */
-    float min_rx_gain;
-    float max_rx_gain;
+  std::string log_name;
+  bool        local_log;
 
-    Radio();  //constructor
-    ~Radio(); //deconstructor
+  bool        to_google;
+  std::string google_credential;
+  std::string google_dataset_id;
 
-    /**
-    * An entry to this class -- start the radio capture thread, and decode SIB, 
-    * RACH and DCI inside the capture loop.
-    * 
-    * @return SRSRAN_SUCCESS - 0 for successfuly exit
-    */
-    int RadioThread();
+  /* AGC */
+  float min_rx_gain;
+  float max_rx_gain;
 
-    /**
-    * Another entry to this class -- start the NR SA FR1 scan thread 
-    * and output found cell(s) 
-    * 
-    * @return SRSRAN_SUCCESS - 0 for successfuly exit
-    */
-    int ScanThread();
+  Radio();  // constructor
+  ~Radio(); // deconstructor
 
-    /**
-    * This function first sets up some parameters related to the radio sample 
-    * caputure according to the config file, such as sampling frequency, 
-    * SSB frequency and SCS. Then it will search the MIB within the range of 
-    * [SSB frequency - 0.7 * sampling frequency / 2, SSB frequency + 0.7 * 
-    * sampling frequency / 2].
-    *   (1) If a cell is found, this functions notifies the parameters to 
-    *     task_scheduler_nrscope and start decoding SIB, RACH and DCIs.
-    *   (2) If no cell is found, it will return and the thread for this 
-    *     USRP ends.
-    * 
-    * @return SRSRAN_SUCCESS (0) if no cell is found. NR_FAILURE (-1) 
-    * if something is wrong in the function.
-    */
-    int RadioInitandStart();
+  /**
+   * An entry to this class -- start the radio capture thread, and decode SIB,
+   * RACH and DCI inside the capture loop.
+   *
+   * @return SRSRAN_SUCCESS - 0 for successfuly exit
+   */
+  int RadioThread();
 
-    /**
-    * This function goes through the per band (denoted by outer loop), and 
-    * search each GSCN raster point in the band (denoted by inner loop)
-    * 
-    * @return SRSRAN_SUCCESS (0) if no cell is found. NR_FAILURE (-1) 
-    *  if something is wrong in the function.
-    */
-    int ScanInitandStart();
+  /**
+   * Another entry to this class -- start the NR SA FR1 scan thread
+   * and output found cell(s)
+   *
+   * @return SRSRAN_SUCCESS - 0 for successfuly exit
+   */
+  int ScanThread();
 
-    /**
-    * After finding the cell and decoding the cell and synchronization signal, 
-    * this function sets up the parameters related to downlink synchronization, 
-    * in terms of mitigating the CFO and time adjustment.
-    * 
-    * @return SRSRAN_SUCCESS (0) these parameters are successfuly set. 
-    * SRSRAN_ERROR (-1) if something goes wrong.
-    */
-    int SyncandDownlinkInit();
+  /**
+   * This function first sets up some parameters related to the radio sample
+   * caputure according to the config file, such as sampling frequency,
+   * SSB frequency and SCS. Then it will search the MIB within the range of
+   * [SSB frequency - 0.7 * sampling frequency / 2, SSB frequency + 0.7 *
+   * sampling frequency / 2].
+   *   (1) If a cell is found, this functions notifies the parameters to
+   *     task_scheduler_nrscope and start decoding SIB, RACH and DCIs.
+   *   (2) If no cell is found, it will return and the thread for this
+   *     USRP ends.
+   *
+   * @return SRSRAN_SUCCESS (0) if no cell is found. NR_FAILURE (-1)
+   * if something is wrong in the function.
+   */
+  int RadioInitandStart();
 
-    /**
-    * (TASKS HAVE BEEN DELEGATED TO FetchAndResample AND DecodeAndProcess) 
-    * After MIB decoding and synchronization, the USRP grabs 1ms data every 
-    * time and dispatches the raw radio samples among SIB, RACH and DCI 
-    * decoding threads. Also initialize these threads if they are not.
-    * 
-    * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run 
-    * infinitely. NR_FAILURE (-1) if something goes wrong.
-    */
-    int RadioCapture();
-  
-  private:
-    /**
-    * sync, track sync, and grab 1ms raw samples from USRP continuously 
-    * 
-    * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run 
-    * infinitely. NR_FAILURE (-1) if something goes wrong.
-    */
-    int FetchAndResample();
+  /**
+   * This function goes through the per band (denoted by outer loop), and
+   * search each GSCN raster point in the band (denoted by inner loop)
+   *
+   * @return SRSRAN_SUCCESS (0) if no cell is found. NR_FAILURE (-1)
+   *  if something is wrong in the function.
+   */
+  int ScanInitandStart();
 
-    /**
-    * resample and decode the signals
-    * 
-    * @return SRSRAN_SUCCESS (0) if the function is stopped or it will 
-    * run infinitely. NR_FAILURE (-1) if something goes wrong.
-    */
-    int DecodeAndProcess();
+  /**
+   * After finding the cell and decoding the cell and synchronization signal,
+   * this function sets up the parameters related to downlink synchronization,
+   * in terms of mitigating the CFO and time adjustment.
+   *
+   * @return SRSRAN_SUCCESS (0) these parameters are successfuly set.
+   * SRSRAN_ERROR (-1) if something goes wrong.
+   */
+  int SyncandDownlinkInit();
+
+  /**
+   * (TASKS HAVE BEEN DELEGATED TO FetchAndResample AND DecodeAndProcess)
+   * After MIB decoding and synchronization, the USRP grabs 1ms data every
+   * time and dispatches the raw radio samples among SIB, RACH and DCI
+   * decoding threads. Also initialize these threads if they are not.
+   *
+   * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run
+   * infinitely. NR_FAILURE (-1) if something goes wrong.
+   */
+  int RadioCapture();
+
+private:
+  /**
+   * sync, track sync, and grab 1ms raw samples from USRP continuously
+   *
+   * @return SRSRAN_SUCCESS (0) if the function is stopped or it will run
+   * infinitely. NR_FAILURE (-1) if something goes wrong.
+   */
+  int FetchAndResample();
+
+  /**
+   * resample and decode the signals
+   *
+   * @return SRSRAN_SUCCESS (0) if the function is stopped or it will
+   * run infinitely. NR_FAILURE (-1) if something goes wrong.
+   */
+  int DecodeAndProcess();
 };
 
 #endif

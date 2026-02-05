@@ -1,0 +1,9 @@
+pdsch_cfg:
+  mcs_table: 256qam
+
+pusch_cfg:
+  mcs_table: 256qam
+
+dci_cfg:
+  pdsch_alloc_type: 1
+  multiple_scell: true

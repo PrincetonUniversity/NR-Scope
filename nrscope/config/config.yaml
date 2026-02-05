@@ -22,6 +22,7 @@ usrp_setting_0:
 
   log_name: "a.csv"
   google_dataset_id: "ngscope5g_dci_log_wanhr"
+  # rrc_recfg_config: "rrc_recfg_config/t-mobile-fdd.yaml"
 
 # usrp_setting_1:
 #   ssb_freq: 622850000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
