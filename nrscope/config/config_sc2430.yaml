@@ -1,0 +1,28 @@
+# config_sc2430.yaml
+# example config for x410 with sc2430, on the same ssb as "config_100mhz.yaml"
+nof_usrp_dev: 1
+usrp_setting_0:
+  ssb_freq: 2506950000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
+  # pci: 339 # Specify the desired Physical cell id. If specified, NR-Scope will proceed only if the decoded PCI matches this value.
+  rf_args: "clock_source=external,time_source=external,type=x4xx,master_clock_rate=245760000,extension=sc2430,recv_buff_size=250000000,num_recv_frames=256,recv_frame_size=9000"
+  rx_gain: 40
+  min_rx_gain: 30
+  max_rx_gain: 80
+
+  srate_hz: 122880000
+  srsran_srate_hz: 122880000
+
+  nof_carriers: 1 # srsRAN rf setting, always set to be 1 for now. 
+  nof_antennas: 1 # srsRAN rf setting, always set to be 1 for now.
+  scs_index: 1 #(0: 15kHz, 1: 30kHz, ..., the u in standard)
+  rf_log_level: "debug"
+  nof_rnti_worker_groups: 4 # number of of threads for DCI decoding, each will divide the UEs into small groups
+  nof_bwps: 1 # number of BWP of the cell
+  nof_workers: 8 # using worker pool to asynchronously process the slot data
+  cpu_affinity: true # pin the worker's thread into CPU or not.
+
+  log_name: "a.csv"
+
+log_config:
+  local_log: true
+  push_to_google: false
