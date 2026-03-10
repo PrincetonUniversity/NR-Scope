@@ -75,7 +75,7 @@ cmake ../ \
     -DENABLE_SRSUE=ON \
     -DENABLE_SRSENB=OFF \
     -DENABLE_SRSEPC=OFF \
-    -DENABLE_RF_PLUGINS=ON
+    -DENABLE_RF_PLUGINS=OFF
 make -j$(nproc)
 cd $START_DIR
 # copy built nrscope binary to start dir for easy access
