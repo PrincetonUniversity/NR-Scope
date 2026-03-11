@@ -4,7 +4,7 @@ nof_usrp_dev: 1
 usrp_setting_0:
   ssb_freq: 2506950000 # Set to the ssb frequency of the cell, could be obtained with the cell scan function
   # pci: 339 # Specify the desired Physical cell id. If specified, NR-Scope will proceed only if the decoded PCI matches this value.
-  rf_args: "clock_source=external,time_source=external,type=x4xx,master_clock_rate=245760000,extension=sc2430,recv_buff_size=250000000,num_recv_frames=256,recv_frame_size=9000"
+  rf_args: "clock=external,type=x4xx,extension=sc2430"
   rx_gain: 40
   min_rx_gain: 30
   max_rx_gain: 80 # the SC2430 allows the x410 to go up to 81 gain (versus 60 without the SC2430).
