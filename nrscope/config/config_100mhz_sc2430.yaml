@@ -17,7 +17,7 @@ usrp_setting_0:
   nof_antennas: 1 # srsRAN rf setting, always set to be 1 for now.
   scs_index: 1 #(0: 15kHz, 1: 30kHz, ..., the u in standard)
   rf_log_level: "debug"
-  nof_rnti_worker_groups: 4 # number of of threads for DCI decoding, each will divide the UEs into small groups
+  nof_rnti_worker_groups: 2 # number of of threads for DCI decoding, each will divide the UEs into small groups
   nof_bwps: 1 # number of BWP of the cell
   nof_workers: 6 # using worker pool to asynchronously process the slot data
   cpu_affinity: true # pin the worker's thread into CPU or not.
