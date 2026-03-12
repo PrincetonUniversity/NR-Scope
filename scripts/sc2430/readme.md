@@ -18,7 +18,9 @@ cp ./nrscope/config/config_100mhz_sc2430.yaml ./config.yaml # get example 2430 c
 
 Any rebuilds of nrscope (i.e., `cd build; make`) will also be linked to the local UHD and SC2430.
 
-`./nrscope/config/config_100mhz_sc2430.yaml` is an example config file for listening to a a 100 Mhz cell with the x410+sc2430.
+`./nrscope/config/config_100mhz_sc2430.yaml` is an example config file for listening to a 100 Mhz cell with the x410+sc2430.
+
+`scripts/sc2430/run-with-watchdog.sh` is a helper script to start NR-Scope and a background process to check for overflows after sync in the log file, which causes nr-scope to fail silently.
 
 ### Notes
 
