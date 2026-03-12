@@ -14,7 +14,9 @@ cp ./nrscope/config/config_100mhz_sc2430.yaml ./config.yaml # get example 2430 c
 ```
 ### Files
 
-`scripts/sc2430/sc2430-build.sh` pulls and builds the UHD and SC2430 drivers, builds NR-Scope, and copies the nrscope binary from `./build/nrscope/src/nrscope` to `./nrscope-sc2430`.
+`scripts/sc2430/sc2430-build.sh` pulls and builds the UHD and SC2430 drivers to `uhd_local/`, builds NR-Scope, and copies the nrscope binary from `./build/nrscope/src/nrscope` to `./nrscope-sc2430`.
+
+Any rebuilds of nrscope (i.e., `cd build; make`) will also be linked to the local UHD and SC2430.
 
 `./nrscope/config/config_100mhz_sc2430.yaml` is an example config file for listening to a a 100 Mhz cell with the x410+sc2430.
 

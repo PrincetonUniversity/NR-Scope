@@ -8,7 +8,7 @@ fi
 LOG_FILE="$(realpath -m "$1")"
 
 ./nrscope-sc2430 2>&1 | tee "$LOG_FILE" | awk '
-    /masterCell|Overflow|in_sync|Overwriting|Cell Found|Decoding MIB|SIB 1 Decoded/ {
+    /masterCell|Overflow|in_sync|Overwriting|Cell Found|Decoding MIB|Found DCI|SIB 1 Decoded/ {
         print "[" strftime("%Y-%m-%d %H:%M:%S") "] " $0; fflush()
     }
     /in_sync/ { seen_sync = 1 }
