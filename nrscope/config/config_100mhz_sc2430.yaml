@@ -7,7 +7,8 @@ usrp_setting_0:
   rf_args: "clock=external,type=x4xx,extension=sc2430"
   rx_gain: 40
   min_rx_gain: 30
-  max_rx_gain: 80 # the SC2430 allows the x410 to go up to 81 gain (versus 60 without the SC2430).
+  max_rx_gain: 81 # for X410+SC2430
+  max_rx_gain: 60 # for X410 alone
 
   srate_hz: 122880000
   srsran_srate_hz: 122880000
@@ -18,7 +19,7 @@ usrp_setting_0:
   rf_log_level: "debug"
   nof_rnti_worker_groups: 4 # number of of threads for DCI decoding, each will divide the UEs into small groups
   nof_bwps: 1 # number of BWP of the cell
-  nof_workers: 8 # using worker pool to asynchronously process the slot data
+  nof_workers: 6 # using worker pool to asynchronously process the slot data
   cpu_affinity: true # pin the worker's thread into CPU or not.
 
   log_name: "a.csv"
