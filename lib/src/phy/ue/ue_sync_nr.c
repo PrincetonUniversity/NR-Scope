@@ -52,6 +52,7 @@ int srsran_ue_sync_nr_init(srsran_ue_sync_nr_t* q, const srsran_ue_sync_nr_args_
   q->nof_rx_channels = args->nof_rx_channels == 0 ? 1 : args->nof_rx_channels;
   q->disable_cfo     = args->disable_cfo;
   q->cfo_alpha       = isnormal(args->cfo_alpha) ? args->cfo_alpha : UE_SYNC_NR_DEFAULT_CFO_ALPHA;
+  q->skip_ssb_decode_num = args->skip_ssb_decode_num;
 
   // Initialise SSB
   srsran_ssb_args_t ssb_args = {};
@@ -211,10 +212,14 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
 {
   srsran_csi_trs_measurements_t measurements = {};
   srsran_pbch_msg_nr_t          pbch_msg     = {};
-  uint32_t                      half_frame   = q->sf_idx / (SRSRAN_NOF_SF_X_FRAME / 2);
+  // q-> sf_idx is expected to be from 0 - 9, but is from 1 - 10 
+  // due to the increment at the end of srsran_ue_sync_nr_zerocopy_twinrx_nrscope.
+  // "adj_sf_idx" compensates for this.
+  uint32_t adj_sf_idx                       = (q-> sf_idx) % SRSRAN_NOF_SF_X_FRAME;
+  uint32_t                      half_frame   = adj_sf_idx / (SRSRAN_NOF_SF_X_FRAME / 2);
 
   // Check if the SSB selected candidate index shall be received in this subframe
-  bool is_ssb_opportunity = (q->sf_idx == srsran_ssb_candidate_sf_idx(&q->ssb, q->ssb_idx, half_frame > 0));
+  bool is_ssb_opportunity = (adj_sf_idx == srsran_ssb_candidate_sf_idx(&q->ssb, q->ssb_idx, half_frame > 0));
 
   // Use SSB periodicity
   if (q->ssb.cfg.periodicity_ms >= 10) {
@@ -226,17 +231,47 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
     return SRSRAN_SUCCESS;
   }
 
+  // only process 1/10 SSB candidates to save computation
+  // TODO: clean up static variable once testing is finished
+  static uint32_t opportunity_ct = (uint32_t)-1;
+  if (q->skip_ssb_decode_num == 0) { return SRSRAN_SUCCESS; }
+  // printf("opportunity_ct: %u\n", opportunity_ct);
+  opportunity_ct = (opportunity_ct + 1) % q->skip_ssb_decode_num;
+  if (opportunity_ct != 0) { return SRSRAN_SUCCESS; }
+
+
+
+  // if (opportunity_ct < (DECODE_SSB_INTERVAL - 1)) {
+  //   opportunity_ct++;
+  //   return SRSRAN_SUCCESS;
+  // } else {
+  //   opportunity_ct = 0;    
+  // }
+  // if (opportunity_ct != 9) {
+  //   opportunity_ct++;
+  //   return SRSRAN_SUCCESS; 
+  // } else {
+  //   opportunity_ct = 0;    
+  // }
+
+
   // Measure PSS/SSS and decode PBCH
   if (srsran_ssb_track(&q->ssb, buffer, q->N_id, q->ssb_idx, half_frame, &measurements, &pbch_msg) < SRSRAN_SUCCESS) {
     ERROR("Error finding SSB");
     return SRSRAN_ERROR;
   }
-  // If the PBCH message was NOT decoded, transition to find
+
   if (!pbch_msg.crc) {
-    q->state = SRSRAN_UE_SYNC_NR_STATE_FIND;
+    // q->state = SRSRAN_UE_SYNC_NR_STATE_FIND;
+    // printf("[ssb-debug] PBCH CRC error. sf_idx=%u (raw=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo_hz=%.3f, delay_us=%.3f, next_rf_off=%d\n",
+          //  adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
     return SRSRAN_SUCCESS;
   }
-
+  // Decode MIB to show the true SFN from the air
+  srsran_mib_nr_t dbg_mib = {};
+  srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
+  printf("[ssb-debug] SSB track OK: sf_idx=%u (raw=%u), sfn=%u (mib_sfn=%u), half_frame=%u (mib_hrf=%u), ssb_idx=%u, cfo=%.3f Hz, delay=%.3f us, next_rf_off=%d\n",
+         adj_sf_idx, q->sf_idx, q->sfn, dbg_mib.sfn, half_frame, pbch_msg.hrf, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
   return ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
 }
 

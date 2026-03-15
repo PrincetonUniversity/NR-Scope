@@ -52,6 +52,8 @@ typedef struct SRSRAN_API {
 
   // Enable/Disable features
   bool disable_cfo; ///< Set to true for disabling the CFO compensation close loop
+  uint32_t skip_ssb_decode_num; ///< Number of SSB candidates to skip decoding in TRACK state, set to 0 for no skipping, 1 to always decode, or a multiple of 10 to decode 1 out of every N SSB candidates
+
 
   // Signal detection thresholds and averaging coefficients
   float pbch_dmrs_thr; ///< NR-PBCH DMRS threshold for blind decoding, set to 0 for default
@@ -97,6 +99,7 @@ typedef struct SRSRAN_API {
   uint32_t N_id;     ///< Current physical cell identifier
   double   srate_hz; ///< Current sampling rate in Hz
   uint32_t sf_sz;    ///< Current subframe size
+  uint32_t skip_ssb_decode_num; ///< Number of SSB candidates to skip decoding in TRACK state, set to 0 for no skipping, 1 to always decode, or a multiple of 10 to decode 1 out of every N SSB candidates
 
   // Metrics
   float cfo_hz;       ///< Current CFO in Hz

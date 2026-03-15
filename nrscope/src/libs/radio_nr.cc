@@ -31,6 +31,8 @@ Radio::Radio() :
   ue_sync_nr_args = {};
   sync_cfg        = {};
 
+  exit_on_overflow = false;
+
   sem_init(&smph_sf_data_prod_cons, 0, 0);
   sem_init(&smph_sf_data_finished, 0, 9999);
 }
@@ -738,6 +740,8 @@ int Radio::FetchAndResample()
   uint32_t pre_resampling_sf_sz =
       SRSRAN_NOF_SLOTS_PER_SF_NR(task_scheduler_nrscope.task_scheduler_state.args_t.ssb_scs) * pre_resampling_slot_sz;
 
+  auto concrete_radio = std::dynamic_pointer_cast<srsran::radio>(radio);
+
   while (true) {
     int current_value;
     sem_getvalue(&smph_sf_data_finished, &current_value);
@@ -771,9 +775,20 @@ int Radio::FetchAndResample()
     if (srsran_ue_sync_nr_zerocopy_twinrx_nrscope(
             &ue_sync_nr, rf_buffer_t.to_cf_t(), &outcome, rk, resample_needed, RESAMPLE_WORKER_NUM) < SRSRAN_SUCCESS) {
       std::cout << "SYNC: error in zerocopy" << std::endl;
-      logger.error("SYNC: error in zerocopy");
+      logger.error("SYNC: error in zerocopy");      
       return false;
     }
+    // exit on overflow when in sync
+    if (exit_on_overflow && in_sync) {
+      srsran::rf_metrics_t metrics;
+      concrete_radio->get_metrics(&metrics);
+      if (metrics.rf_o > 0) {
+        fprintf(stderr, "RX buffer Overflow in FetchAndResample\n");
+        _exit(1);
+      }
+    }
+
+
     /* If in sync, update slot index.
       The synced data is stored in rf_buffer_t.to_cf_t()[0] */
     if (outcome.in_sync) {
@@ -781,6 +796,9 @@ int Radio::FetchAndResample()
         printf("in_sync change to true\n");
       }
       in_sync = true;
+      // reset metrics to avoid false overflow detection
+      srsran::rf_metrics_t metrics;
+      concrete_radio->get_metrics(&metrics);
       // std::cout << "System frame idx: " << outcome.sfn << std::endl;
       // std::cout << "Subframe idx: " << outcome.sf_idx << std::endl;
       // a new sf data ready; let decoder consume

@@ -188,6 +188,24 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
       std::cout << "Please set the usrp_setting_" << i << " in config.yaml properly." << std::endl;
       return NR_FAILURE;
     }
+
+    if (config_yaml[setting_name]["skip_ssb_decode_num"]) {
+      uint32_t skip_ssb_decode_num = config_yaml[setting_name]["skip_ssb_decode_num"].as<uint32_t>();
+      // must be 0, 1, or a multiple of 10
+      if (skip_ssb_decode_num != 0 && skip_ssb_decode_num != 1 && skip_ssb_decode_num % 10 != 0) {
+        ERROR("skip_ssb_decode_num should be set to 0 to always skip SSB, 1 to always decode, or a multiple of 10 to decode 1 out of every N SSB candidates");
+        return NR_FAILURE;
+      }
+      std::cout << "[init-dbg] skip_ssb_decode_num: " << skip_ssb_decode_num << std::endl;
+      radios[i].ue_sync_nr_args.skip_ssb_decode_num = skip_ssb_decode_num;
+    }
+
+    if (config_yaml[setting_name]["exit_on_overflow"]) {
+      std::cout << "    exit_on_overflow: " << config_yaml[setting_name]["exit_on_overflow"].as<bool>() << std::endl;
+      radios[i].exit_on_overflow = config_yaml[setting_name]["exit_on_overflow"].as<bool>();      
+    }
+
+
   }
 
   /* Check if the config viable */

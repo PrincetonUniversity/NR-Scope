@@ -97,6 +97,8 @@ public:
   float min_rx_gain;
   float max_rx_gain;
 
+  bool exit_on_overflow;
+
   Radio();  // constructor
   ~Radio(); // deconstructor
 

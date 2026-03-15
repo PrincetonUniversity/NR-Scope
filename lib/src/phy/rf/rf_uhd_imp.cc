@@ -818,6 +818,7 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
   if (handler->uhd->set_sync_source(sync_src, clock_src) != UHD_ERROR_NONE) {
     return SRSRAN_ERROR;
   }
+  std::cout << "[init-dbg] set clock source: " << clock_src << ", sync source: " << sync_src << std::endl;
 
   if (clock_src == "gpsdo") {
     set_time_to_gps_time(handler);
