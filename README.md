@@ -82,6 +82,17 @@ sudo apt-get install libuhd-dev uhd-host
 sudo apt-get install build-essential cmake libfftw3-dev libmbedtls-dev libboost-program-options-dev libconfig++-dev libsctp-dev
 ```
 
+[srsGUI](https://github.com/srsran/srsGUI):
+```
+git clone https://github.com/srsLTE/srsGUI.git
+cd srsgui
+mkdir build
+cd build
+cmake ../
+make 
+sudo make install
+```
+
 [yaml-cpp](https://github.com/jbeder/yaml-cpp):
 
 ```
