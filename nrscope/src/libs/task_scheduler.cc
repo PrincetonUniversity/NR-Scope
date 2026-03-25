@@ -46,6 +46,7 @@ int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
   slot_data_len    = 1 << 14;
   next_slot_idx    = 0;
   current_slot_idx = 0;
+  missed_slots     = 0;
 
   slot_data = std::vector<SlotData>(slot_data_len);
   for (auto& s : slot_data) {
@@ -523,13 +524,10 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t                    sf_round,
 
   // Check full
   if (!slot_data[i].processed.load(std::memory_order_acquire)) {
-    // Ring full → drop-newest (or switch to drop-oldest if you prefer)
-    // dropped_slots.fetch_add(1, std::memory_order_relaxed);
-    ERROR("Overwriting the unprocessed data... Consider improving processing"
-          "throughput.");
-    NRSCOPE_PRINT("Overwriting the unprocessed data... Consider improving processing"
-           "throughput.\n");
-    // return SRSRAN_SUCCESS;
+    missed_slots++;
+    if (missed_slots % 1000 == 0) {
+      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %u). Consider improving processing throughput.", missed_slots);
+    }
   }
 
   s.sf_round = sf_round;

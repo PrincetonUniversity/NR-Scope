@@ -6,3 +6,5 @@
 extern bool g_silent;
 
 #define NRSCOPE_PRINT(fmt, ...) do { if (!g_silent) printf(fmt, ##__VA_ARGS__); } while(0)
+
+#define NRSCOPE_PRINT_ERROR(fmt, ...) do { printf("\e[31m" fmt "\e[0m\n", ##__VA_ARGS__); } while(0)

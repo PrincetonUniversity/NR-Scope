@@ -30,6 +30,7 @@ public:
   std::atomic<uint32_t> next_slot_idx;
   std::atomic<uint32_t> current_slot_idx;
   std::thread           task_thread;
+  uint64_t              missed_slots;
 
   bool local_log;
   bool to_google;
