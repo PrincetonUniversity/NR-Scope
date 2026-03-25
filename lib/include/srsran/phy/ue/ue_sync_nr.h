@@ -82,6 +82,7 @@ typedef struct SRSRAN_API {
   uint32_t                      ssb_idx;               ///< Tracking SSB candidate index
   uint32_t                      sf_idx;                ///< Current subframe index (0-9)
   uint32_t                      sfn;                   ///< Current system frame number (0-1023)
+  uint32_t                      ssb_sfn_parity;        ///< SSB SFN parity for periodicity check
   srsran_csi_trs_measurements_t feedback;              ///< Feedback measurements
 
   // Components

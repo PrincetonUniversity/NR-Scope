@@ -168,6 +168,7 @@ static int ue_sync_nr_update_ssb(srsran_ue_sync_nr_t*                 q,
   q->sf_idx  = srsran_ssb_candidate_sf_idx(&q->ssb, pbch_msg->ssb_idx, pbch_msg->hrf);
   q->sfn     = mib.sfn;
 
+
   // Transition to track only if the measured delay is below 2.4 microseconds
   if (measurements->delay_us < 2.4f) { // <- should be abs(measurements->delay_us) < 2.4f
     printf("Transition to SRSRAN_UE_SYNC_NR_STATE_TRACK\n");
@@ -205,7 +206,15 @@ static int ue_sync_nr_run_find(srsran_ue_sync_nr_t* q, cf_t* buffer)
     return SRSRAN_SUCCESS;
   }
 
-  return ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
+  // Not sure if this is necessary. Determines whether the SSBs appear in even or odd SFNs
+  int rv = ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
+  // (q->sfn + 1) to flip partity due to sfn value being updated after parity check during track.
+  q->ssb_sfn_parity = (q->sfn + 1) % (q->ssb.cfg.periodicity_ms / 10);
+
+  printf("[ssb-debug] SSB find OK: sf_idx=%u, sfn=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, ssb_sfn_parity=%u\n",
+         q->sf_idx, q->sfn, pbch_msg.ssb_idx, measurements.cfo_hz, measurements.delay_us, q->ssb_sfn_parity);
+
+  return rv;
 }
 
 static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
@@ -223,19 +232,21 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
 
   // Use SSB periodicity
   if (q->ssb.cfg.periodicity_ms >= 10) {
-    // SFN match with the periodicity
-    is_ssb_opportunity = is_ssb_opportunity && (half_frame == 0) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
+    // A few changes: 
+    // 1) q->sfn % q->ssb.cfg.periodicity_ms / 10 needs parens or else it checks a batch of SFNs in a row, rather than periodically. 
+    // 2) the SSBs only appear in even or odd SFNs. Empirical observation on local test cell, need to understand why -jsonch
+    is_ssb_opportunity = is_ssb_opportunity && (half_frame == 0) && (q->sfn % (q->ssb.cfg.periodicity_ms / 10) == (q->ssb_sfn_parity));
+    // is_ssb_opportunity = is_ssb_opportunity && (half_frame == 0) && (q->sfn % q->ssb.cfg.periodicity_ms / 10 == 0);
   }
 
   if (!is_ssb_opportunity) {
     return SRSRAN_SUCCESS;
   }
 
-  // only process 1/10 SSB candidates to save computation
+  // only process 1/opportunity_ct SSB candidates to save computation
   // TODO: clean up static variable once testing is finished
   static uint32_t opportunity_ct = (uint32_t)-1;
   if (q->skip_ssb_decode_num == 0) { return SRSRAN_SUCCESS; }
-  // printf("opportunity_ct: %u\n", opportunity_ct);
   opportunity_ct = (opportunity_ct + 1) % q->skip_ssb_decode_num;
   if (opportunity_ct != 0) { return SRSRAN_SUCCESS; }
 
@@ -263,15 +274,15 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
 
   if (!pbch_msg.crc) {
     // q->state = SRSRAN_UE_SYNC_NR_STATE_FIND;
-    // printf("[ssb-debug] PBCH CRC error. sf_idx=%u (raw=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo_hz=%.3f, delay_us=%.3f, next_rf_off=%d\n",
-          //  adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
+    printf("[ssb-debug] PBCH CRC error. adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f, delay_us=%.3f, next_rf_off=%d\n",
+           adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
     return SRSRAN_SUCCESS;
   }
   // Decode MIB to show the true SFN from the air
   srsran_mib_nr_t dbg_mib = {};
   srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
-  printf("[ssb-debug] SSB track OK: sf_idx=%u (raw=%u), sfn=%u (mib_sfn=%u), half_frame=%u (mib_hrf=%u), ssb_idx=%u, cfo=%.3f Hz, delay=%.3f us, next_rf_off=%d\n",
-         adj_sf_idx, q->sf_idx, q->sfn, dbg_mib.sfn, half_frame, pbch_msg.hrf, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
+  printf("[ssb-debug] SSB track OK: adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, next_rf_off=%d\n",
+           adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
   return ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
 }
 
