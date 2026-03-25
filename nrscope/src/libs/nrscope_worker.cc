@@ -1,4 +1,5 @@
 #include "nrscope/hdr/nrscope_worker.h"
+#include "nrscope/hdr/nrscope_print.h"
 #include <chrono>
 #include <semaphore>
 
@@ -89,7 +90,9 @@ int NRScopeWorker::InitSIBDecoder()
   if (sibs_decoder.SIBDecoderandReceptionInit(&worker_state, rf_buffer_t.to_cf_t()) < SRSASN_SUCCESS) {
     return SRSRAN_ERROR;
   }
-  std::cout << "SIBs decoder initialized..." << std::endl;
+  if (!g_silent) {
+    std::cout << "SIBs decoder initialized..." << std::endl;
+  }
   initializing = false;
   return SRSRAN_SUCCESS;
 }
@@ -104,7 +107,9 @@ int NRScopeWorker::InitRACHDecoder()
     ERROR("RACHDecoder Init Error");
     return SRSRAN_ERROR;
   }
-  std::cout << "RACH decoder initialized.." << std::endl;
+  if (!g_silent) {
+    std::cout << "RACH decoder initialized.." << std::endl;
+  }
   initializing = false;
   return SRSRAN_SUCCESS;
 }
@@ -257,9 +262,10 @@ void NRScopeWorker::Run()
     // worker_locks[worker_id].unlock();
     struct timeval t0, t1;
 
+    if (!g_silent) {
     std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn << ", slot.idx: " << slot.idx
               << std::endl;
-
+    }
     SlotResult slot_result = {};
     /* Set the all the results to be false, will be set inside the decoder
     threads */

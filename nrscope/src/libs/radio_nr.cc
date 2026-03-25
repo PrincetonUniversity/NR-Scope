@@ -1,4 +1,5 @@
 #include "nrscope/hdr/radio_nr.h"
+#include "nrscope/hdr/nrscope_print.h"
 #include <chrono>
 #include <liquid/liquid.h>
 #include <semaphore>
@@ -8,7 +9,7 @@
 
 static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
 {
-  printf("[AGC gain adj] new rx gain: %f\n", gain_db);
+  NRSCOPE_PRINT("[AGC gain adj] new rx gain: %f\n", gain_db);
   ((srsran::radio_interface_phy*)h)->set_rx_gain(gain_db);
 }
 
@@ -745,7 +746,9 @@ int Radio::FetchAndResample()
   while (true) {
     int current_value;
     sem_getvalue(&smph_sf_data_finished, &current_value);
-    std::cout << "current value: " << current_value << std::endl;
+    if (!g_silent) {
+      std::cout << "current value: " << current_value << std::endl;
+    }
     sem_wait(&smph_sf_data_finished);
 
     outcome.timestamp = last_rx_time.get(0);
@@ -774,7 +777,9 @@ int Radio::FetchAndResample()
       beyond the boundary doesn't matter */
     if (srsran_ue_sync_nr_zerocopy_twinrx_nrscope(
             &ue_sync_nr, rf_buffer_t.to_cf_t(), &outcome, rk, resample_needed, RESAMPLE_WORKER_NUM) < SRSRAN_SUCCESS) {
-      std::cout << "SYNC: error in zerocopy" << std::endl;
+      if (!g_silent) {
+        std::cout << "SYNC: error in zerocopy" << std::endl;
+      }
       logger.error("SYNC: error in zerocopy");      
       return false;
     }
@@ -793,7 +798,7 @@ int Radio::FetchAndResample()
       The synced data is stored in rf_buffer_t.to_cf_t()[0] */
     if (outcome.in_sync) {
       if (in_sync == false) {
-        printf("in_sync change to true\n");
+        NRSCOPE_PRINT("in_sync change to true\n");
       }
       in_sync = true;
       // reset metrics to avoid false overflow detection
@@ -807,7 +812,9 @@ int Radio::FetchAndResample()
     }
 
     gettimeofday(&t1, NULL);
-    std::cout << "producer time_spend: " << (t1.tv_usec - t0.tv_usec) << "(us)" << std::endl;
+    if (!g_silent) {
+      std::cout << "producer time_spend: " << (t1.tv_usec - t0.tv_usec) << "(us)" << std::endl;
+    }
   }
 
   return SRSRAN_SUCCESS;
@@ -903,7 +910,9 @@ int Radio::DecodeAndProcess()
     sem_post(&smph_sf_data_finished);
 
     gettimeofday(&t1, NULL);
-    std::cout << "consumer time_spend: " << (int)(t1.tv_usec - t0.tv_usec) << "(us)" << std::endl;
+    if (!g_silent) {
+      std::cout << "consumer time_spend: " << (int)(t1.tv_usec - t0.tv_usec) << "(us)" << std::endl;
+    }
     next_consume_at++;
     first_time = false;
   } // true loop

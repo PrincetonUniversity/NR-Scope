@@ -1,4 +1,5 @@
 #include "nrscope/hdr/rach_decoder.h"
+#include "nrscope/hdr/nrscope_print.h"
 
 std::mutex lock_rach;
 
@@ -44,7 +45,7 @@ int RachDecoder::RACHDecoderInit(WorkState state)
   ra_rnti = (uint16_t*)malloc(prach_cfg_nr.nof_subframe_number * sizeof(uint16_t));
   // ra_rnti.reserve(prach_cfg_nr.nof_subframe_number);
   nof_ra_rnti = prach_cfg_nr.nof_subframe_number;
-  // printf("rach_uplink.prach_cfg_nr.nof_subframe_number %u\n",
+  // NRSCOPE_PRINT("rach_uplink.prach_cfg_nr.nof_subframe_number %u\n",
   //  prach_cfg_nr.nof_subframe_number);
 
   // Set the config for prach_cfg
@@ -72,7 +73,7 @@ int RachDecoder::RACHDecoderInit(WorkState state)
       for (uint32_t slot_idx = 0; slot_idx < SRSRAN_NSLOTS_PER_SF_NR(base_carrier.scs); slot_idx++) {
         t_idx[t_idx_id * SRSRAN_NSLOTS_PER_SF_NR(base_carrier.scs) + slot_idx] =
             prach_cfg_nr.subframe_number[t_idx_id] * SRSRAN_NSLOTS_PER_SF_NR(base_carrier.scs) + slot_idx;
-        // printf("prach_cfg_nr.subframe_number[t_idx_id] * SRSRAN_NSLOTS_PER_SF_NR(carrier_input.scs) + slot_idx:
+        // NRSCOPE_PRINT("prach_cfg_nr.subframe_number[t_idx_id] * SRSRAN_NSLOTS_PER_SF_NR(carrier_input.scs) + slot_idx:
         // %u\n", prach_cfg_nr.subframe_number[t_idx_id] * SRSRAN_NSLOTS_PER_SF_NR(base_carrier.scs) + slot_idx);
       }
     }
@@ -100,11 +101,11 @@ int RachDecoder::RACHDecoderInit(WorkState state)
     TS 38.321, and from Section 5.3.2, TS 38.211). */
   // f_id = index of the PRACH occation in the freq domain (0 <= f_id < 8).
   // ul_carrier_id = 0 for NUL and 1 for SUL carrier.
-  // printf("nof_ra_rnti: %u\n", nof_ra_rnti);
+  // NRSCOPE_PRINT("nof_ra_rnti: %u\n", nof_ra_rnti);
   for (uint32_t i = 0; i < nof_ra_rnti; i++) {
-    // printf("t_id[%u]: %d\n", i, t_idx[i]);
+    // NRSCOPE_PRINT("t_id[%u]: %d\n", i, t_idx[i]);
     ra_rnti[i] = 1 + prach_cfg_nr.starting_symbol + 14 * t_idx[i] + 14 * 80 * 0 + 14 * 80 * 8 * sul_idx;
-    // printf("ra_rnti[%u]: %u\n", i, ra_rnti[i]);
+    // NRSCOPE_PRINT("ra_rnti[%u]: %u\n", i, ra_rnti[i]);
   }
 
   return SRSRAN_SUCCESS;
@@ -309,7 +310,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
   // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_rach.pdcch_info_count; pdcch_idx++) {
   //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_rach.pdcch_info[pdcch_idx]);
   //   if(info->result.crc){ // Only print the RSRP result when the DCI's CRC is correct.
-  //     printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
+  //     NRSCOPE_PRINT("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
   //       "nof_bits=%d; crc=%s;\n",
   //       srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
   //       info->dci_ctx.rnti,
@@ -326,14 +327,14 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
   // }
 
   if (nof_found_dci < 1) {
-    printf("RACHDecoder -- No DCI found :'(\n");
+    NRSCOPE_PRINT("RACHDecoder -- No DCI found :'(\n");
     return SRSRAN_ERROR;
   }
 
   for (int dci_id = 0; dci_id < nof_found_dci; dci_id++) {
     char str[1024] = {};
     srsran_dci_dl_nr_to_str(&(ue_dl_rach.dci), &dci_rach[dci_id], str, (uint32_t)sizeof(str));
-    printf("RACHDecoder -- Found DCI: %s\n", str);
+    NRSCOPE_PRINT("RACHDecoder -- Found DCI: %s\n", str);
     tc_rnti = dci_rach[dci_id].ctx.rnti;
 
     if (state->rach_found) {
@@ -354,7 +355,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
     }
 
     srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-    printf("PDSCH_cfg:\n%s", str);
+    NRSCOPE_PRINT("PDSCH_cfg:\n%s", str);
 
     if (srsran_softbuffer_rx_init_guru(&softbuffer, SRSRAN_SCH_NR_MAX_NOF_CB_LDPC, SRSRAN_LDPC_MAX_LEN_ENCODED_CB) <
         SRSRAN_SUCCESS) {
@@ -374,11 +375,11 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
 
     // Decode PDSCH
     if (srsran_ue_dl_nr_decode_pdsch(&ue_dl_pdsch, slot, &pdsch_cfg, &pdsch_res) < SRSRAN_SUCCESS) {
-      printf("Error decoding PDSCH search\n");
+      NRSCOPE_PRINT("Error decoding PDSCH search\n");
       return SRSRAN_ERROR;
     }
 
-    // printf("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
+    // NRSCOPE_PRINT("Decoded PDSCH (%d B)\n", pdsch_cfg.grant.tb[0].tbs / 8);
     // srsran_vec_fprint_byte(stdout, pdsch_res.tb[0].payload,
     //    pdsch_cfg.grant.tb[0].tbs / 8);
     uint32_t bytes_offset = 0;
@@ -391,7 +392,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
     }
 
     if (!pdsch_res.tb[0].crc) {
-      printf("RACHDecoder -- Error decoding PDSCH (CRC)\n");
+      NRSCOPE_PRINT("RACHDecoder -- Error decoding PDSCH (CRC)\n");
 
       return SRSRAN_ERROR;
     }
@@ -433,7 +434,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
       } break;
       case asn1::rrc_nr::dl_ccch_msg_type_c::c1_c_::types::rrc_setup: {
         std::cout << "It's a rrc_setup, hooray!" << std::endl;
-        printf("rrc-TransactionIdentifier: %u\n", (result->rrc_setup).rrc_transaction_id);
+        NRSCOPE_PRINT("rrc-TransactionIdentifier: %u\n", (result->rrc_setup).rrc_transaction_id);
         result->found_rach = true;
       } break;
       default: {
@@ -444,7 +445,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
 
     // asn1::json_writer js_msg4;
     // result->rrc_setup.to_json(js_msg4);
-    // printf("rrcSetup content: %s\n", js_msg4.to_string().c_str());
+    // NRSCOPE_PRINT("rrcSetup content: %s\n", js_msg4.to_string().c_str());
     asn1::cbit_ref bref_cg((result->rrc_setup).crit_exts.rrc_setup().master_cell_group.data(),
                            (result->rrc_setup).crit_exts.rrc_setup().master_cell_group.size());
     if ((result->master_cell_group).unpack(bref_cg) != asn1::SRSASN_SUCCESS) {
@@ -454,7 +455,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
 
     asn1::json_writer js;
     result->master_cell_group.to_json(js);
-    printf("masterCellGroup: %s\n", js.to_string().c_str());
+    NRSCOPE_PRINT("masterCellGroup: %s\n", js.to_string().c_str());
 
     if (!(result->master_cell_group).sp_cell_cfg.recfg_with_sync.new_ue_id) {
       c_rnti = tc_rnti;

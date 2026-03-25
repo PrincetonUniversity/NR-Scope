@@ -664,6 +664,7 @@ endfunction()
 ########################################################################
 include_directories(${PROJECT_BINARY_DIR}/lib/include)
 include_directories(${PROJECT_SOURCE_DIR}/lib/include)
+include_directories(${PROJECT_SOURCE_DIR}/nrscope/hdr)
 
 ########################################################################
 # Add headers to cmake project (useful for IDEs)

@@ -17,6 +17,7 @@
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/radio_nr.h"
 #include "nrscope/hdr/rrc_recfg_parse.h"
+#include "nrscope/hdr/nrscope_print.h"
 
 #include "srsran/phy/ue/srsgui_plot.h"
 
@@ -203,6 +204,11 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
     if (config_yaml[setting_name]["exit_on_overflow"]) {
       std::cout << "    exit_on_overflow: " << config_yaml[setting_name]["exit_on_overflow"].as<bool>() << std::endl;
       radios[i].exit_on_overflow = config_yaml[setting_name]["exit_on_overflow"].as<bool>();      
+    }
+
+    if (config_yaml[setting_name]["silent"]) {
+      g_silent = config_yaml[setting_name]["silent"].as<bool>();
+      std::cout << "    silent_mode: " << g_silent << std::endl;
     }
 
 

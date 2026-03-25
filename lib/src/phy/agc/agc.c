@@ -21,6 +21,8 @@
 
 #include <complex.h>
 
+#include "nrscope_print.h"
+
 #include "srsran/phy/agc/agc.h"
 #include "srsran/phy/utils/debug.h"
 #include "srsran/phy/utils/vector.h"
@@ -229,7 +231,7 @@ void srsran_agc_process(srsran_agc_t* q, cf_t* signal, uint32_t len)
     srsran_vec_sc_prod_cfc(signal, srsran_convert_dB_to_amplitude(q->gain_db), signal, len);
   }
 
-  printf("[AGC test] trigger process\n");
+  NRSCOPE_PRINT("[AGC test] HERE -- trigger process\n");
 
   // Run FSM state
   switch (q->state) {
