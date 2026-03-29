@@ -24,7 +24,7 @@ Any rebuilds of nrscope (i.e., `cd build; make`) will also be linked to the loca
 
 ### Notes
 
-There are 3 important details in the config file:
+There are several important details in the config file:
 
 1. The `rf_arg` `extension=sc2430` flag tells the UHD driver to use the sc2430 extension, e.g.: `rf_args: "clock=external,type=x4xx,extension=sc2430`. If using the x410 alone, simply remove the argument.
 
@@ -39,3 +39,5 @@ There are 3 important details in the config file:
 - Running nrscope with a higher priority may reduce receive buffer overflows, e.g.: `sudo nice -n -10 ./nrscope-sc2430`
 
 - On a machine with multiple NUMA nodes, it is **VERY IMPORTANT** for performance to limit `nrscope` to a single NUMA node, e.g.: `sudo numactl --cpunodebind=0 --membind=0 nice -n -10 ./nrscope-sc2430`. The bottleneck is in the memcopy in FetchAndDecode, from frontend subframes to worker slots.
+
+- NR-Scope decoding workers may be configured to use multiple threads internally. In most cases, performance will be better if each worker is limited to a single thread. using the config option `single_threaded_workers: true`. Note, this may require increasing the number of workers.
