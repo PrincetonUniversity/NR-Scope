@@ -181,6 +181,7 @@ struct WorkState_ {
   uint32_t nof_rnti_worker_groups;
   uint8_t  nof_bwps;
   bool     cpu_affinity;
+  bool     single_threaded_workers;
 
   uint32_t slot_sz;
 

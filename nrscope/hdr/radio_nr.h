@@ -72,6 +72,7 @@ public:
   uint32_t nof_rnti_worker_groups;
   uint8_t  nof_bwps;
   uint32_t nof_workers;
+  bool     single_threaded_workers;
 
   NRScopeTask::TaskSchedulerNRScope task_scheduler_nrscope;
 

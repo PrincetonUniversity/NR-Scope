@@ -72,6 +72,7 @@ public:
   
 private:
   void Run();
+  void RunSingleThreaded();
 };
 
 }

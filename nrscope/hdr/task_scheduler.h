@@ -47,6 +47,7 @@ public:
                    int                  rf_index_,
                    int32_t              nof_threads,
                    uint32_t             nof_rnti_worker_groups,
+                   bool                 single_threaded_workers,
                    uint8_t              nof_bwps,
                    bool                 cpu_affinity,
                    cell_searcher_args_t args_t,
@@ -61,7 +62,7 @@ public:
 
   int UpdateStateandLog();
 
-  int UpdatewithResult(SlotResult now_result);
+  int UpdatewithResult(const SlotResult& now_result);
 
   void UpdateNextResult();
 

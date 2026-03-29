@@ -251,8 +251,107 @@ int NRScopeWorker::MergeResults()
   return SRSRAN_SUCCESS;
 }
 
-void NRScopeWorker::Run()
+
+void NRScopeWorker::RunSingleThreaded() 
+  // Run everything in one thread.
+  // Parallelize by adding more workers rather than spawning threads in each worker.
 {
+  while (true) {
+    /* When there is a job, the semaphore is set and buffer is copied */
+    sem_wait(&smph_has_job);
+    // worker_locks[worker_id].lock();
+    // busy = true;
+    busy.store(true, std::memory_order_release);
+    // worker_locks[worker_id].unlock();
+    // struct timeval t0, t1;
+
+    if (!g_silent) {
+    std::cout << "Processing sf_round: " << sf_round << ", sfn: " << outcome.sfn << ", slot.idx: " << slot.idx
+              << std::endl;
+    }
+    SlotResult slot_result = {};
+    /* Set the all the results to be false, will be set inside the decoder
+    threads */
+    slot_result.sib_result  = false;
+    slot_result.rach_result = false;
+    slot_result.dci_result  = false;
+    slot_result.slot        = slot;
+    slot_result.outcome     = outcome;
+    slot_result.sf_round    = sf_round;
+
+    /* Put the initialization delay into the worker's thread */
+    if (!worker_state.sib1_inited) {
+      InitSIBDecoder();
+      worker_state.sib1_inited = true;
+    }
+
+    if (!worker_state.rach_inited && worker_state.sib1_found) {
+      InitRACHDecoder();
+      worker_state.rach_inited = true;
+    }
+
+    if (!worker_state.dci_inited && worker_state.rach_found) {
+      InitDCIDecoders();
+      worker_state.dci_inited = true;
+    }
+
+
+    if (worker_state.sib1_inited and !worker_state.sib1_found) {
+    TSTART(t_sibs_decode)
+      sibs_decoder.DecodeandParseSIB1fromSlot(&slot, &worker_state, &slot_result);
+    TEND(t_sibs_decode)
+    }
+    if (worker_state.rach_inited) {
+    TSTART(t_rach_decode)
+      rach_decoder.DecodeandParseMS4fromSlot(&slot, &worker_state, &slot_result);
+    TEND(t_rach_decode)
+    }
+    if (worker_state.dci_inited) {
+      TSTART(t_dci_decode)
+      slot_result.dci_result = true;
+      dl_prb_rate.resize(worker_state.nof_known_rntis);
+      ul_prb_rate.resize(worker_state.nof_known_rntis);
+      dl_prb_bits_rate.resize(worker_state.nof_known_rntis);
+      ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
+      dci_decoders[0]->DecodeandParseDCIfromSlot(&slot,
+                                                  &worker_state,
+                                                  sharded_results,
+                                                  sharded_rntis,
+                                                  nof_sharded_rntis,
+                                                  dl_prb_rate,
+                                                  dl_prb_bits_rate,
+                                                  ul_prb_rate,
+                                                  ul_prb_bits_rate);
+                                                  
+      MergeResults();
+      slot_result.dci_feedback_results = results;
+    TEND(t_dci_decode)
+    }
+
+    /* Post the result into the result queue*/
+    TSTART(t_results_lock)
+    queue_lock.lock();
+    TEND(t_results_lock)
+    TSTART(t_push_result)
+    global_slot_results.push_back(slot_result);
+    // global_slot_results.push_back(std::move(slot_result));
+    TEND(t_push_result)
+    TSTART(t_results_unlock)
+    queue_lock.unlock();
+    TEND(t_results_unlock)
+    busy.store(false, std::memory_order_release);
+    sem_post(&smph_idle);      
+  } // End thread while loop
+}
+
+
+void NRScopeWorker::Run() // Main thread of backend worker
+{
+  // Inline everything in this mode, parallelize by adding workers.
+  if (worker_state.single_threaded_workers) {
+    RunSingleThreaded();
+    return;
+  }
   while (true) {
     /* When there is a job, the semaphore is set and buffer is copied */
     sem_wait(&smph_has_job);
@@ -333,45 +432,45 @@ void NRScopeWorker::Run()
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
 
       gettimeofday(&t0, NULL);
-      if (worker_state.cpu_affinity) {
-        for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
-          cpu_set_t cpu_set_dci;
-          CPU_ZERO(&cpu_set_dci);
-          CPU_SET(worker_id * (3 + worker_state.nof_threads) + i + 3, &cpu_set_dci);
-          dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
-                                   dci_decoders[i].get(),
-                                   &slot,
-                                   &worker_state,
-                                   std::ref(sharded_results),
-                                   std::ref(sharded_rntis),
-                                   std::ref(nof_sharded_rntis),
-                                   std::ref(dl_prb_rate),
-                                   std::ref(dl_prb_bits_rate),
-                                   std::ref(ul_prb_rate),
-                                   std::ref(ul_prb_bits_rate));
-          assert(pthread_setaffinity_np(dci_threads[i].native_handle(), sizeof(cpu_set_t), &cpu_set_dci) == 0);
+        if (worker_state.cpu_affinity) {
+          for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
+            cpu_set_t cpu_set_dci;
+            CPU_ZERO(&cpu_set_dci);
+            CPU_SET(worker_id * (3 + worker_state.nof_threads) + i + 3, &cpu_set_dci);
+            dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
+                                    dci_decoders[i].get(),
+                                    &slot,
+                                    &worker_state,
+                                    std::ref(sharded_results),
+                                    std::ref(sharded_rntis),
+                                    std::ref(nof_sharded_rntis),
+                                    std::ref(dl_prb_rate),
+                                    std::ref(dl_prb_bits_rate),
+                                    std::ref(ul_prb_rate),
+                                    std::ref(ul_prb_bits_rate));
+            assert(pthread_setaffinity_np(dci_threads[i].native_handle(), sizeof(cpu_set_t), &cpu_set_dci) == 0);
+          }
+        } else {
+          for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
+            dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
+                                    dci_decoders[i].get(),
+                                    &slot,
+                                    &worker_state,
+                                    std::ref(sharded_results),
+                                    std::ref(sharded_rntis),
+                                    std::ref(nof_sharded_rntis),
+                                    std::ref(dl_prb_rate),
+                                    std::ref(dl_prb_bits_rate),
+                                    std::ref(ul_prb_rate),
+                                    std::ref(ul_prb_bits_rate));
+          }
         }
-      } else {
-        for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
-          dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
-                                   dci_decoders[i].get(),
-                                   &slot,
-                                   &worker_state,
-                                   std::ref(sharded_results),
-                                   std::ref(sharded_rntis),
-                                   std::ref(nof_sharded_rntis),
-                                   std::ref(dl_prb_rate),
-                                   std::ref(dl_prb_bits_rate),
-                                   std::ref(ul_prb_rate),
-                                   std::ref(ul_prb_bits_rate));
-        }
-      }
 
-      for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
-        if (dci_threads[i].joinable()) {
-          dci_threads[i].join();
+        for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
+          if (dci_threads[i].joinable()) {
+            dci_threads[i].join();
+          }
         }
-      }
       gettimeofday(&t1, NULL);
     }
 

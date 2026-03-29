@@ -148,10 +148,19 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
         radios[i].google_dataset_id = config_yaml[setting_name]["google_dataset_id"].as<string>();
       }
 
+      if (config_yaml[setting_name]["single_threaded_workers"]) {
+        radios[i].single_threaded_workers = config_yaml[setting_name]["single_threaded_workers"].as<bool>();
+      } else {
+        radios[i].single_threaded_workers = false;
+      }
+
       if (config_yaml[setting_name]["nof_rnti_worker_groups"]) {
         radios[i].nof_rnti_worker_groups = config_yaml[setting_name]["nof_rnti_worker_groups"].as<int>();
       } else {
         radios[i].nof_rnti_worker_groups = 1;
+      }
+      if (radios[i].single_threaded_workers && radios[i].nof_rnti_worker_groups > 1) {
+        ERROR("The single_threaded_workers = false and nof_rnti_worker_groups = X options may not be combined");        
       }
 
       radios[i].nof_threads = radios[i].nof_rnti_worker_groups;

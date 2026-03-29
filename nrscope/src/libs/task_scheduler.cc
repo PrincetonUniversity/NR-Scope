@@ -24,6 +24,7 @@ int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
                                        int                  rf_index_,
                                        int32_t              nof_threads,
                                        uint32_t             nof_rnti_worker_groups,
+                                       bool                 single_threaded_workers,
                                        uint8_t              nof_bwps,
                                        bool                 cpu_affinity,
                                        cell_searcher_args_t args_t,
@@ -35,6 +36,7 @@ int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
   rf_index                                    = rf_index_;
   task_scheduler_state.nof_threads            = nof_threads;
   task_scheduler_state.nof_rnti_worker_groups = nof_rnti_worker_groups;
+  task_scheduler_state.single_threaded_workers = single_threaded_workers;
   task_scheduler_state.nof_bwps               = nof_bwps;
   task_scheduler_state.args_t                 = args_t;
   task_scheduler_state.slot_sz = (uint32_t)(args_t.srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));
@@ -179,7 +181,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
   return SRSRAN_SUCCESS;
 }
 
-int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result)
+int TaskSchedulerNRScope::UpdatewithResult(const SlotResult& now_result) // Pass by reference
 {
   task_scheduler_lock.lock();
   double now = get_now_timestamp_in_double();
@@ -283,9 +285,11 @@ int TaskSchedulerNRScope::UpdatewithResult(SlotResult now_result)
 
   /* This slot contains the DCI decoder's result, put all the results to log */
   if (now_result.dci_result) {
-    std::vector<DCIFeedback> results = now_result.dci_feedback_results;
+    // std::vector<DCIFeedback> results = now_result.dci_feedback_results;
+    auto& results = now_result.dci_feedback_results; // copy isn't necessary
     for (uint8_t b = 0; b < task_scheduler_state.nof_bwps; b++) {
-      DCIFeedback result = results[b];
+      // DCIFeedback result = results[b];
+      const auto& result = results[b]; // avoid copy
       if ((result.dl_grants.size() > 0 or result.ul_grants.size() > 0)) {
         for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++) {
           if (result.dl_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
@@ -397,6 +401,7 @@ void TaskSchedulerNRScope::UpdateNextResult()
 }
 
 void TaskSchedulerNRScope::Run()
+  /* Extracts results from global queue, updates state shared by all workers. */
 {
   while (true) {
     /* Try to extract results from the global result queue*/
@@ -465,7 +470,9 @@ void TaskSchedulerNRScope::TasksDispatch()
     s.processed.store(true, std::memory_order_release);
     current_slot_idx.store((i + 1) % slot_data_len, std::memory_order_relaxed);
 
-    w.SyncState(&task_scheduler_state);
+    task_scheduler_lock.lock();
+    w.SyncState(&task_scheduler_state); 
+    task_scheduler_lock.unlock();
     sem_post(&w.smph_has_job);
   }
 }
@@ -526,7 +533,7 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t                    sf_round,
   if (!slot_data[i].processed.load(std::memory_order_acquire)) {
     missed_slots++;
     if (missed_slots % 1000 == 0) {
-      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %u). Consider improving processing throughput.", missed_slots);
+      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %lu). Consider improving processing throughput.", missed_slots);
     }
   }
 

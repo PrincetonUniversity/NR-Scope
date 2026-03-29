@@ -500,6 +500,7 @@ int Radio::RadioInitandStart()
                                       rf_index,
                                       nof_threads,
                                       nof_rnti_worker_groups,
+                                      single_threaded_workers,
                                       nof_bwps,
                                       cpu_affinity,
                                       args_t,
@@ -877,7 +878,8 @@ int Radio::DecodeAndProcess()
         // reinitialize the sem
         if (slot_idx == 0) {
           // std::cout << "Reinitializing smph_sf_data_finished" << std::endl;
-          int desired_value = 0; // Or any other desired reset value
+          // NOTE: desired_value = 0 will completely serialize the producer and consumer!
+          int desired_value = 1; // Or any other desired reset value
           int current_value;
 
           do {
@@ -925,8 +927,11 @@ int Radio::RadioCapture()
   std::thread fetch_thread{&Radio::FetchAndResample, this};
   std::thread deco_thread{&Radio::DecodeAndProcess, this};
 
-  while (true) {
-  }
+  fetch_thread.join();
+  deco_thread.join();
+
+  // while (true) {
+  // }
 
   return SRSRAN_SUCCESS;
 }
