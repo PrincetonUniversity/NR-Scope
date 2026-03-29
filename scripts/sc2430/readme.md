@@ -37,3 +37,5 @@ There are 3 important details in the config file:
 - Use a large MTU (e.g., 9000) for the interface connected to the x410.
 
 - Running nrscope with a higher priority may reduce receive buffer overflows, e.g.: `sudo nice -n -10 ./nrscope-sc2430`
+
+- On a machine with multiple NUMA nodes, it is **VERY IMPORTANT** for performance to limit `nrscope` to a single NUMA node, e.g.: `sudo numactl --cpunodebind=0 --membind=0 nice -n -10 ./nrscope-sc2430`. The bottleneck is in the memcopy in FetchAndDecode, from frontend subframes to worker slots.
