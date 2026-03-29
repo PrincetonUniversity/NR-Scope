@@ -39,6 +39,7 @@ int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_)
   /* Copy initial values */
   worker_state.nof_threads            = task_scheduler_state.nof_threads;
   worker_state.nof_rnti_worker_groups = task_scheduler_state.nof_rnti_worker_groups;
+  worker_state.single_threaded_workers = task_scheduler_state.single_threaded_workers;
   worker_state.nof_bwps               = task_scheduler_state.nof_bwps;
   worker_state.args_t                 = task_scheduler_state.args_t;
   worker_state.slot_sz                = task_scheduler_state.slot_sz;
