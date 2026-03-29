@@ -227,10 +227,18 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
   const auto   nof_cores      = std::thread::hardware_concurrency();
   unsigned int required_cores = 0;
   for (int i = 0; i < nof_usrp; i++) {
+    if (radios[i].nof_bwps > 1) {
+      ERROR("Multiple BWPs not yet supported");
+      return NR_FAILURE;
+    }
     if (radios[i].cpu_affinity) {
+      if (radios[i].single_threaded_workers) {
+        required_cores += radios[i].nof_workers;
+      } else {
       /* One for SIB thread, one RACH thread,
        and nof_bwp * nof_rnti_group for DCI decoding*/
       required_cores += radios[i].nof_workers * (3 + radios[i].nof_bwps * radios[i].nof_rnti_worker_groups);
+      }
     }
   }
   if (required_cores > nof_cores) {
