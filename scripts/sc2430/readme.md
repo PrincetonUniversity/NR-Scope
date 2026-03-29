@@ -32,6 +32,15 @@ There are several important details in the config file:
 
 3. We use `srate_hz: 122880000` and `srsran_srate_hz: 122880000` to monitor 122.88 Mhz. This is 1/2 the clock rate of the x410, to reduce processing cost. Since it is an integer factor, resampling is not required, which would be an added cost.
 
+4. `single_threaded_workers: true` makes each worker compute in their single thread, rather than spawning new threads. This should improve performance and reduce the number of overall threads, but may require a higher worker count.
+
+5. `exit_on_overflow: true` aborts when an overflow is detected in the frontend.
+
+6. `silent: true` suppresses many info messages to stdout.
+
+7. `skip_ssb_decode_num: 0` leaves ssb decoding in the track phase disabled. Set this to 1 to decode every SSB, or a multiple of 10 to decode SSBs periodically. SSB decoding in the track phase can help maintain synchronization in long runs of NR-Scope.
+
+
 ### Tuning Notes
 
 - Use a large MTU (e.g., 9000) for the interface connected to the x410.
