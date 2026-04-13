@@ -73,7 +73,7 @@ typedef enum {
 /**
  * List of devices that do NOT support dynamic master-clock-rate
  */
-const std::set<std::string> RH_UHD_IMP_FIX_MASTER_CLOCK_RATE_DEVICE_LIST = {"x300", "n3xx", "e3x0"};
+const std::set<std::string> RH_UHD_IMP_FIX_MASTER_CLOCK_RATE_DEVICE_LIST = {"x300", "n3xx", "e3x0", "x4xx"};
 
 /**
  * List of devices that do NOT support stream stop/start after a time out
@@ -81,12 +81,13 @@ const std::set<std::string> RH_UHD_IMP_FIX_MASTER_CLOCK_RATE_DEVICE_LIST = {"x30
 const std::set<std::string> RF_UHD_IMP_PROHIBITED_STREAM_REMAKE = {DEVNAME_X300,
                                                                    DEVNAME_N300,
                                                                    DEVNAME_E3X0,
-                                                                   DEVNAME_B200};
+                                                                   DEVNAME_B200,
+                                                                   DEVNAME_X400};
 
 /**
  * List of devices that do NOT support end of burst flushing
  */
-const std::set<std::string> RF_UHD_IMP_PROHIBITED_EOB_FLUSH = {DEVNAME_X300, DEVNAME_N300};
+const std::set<std::string> RF_UHD_IMP_PROHIBITED_EOB_FLUSH = {DEVNAME_X300, DEVNAME_N300, DEVNAME_X400};
 
 /**
  * List of devices that do NOT require/support to restart streaming after rate changes/timeouts
@@ -96,7 +97,7 @@ const std::set<std::string> RF_UHD_IMP_PROHIBITED_STOP_START = {DEVNAME_B200};
 /**
  * List of devices that work better if timespec is sent at the start of the burst only
  */
-const std::set<std::string> RF_UHD_IMP_TIMESPEC_AT_BURST_START_ONLY = {DEVNAME_X300, DEVNAME_N300};
+const std::set<std::string> RF_UHD_IMP_TIMESPEC_AT_BURST_START_ONLY = {DEVNAME_X300, DEVNAME_N300, DEVNAME_X400};
 
 /**
  * Defines a delay used between the current USRP time and the start of the transmission. This value needs to be high
@@ -689,6 +690,8 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
       type = "e3x0";
     } else if (find_string(devices_str, "type=n3xx")) {
       type = "n3xx";
+    } else if (find_string(devices_str, "type=x4xx")) {
+      type = "x4xx";
     }
 
     if (not type.empty()) {
@@ -777,7 +780,9 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
 
   // Set device internal name, it sets the device name to B200 by default
   if (device_addr.has_key("type")) {
-    if (device_addr["type"] == "x300") {
+    if (device_addr["type"] == "x4xx") {
+      handler->devname = DEVNAME_X400;
+    } else if (device_addr["type"] == "x300") {
       handler->devname = DEVNAME_X300;
     } else if (device_addr["type"] == "n3xx") {
       handler->devname = DEVNAME_N300;
