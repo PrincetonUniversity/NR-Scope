@@ -16,5 +16,7 @@ extern bool g_silent;
 // #define TSTART(name) struct timeval name##_t0, name##_t1; gettimeofday(&name##_t0, NULL);
 // #define TEND(name)   gettimeofday(&name##_t1, NULL); \
 //   printf(#name ": %ld (us)\n", (name##_t1.tv_sec - name##_t0.tv_sec) * 1000000L + (name##_t1.tv_usec - name##_t0.tv_usec));
+
+
 #define TSTART(name)
 #define TEND(name)
