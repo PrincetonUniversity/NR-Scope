@@ -170,7 +170,8 @@ static int ue_sync_nr_update_ssb(srsran_ue_sync_nr_t*                 q,
 
 
   // Transition to track only if the measured delay is below 2.4 microseconds
-  if (measurements->delay_us < 2.4f) { // <- should be abs(measurements->delay_us) < 2.4f
+  // and we are not already in track
+  if (q->state != SRSRAN_UE_SYNC_NR_STATE_TRACK && measurements->delay_us < 2.4f) { // <- should be abs(measurements->delay_us) < 2.4f
     printf("Transition to SRSRAN_UE_SYNC_NR_STATE_TRACK\n");
     printf("measurements->delay_us: %f\n", measurements->delay_us);
     q->state = SRSRAN_UE_SYNC_NR_STATE_TRACK;
@@ -211,7 +212,7 @@ static int ue_sync_nr_run_find(srsran_ue_sync_nr_t* q, cf_t* buffer)
   // (q->sfn + 1) to flip partity due to sfn value being updated after parity check during track.
   q->ssb_sfn_parity = (q->sfn + 1) % (q->ssb.cfg.periodicity_ms / 10);
 
-  printf("[ssb-debug] SSB find OK: sf_idx=%u, sfn=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, ssb_sfn_parity=%u\n",
+  printf("SSBTracker Found SSB: sf_idx=%u, sfn=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, ssb_sfn_parity=%u\n",
          q->sf_idx, q->sfn, pbch_msg.ssb_idx, measurements.cfo_hz, measurements.delay_us, q->ssb_sfn_parity);
 
   return rv;
@@ -274,14 +275,14 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
 
   if (!pbch_msg.crc) {
     // q->state = SRSRAN_UE_SYNC_NR_STATE_FIND;
-    printf("[ssb-debug] PBCH CRC error. adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f, delay_us=%.3f, next_rf_off=%d\n",
+    printf("SSBTracker PBCH CRC error. adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f, delay_us=%.3f, next_rf_off=%d\n",
            adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
     return SRSRAN_SUCCESS;
   }
   // Decode MIB to show the true SFN from the air
   srsran_mib_nr_t dbg_mib = {};
   srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
-  printf("[ssb-debug] SSB track OK: adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, next_rf_off=%d\n",
+  printf("SSBTracker Found SSB: adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, next_rf_off=%d\n",
            adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
   return ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
 }
