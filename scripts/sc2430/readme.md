@@ -49,4 +49,6 @@ There are several important details in the config file:
 
 - On a machine with multiple NUMA nodes, it is **VERY IMPORTANT** for performance to limit `nrscope` to a single NUMA node, e.g.: `sudo numactl --cpunodebind=0 --membind=0 nice -n -10 ./nrscope-sc2430`. The bottleneck is in the memcopy in FetchAndDecode, from frontend subframes to worker slots.
 
+- For best NUMA performance, bind to the NUMA node connected to the interface attached to the SDR. `cat /sys/class/net/<MY_INTERFACE_NAME>/device/numa_node` will return the NUMA node id to put into the `--cpunodebind=0 --membind=0` of `numactl`
+
 - NR-Scope decoding workers may be configured to use multiple threads internally. In most cases, performance will be better if each worker is limited to a single thread. using the config option `single_threaded_workers: true`. Note, this may require increasing the number of workers.
