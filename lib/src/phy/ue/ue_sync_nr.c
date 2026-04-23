@@ -183,6 +183,27 @@ static int ue_sync_nr_update_ssb(srsran_ue_sync_nr_t*                 q,
   return SRSRAN_SUCCESS;
 }
 
+
+// typedef struct SRSRAN_API {
+//   float    rsrp;       ///< Linear scale RSRP
+//   float    rsrp_dB;    ///< Logarithm scale RSRP relative to full-scale
+//   float    epre;       ///< Linear scale EPRE
+//   float    epre_dB;    ///< Logarithm scale EPRE relative to full-scale
+//   float    n0;         ///< Linear noise level
+//   float    n0_dB;      ///< Logarithm scale noise level relative to full-scale
+//   float    snr_dB;     ///< Signal to noise ratio in decibels
+//   float    cfo_hz;     ///< Carrier frequency offset in Hz. Only set if more than 2 symbols are available in a TRS set
+//   float    cfo_hz_max; ///< Maximum CFO in Hz that can be measured. It is set to 0 if CFO cannot be estimated
+//   float    delay_us;   ///< Average measured delay in microseconds
+//   uint32_t nof_re;     ///< Number of available RE for the measurement, it can be used for weighting among different
+//   ///< measurements
+void print_ssb_meas(srsran_ue_sync_nr_t* q, srsran_csi_trs_measurements_t* measurements, const char* prefix) {
+  printf("%s rsrp=%f, rsrp_dB=%f, epre=%f, epre_dB=%f, n0=%f, n0_dB=%f, snr_dB=%f, cfo_hz=%f, cfo_hz_max=%f, delay_us=%f, nof_re=%u\n",
+         prefix, measurements->rsrp, measurements->rsrp_dB, measurements->epre, measurements->epre_dB, measurements->n0, measurements->n0_dB,
+         measurements->snr_dB, measurements->cfo_hz, measurements->cfo_hz_max, measurements->delay_us, measurements->nof_re);
+}
+
+
 static int ue_sync_nr_run_find(srsran_ue_sync_nr_t* q, cf_t* buffer)
 {
   srsran_csi_trs_measurements_t measurements = {};
@@ -212,8 +233,9 @@ static int ue_sync_nr_run_find(srsran_ue_sync_nr_t* q, cf_t* buffer)
   // (q->sfn + 1) to flip partity due to sfn value being updated after parity check during track.
   q->ssb_sfn_parity = (q->sfn + 1) % (q->ssb.cfg.periodicity_ms / 10);
 
-  printf("SSBTracker Found SSB: sf_idx=%u, sfn=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, ssb_sfn_parity=%u\n",
-         q->sf_idx, q->sfn, pbch_msg.ssb_idx, measurements.cfo_hz, measurements.delay_us, q->ssb_sfn_parity);
+  printf("SSBTracker (sync phase) found SSB: sf_idx=%u, sfn=%u, ssb_idx=%u, ssb_sfn_parity=%u\n",
+         q->sf_idx, q->sfn, pbch_msg.ssb_idx, q->ssb_sfn_parity);
+  print_ssb_meas(q, &measurements, "SSBTracker (sync phase) SSB measurements:");
 
   return rv;
 }
@@ -251,39 +273,23 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
   opportunity_ct = (opportunity_ct + 1) % q->skip_ssb_decode_num;
   if (opportunity_ct != 0) { return SRSRAN_SUCCESS; }
 
-
-
-  // if (opportunity_ct < (DECODE_SSB_INTERVAL - 1)) {
-  //   opportunity_ct++;
-  //   return SRSRAN_SUCCESS;
-  // } else {
-  //   opportunity_ct = 0;    
-  // }
-  // if (opportunity_ct != 9) {
-  //   opportunity_ct++;
-  //   return SRSRAN_SUCCESS; 
-  // } else {
-  //   opportunity_ct = 0;    
-  // }
-
-
   // Measure PSS/SSS and decode PBCH
   if (srsran_ssb_track(&q->ssb, buffer, q->N_id, q->ssb_idx, half_frame, &measurements, &pbch_msg) < SRSRAN_SUCCESS) {
     ERROR("Error finding SSB");
     return SRSRAN_ERROR;
   }
 
+  print_ssb_meas(q, &measurements, "SSBTracker (track phase) SSB measurements:");
   if (!pbch_msg.crc) {
     // q->state = SRSRAN_UE_SYNC_NR_STATE_FIND;
-    printf("SSBTracker PBCH CRC error. adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f, delay_us=%.3f, next_rf_off=%d\n",
-           adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
+    printf("SSBTracker (track phase) PBCH CRC error: sf_idx=%u, sfn=%u, ssb_idx=%u, ssb_sfn_parity=%u\n",
+          q->sf_idx, q->sfn, pbch_msg.ssb_idx, q->ssb_sfn_parity);
     return SRSRAN_SUCCESS;
   }
   // Decode MIB to show the true SFN from the air
-  srsran_mib_nr_t dbg_mib = {};
-  srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
-  printf("SSBTracker Found SSB: adj_sf_idx=%u (raw_sf_idx=%u), sfn=%u, half_frame=%u, ssb_idx=%u, cfo=%.3f Hz, delay_us=%.3f, next_rf_off=%d\n",
-           adj_sf_idx, q->sf_idx, q->sfn, half_frame, q->ssb_idx, measurements.cfo_hz, measurements.delay_us, q->next_rf_sample_offset);
+  // srsran_mib_nr_t dbg_mib = {};
+  // srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
+
   return ue_sync_nr_update_ssb(q, &measurements, &pbch_msg);
 }
 
