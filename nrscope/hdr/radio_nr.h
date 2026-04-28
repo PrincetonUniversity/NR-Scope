@@ -16,6 +16,8 @@
 #include <liquid/liquid.h>
 #include <semaphore>
 
+#include "nrscope_rx.h"
+
 #define RESAMPLE_WORKER_NUM 8
 // For cell scan
 #define CS_RESAMPLE_WORKER_NUM 4
@@ -27,7 +29,7 @@ class Radio
 public:
   int                                          rf_index;
   srsran::rf_args_t                            rf_args;
-  std::shared_ptr<srsran::radio>               raido_shared;
+  std::shared_ptr<srsran::radio>               radio_shared;
   std::shared_ptr<srsran::radio_interface_phy> radio;
 
   srslog::basic_logger& logger;
@@ -99,6 +101,9 @@ public:
   float max_rx_gain;
 
   bool exit_on_overflow;
+
+  rx_mode mode;
+  uint32_t record_buf_size_gb;
 
   Radio();  // constructor
   ~Radio(); // deconstructor
