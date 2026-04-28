@@ -52,3 +52,25 @@ There are several important details in the config file:
 - For best NUMA performance, bind to the NUMA node connected to the interface attached to the SDR. `cat /sys/class/net/<MY_INTERFACE_NAME>/device/numa_node` will return the NUMA node id to put into the `--cpunodebind=0 --membind=0` of `numactl`
 
 - NR-Scope decoding workers may be configured to use multiple threads internally. In most cases, performance will be better if each worker is limited to a single thread. using the config option `single_threaded_workers: true`. Note, this may require increasing the number of workers.
+
+
+
+## Record and replay mode
+
+This branch adds preliminary record and replay modes to NR-Scope.
+
+**Record mode** allocates a buffer at startup, copies rf samples to the buffer as they arrive, and writes them to "samples.bin" when the buffer is full. Normal operation continues after that.
+
+**Replay mode** opens "samples.bin" instead of a socket to the SDR, and reads samples from that file instead. It terminates at EOF. 
+
+### Usage
+
+1. Toggle record or replay mode with the `mode` option in your config.yaml: 
+
+`mode: "RECORD"` or `mode: "REPLAY"`
+
+2. For record mode, set the capture buffer length: 
+
+`record_buf_size_gb: 8`
+
+**Important: NR-Scope currently assumes that no other configurations change between a recording and a replay.**
