@@ -286,6 +286,8 @@ static int ue_sync_nr_run_track(srsran_ue_sync_nr_t* q, cf_t* buffer)
           q->sf_idx, q->sfn, pbch_msg.ssb_idx, q->ssb_sfn_parity);
     return SRSRAN_SUCCESS;
   }
+    printf("SSBTracker (track phase) PBCH CRC OK: sf_idx=%u, sfn=%u, ssb_idx=%u, ssb_sfn_parity=%u\n",
+          q->sf_idx, q->sfn, pbch_msg.ssb_idx, q->ssb_sfn_parity);
   // Decode MIB to show the true SFN from the air
   // srsran_mib_nr_t dbg_mib = {};
   // srsran_pbch_msg_nr_mib_unpack(&pbch_msg, &dbg_mib);
