@@ -530,10 +530,11 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t                    sf_round,
   SlotData_&     s = slot_data[i];
 
   // Check full
+  total_slots++;
   if (!slot_data[i].processed.load(std::memory_order_acquire)) {
     missed_slots++;
     if (missed_slots % 1000 == 0) {
-      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %lu). Consider improving processing throughput.", missed_slots);
+      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %lu/%lu). Consider improving processing throughput.", missed_slots, total_slots);
     }
   }
 
