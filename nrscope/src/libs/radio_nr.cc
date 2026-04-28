@@ -4,6 +4,8 @@
 #include <liquid/liquid.h>
 #include <semaphore>
 
+
+
 #define RING_BUF_SIZE 10
 #define RING_BUF_MODULUS (RING_BUF_SIZE - 1)
 
@@ -16,7 +18,7 @@ static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
 Radio::Radio() :
   logger(srslog::fetch_basic_logger("PHY")), srsran_searcher(logger), rf_buffer_t(1), task_scheduler_nrscope()
 {
-  raido_shared = std::make_shared<srsran::radio>();
+  radio_shared = std::make_shared<srsran::radio>();
   radio        = nullptr;
 
   nof_trials                          = 2000;
@@ -33,6 +35,8 @@ Radio::Radio() :
   sync_cfg        = {};
 
   exit_on_overflow = false;
+  mode = rx_mode::NORMAL;
+  record_buf_size_gb = 0;
 
   sem_init(&smph_sf_data_prod_cons, 0, 0);
   sem_init(&smph_sf_data_finished, 0, 9999);
@@ -70,7 +74,6 @@ static int copy_c_to_cpp_complex_arr_and_zero_padding(cf_t* src, std::complex<fl
     https://en.cppreference.com/w/cpp/numeric/complex/operator%3D */
     dst[i] = i < sz1 ? src[i] : 0;
   }
-
   return 0;
 }
 
@@ -86,8 +89,8 @@ static int copy_cpp_to_c_complex_arr(std::complex<float>* src, cf_t* dst, uint32
 
 int Radio::ScanInitandStart()
 {
-  srsran_assert(raido_shared->init(rf_args, nullptr) == SRSRAN_SUCCESS, "Failed Radio initialisation");
-  radio = std::move(raido_shared);
+  srsran_assert(radio_shared->init(rf_args, nullptr) == SRSRAN_SUCCESS, "Failed Radio initialisation");
+  radio = std::move(radio_shared);
 
   // Static cell searcher parameters
   args_t.srate_hz          = rf_args.srsran_srate_hz;
@@ -307,7 +310,7 @@ int Radio::ScanInitandStart()
 
         srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
 
-        if (not radio->rx_now(rf_buffer, rf_timestamp)) {
+        if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
           return SRSRAN_ERROR;
         }
 
@@ -377,14 +380,33 @@ int Radio::ScanInitandStart()
   return SRSRAN_SUCCESS;
 }
 
+
+
 int Radio::RadioInitandStart()
 {
-  srsran_assert(raido_shared->init(rf_args, nullptr) == SRSRAN_SUCCESS, "Failed Radio initialisation");
-  radio = std::move(raido_shared);
+  // record/replay mode init
+  switch (mode) {
+    case rx_mode::NORMAL:
+      init_normal();
+      break;
+    case rx_mode::RECORD:
+      init_record("samples.bin", record_buf_size_gb);
+      break;
+    case rx_mode::REPLAY:
+      init_replay("samples.bin");
+      break;
+    default:
+      ERROR("Invalid mode");
+      return NR_FAILURE;
+  }
+
+  // SDR init
+  rf_args.dl_freq          = args_t.base_carrier.dl_center_frequency_hz;
+  radio = nrscope_radio_init(radio_shared, rf_args);
+
 
   // Cell Searcher parameters
   args_t.srate_hz          = rf_args.srsran_srate_hz;
-  rf_args.dl_freq          = args_t.base_carrier.dl_center_frequency_hz;
   args_t.rf_device_name    = rf_args.device_name;
   args_t.rf_device_args    = rf_args.device_args;
   args_t.rf_log_level      = "info";
@@ -393,10 +415,11 @@ int Radio::RadioInitandStart()
   args_t.phy_log_level     = "warning";
   args_t.stack_log_level   = "warning";
   args_t.duration_ms       = 1000;
-
-  // Set sampling rate
-  radio->set_rx_srate(rf_args.srate_hz);
-  std::cout << "usrp srate_hz: " << rf_args.srate_hz << std::endl;
+  args_t.set_ssb_from_band(ssb_scs);
+  args_t.base_carrier.scs = args_t.ssb_scs;
+  if (args_t.duplex_mode == SRSRAN_DUPLEX_MODE_TDD) {
+    args_t.base_carrier.ul_center_frequency_hz = args_t.base_carrier.dl_center_frequency_hz;
+  }
 
   if (fabs(rf_args.srsran_srate_hz - rf_args.srate_hz) < 0.1) {
     resample_needed = false;
@@ -404,17 +427,6 @@ int Radio::RadioInitandStart()
     resample_needed = true;
   }
   std::cout << "resample_needed: " << resample_needed << std::endl;
-
-  // Set DL center frequency
-  radio->set_rx_freq(0, (double)rf_args.dl_freq);
-  // Set Rx gain
-  radio->set_rx_gain(rf_args.rx_gain);
-
-  args_t.set_ssb_from_band(ssb_scs);
-  args_t.base_carrier.scs = args_t.ssb_scs;
-  if (args_t.duplex_mode == SRSRAN_DUPLEX_MODE_TDD) {
-    args_t.base_carrier.ul_center_frequency_hz = args_t.base_carrier.dl_center_frequency_hz;
-  }
 
   pre_resampling_slot_sz = (uint32_t)(rf_args.srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(ssb_scs));
 
@@ -550,8 +562,9 @@ int Radio::RadioInitandStart()
     // std::cout << cs_args.ssb_freq_hz << std::endl;
     args_t.base_carrier.ssb_center_freq_hz = cs_args.ssb_freq_hz;
 
-    radio->release_freq(0);
-    radio->set_rx_freq(0, srsran_searcher_cfg_t.ssb_freq_hz);
+    nrscope_radio_set_rx_freq(radio.get(), srsran_searcher_cfg_t.ssb_freq_hz);
+    // radio->release_freq(0);
+    // radio->set_rx_freq(0, srsran_searcher_cfg_t.ssb_freq_hz);
 
     srsran::rf_buffer_t rf_buffer = {};
     rf_buffer.set_nof_samples(pre_resampling_slot_sz);
@@ -566,7 +579,7 @@ int Radio::RadioInitandStart()
 
       srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
 
-      if (not radio->rx_now(rf_buffer, rf_timestamp)) {
+      if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
         return SRSRAN_ERROR;
       }
 
@@ -670,9 +683,19 @@ static int slot_sync_recv_callback(void* ptr, cf_t** buffer, uint32_t nsamples, 
 
   srsran::rf_timestamp_t  a;
   srsran::rf_timestamp_t& rf_timestamp = a;
-  *ts                                  = a.get(0);
+  *ts                                  = a.get(0); 
+  // Bug: The way this is written, timestamp will always return 0.
 
-  return radio->rx_now(rf_buffer, rf_timestamp);
+
+  rx_result result = nrscope_rx(radio, rf_buffer, rf_timestamp);
+  // for replay mode, terminate on EOF
+  if (result == rx_result::RX_EOF) {
+      printf("slot_sync_recv_callback: replay EOF, exiting\n");
+      fflush(stdout);
+      sleep(5); // We want to process all the data already in the pipeline, just wait for now.
+      exit(0);
+  }
+  return result == rx_result::RX_SUCCESS ? SRSRAN_SUCCESS : SRSRAN_ERROR;
 }
 
 int Radio::SyncandDownlinkInit()
@@ -784,10 +807,10 @@ int Radio::FetchAndResample()
       logger.error("SYNC: error in zerocopy");      
       return false;
     }
+    
     // exit on overflow when in sync
     if (exit_on_overflow && in_sync) {
-      srsran::rf_metrics_t metrics;
-      concrete_radio->get_metrics(&metrics);
+      srsran::rf_metrics_t metrics = nrscope_radio_get_metrics(concrete_radio.get());
       if (metrics.rf_o > 0) {
         fprintf(stderr, "RX buffer Overflow in FetchAndResample\n");
         _exit(1);
@@ -803,8 +826,7 @@ int Radio::FetchAndResample()
       }
       in_sync = true;
       // reset metrics to avoid false overflow detection
-      srsran::rf_metrics_t metrics;
-      concrete_radio->get_metrics(&metrics);
+      srsran::rf_metrics_t metrics = nrscope_radio_get_metrics(concrete_radio.get());
       // std::cout << "System frame idx: " << outcome.sfn << std::endl;
       // std::cout << "Subframe idx: " << outcome.sf_idx << std::endl;
       // a new sf data ready; let decoder consume
@@ -829,20 +851,24 @@ int Radio::DecodeAndProcess()
   uint64_t next_consume_at                                = 0;
   bool     first_time                                     = true;
   task_scheduler_nrscope.task_scheduler_state.sib1_inited = true;
+
+  
+
   while (true) {
     sem_wait(&smph_sf_data_prod_cons);
     // std::cout << "current_consume_at: " << (first_time ? 0 :
     //   ((next_consume_at % RING_BUF_MODULUS + 1))) << std::endl;
-    outcome.timestamp = last_rx_time.get(0);
+    srsran_ue_sync_nr_outcome_t outcome_copy = outcome;
+    outcome_copy.timestamp = last_rx_time.get(0);
     struct timeval t0, t1;
     gettimeofday(&t0, NULL);
     // consume a sf data
     for (int slot_idx = 0; slot_idx < SRSRAN_NOF_SLOTS_PER_SF_NR(arg_scs.scs); slot_idx++) {
       // std::cout << "slot_idx: " << slot_idx << std::endl;
       srsran_slot_cfg_t slot = {0};
-      slot.idx               = (outcome.sf_idx) * SRSRAN_NSLOTS_PER_FRAME_NR(arg_scs.scs) / 10 + slot_idx;
+      slot.idx               = (outcome_copy.sf_idx) * SRSRAN_NSLOTS_PER_FRAME_NR(arg_scs.scs) / 10 + slot_idx;
 
-      if (slot.idx == 0 && outcome.sfn == 0) {
+      if (slot.idx == 0 && outcome_copy.sfn == 0) {
         /* this is a new round of system frame indexes */
         sf_round++;
       }
@@ -869,11 +895,11 @@ int Radio::DecodeAndProcess()
         /* If the next result is not set */
         task_scheduler_nrscope.next_result.sf_round = sf_round;
         task_scheduler_nrscope.next_result.slot.idx = slot.idx;
-        if (outcome.sfn == 1023) {
+        if (outcome_copy.sfn == 1023) {
           task_scheduler_nrscope.next_result.outcome.sfn = 0;
           task_scheduler_nrscope.next_result.sf_round++;
         } else {
-          task_scheduler_nrscope.next_result.outcome.sfn = outcome.sfn + 1;
+          task_scheduler_nrscope.next_result.outcome.sfn = outcome_copy.sfn + 1;
         }
         // reinitialize the sem
         if (slot_idx == 0) {
@@ -887,6 +913,7 @@ int Radio::DecodeAndProcess()
             if (current_value > desired_value) {
               sem_trywait(&smph_sf_data_finished); // Decrement if greater than desired
             } else {
+              printf("smph_sf_data_finished value at end of first_time loop: %d\n", current_value);
               break; // Stop if at or below desired value
             }
           } while (1);
@@ -894,7 +921,7 @@ int Radio::DecodeAndProcess()
       }
 
       // Add the data into a circular buffer
-      if (task_scheduler_nrscope.StoreSlotData(sf_round, slot, outcome, rx_buffer) < SRSRAN_SUCCESS) {
+      if (task_scheduler_nrscope.StoreSlotData(sf_round, slot, outcome_copy, rx_buffer) < SRSRAN_SUCCESS) {
         ERROR("Store slot data failed");
         //   /* Push empty slot result to the queue */
         //   SlotResult empty_result = {};
