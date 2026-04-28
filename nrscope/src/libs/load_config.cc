@@ -21,6 +21,9 @@
 
 #include "srsran/phy/ue/srsgui_plot.h"
 
+#include "nrscope_rx.h"
+
+
 using namespace std;
 
 int get_nof_usrp(std::string file_name)
@@ -219,6 +222,32 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
       g_silent = config_yaml[setting_name]["silent"].as<bool>();
       std::cout << "    silent_mode: " << g_silent << std::endl;
     }
+
+    // mode: normal, record, or replay
+    if (config_yaml[setting_name]["mode"]) {
+      std::string mode_str = config_yaml[setting_name]["mode"].as<string>();
+      if (mode_str == "NORMAL") {
+        radios[i].mode = rx_mode::NORMAL;
+      } else if (mode_str == "RECORD") {
+        radios[i].mode = rx_mode::RECORD;
+      } else if (mode_str == "REPLAY") {
+        radios[i].mode = rx_mode::REPLAY;
+      } else {
+        ERROR("Invalid mode in config file, should be NORMAL, RECORD, or REPLAY");
+        return NR_FAILURE;
+      }
+    } else {
+      radios[i].mode = rx_mode::NORMAL;
+    }
+    // Set the record buffer size, if we are in record mode.
+    if (radios[i].mode == rx_mode::RECORD) {
+      if (config_yaml[setting_name]["record_buf_size_gb"]) {
+      radios[i].record_buf_size_gb = config_yaml[setting_name]["record_buf_size_gb"].as<uint32_t>();
+      } else {
+        radios[i].record_buf_size_gb = 1;
+      }
+    }
+
 
 
   }
