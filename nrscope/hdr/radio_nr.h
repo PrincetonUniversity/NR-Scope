@@ -25,7 +25,18 @@
 #define TARGET_STOPBAND_SUPPRESSION_DB 60.0f;
 
 
-struct resample_state_t;
+/* Resampling config state */
+struct resample_state_t {
+  uint32_t actual_slot_szs[RESAMPLE_WORKER_NUM];
+  float r;
+  float As;
+  msresamp_crcf q[RESAMPLE_WORKER_NUM];
+  uint32_t temp_x_sz;
+  uint32_t temp_y_sz;
+  std::complex<float>* temp_x;
+  std::complex<float>* temp_y[RESAMPLE_WORKER_NUM];
+};
+
 
 class Radio
 {
@@ -157,15 +168,14 @@ public:
    * The first stage of operation: detect the SSB and decode the MIB. 
    * This is currently only used by BenchmarkSSBDetectionTime, 
    * but should be used by RadioInitandStart and ScanInitandStart in the future.
+   * @param rs the resampling state, which contains the resampling worker states and buffers.
+   * @param timeout_sec the timeout in seconds
+   * @param log_pbch_corrs whether to log the PBCH correlation values for debugging
+   * @return Tuple with <0> = return code (SRSRAN_SUCCESS or SRSRAN_ERROR), <1> = vector of PBCH correlation values
   */
-  int DetectSSB(resample_state_t rs);
+  std::tuple<int, std::vector<std::tuple<float, float>>> DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs);
 
   
-  /** Measure the SSB detection time.
-   * 
-   */
-  int BenchmarkSSBDetectionTime(int n_trials);
-
   /**
    * This function goes through the per band (denoted by outer loop), and
    * search each GSCN raster point in the band (denoted by inner loop)

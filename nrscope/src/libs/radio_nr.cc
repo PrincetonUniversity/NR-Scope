@@ -381,17 +381,6 @@ int Radio::ScanInitandStart()
 }
 
 
-/* Resampling state and initialization */
-struct resample_state_t {
-  uint32_t actual_slot_szs[RESAMPLE_WORKER_NUM];
-  float r;
-  float As;
-  msresamp_crcf q[RESAMPLE_WORKER_NUM];
-  uint32_t temp_x_sz;
-  uint32_t temp_y_sz;
-  std::complex<float>* temp_x;
-  std::complex<float>* temp_y[RESAMPLE_WORKER_NUM];
-};
 
 static void init_resample_state(resample_state_t* state, cell_searcher_args_t args_t, srsran::rf_args_t rf_args, uint32_t pre_resampling_slot_sz) {
   state->r  = (float)rf_args.srsran_srate_hz / (float)rf_args.srate_hz;
@@ -506,83 +495,7 @@ int Radio::RadioInit(resample_state_t* rs)
 }
 
 
-static void print_ssb_decode_time_metrics(const std::vector<double>& times)
-{
-  double sum = 0;
-  for (const auto& t : times) { sum += t; }
-  double mean = sum / times.size();
-  double variance = 0;
-  for (const auto& t : times) { variance += (t - mean) * (t - mean); }
-  variance /= times.size();
-  double stddev = std::sqrt(variance);
-  std::cout << "==== SSB decode time distribution summary ====" << std::endl;
-  std::cout << "Mean: " << mean << " ms" << std::endl;
-  std::cout << "Standard Deviation: " << stddev << " ms" << std::endl;
-  std::cout << "Minimum: " << *std::min_element(times.begin(), times.end()) << " ms" << std::endl;
-  std::cout << "Maximum: " << *std::max_element(times.begin(), times.end()) << " ms" << std::endl;
-  std::cout << "==== SSB decode time distribution summary ====" << std::endl;
-}
-
-// run the scan loop of RadioInitandStart repeatedly for benchmarking
-int Radio::BenchmarkSSBDetectionTime(int n_trials)
-{
-  resample_state_t rs;
-  if (RadioInit(&rs) != SRSRAN_SUCCESS) {
-    return NR_FAILURE;
-  }
-
-  // vector of ssb decode time results
-  std::vector<double> ssb_decode_times;
-
-  std::cout << "==== Benchmarking SSB detection time in " << n_trials << " trials ====" << std::endl;
-
-  for (uint32_t i = 0; i < n_trials; i++) {
-    std::cout << "--- Starting trial " << i << " ---" << std::endl;
-    auto start_time = std::chrono::steady_clock::now();
-    if (DetectSSB(rs) != SRSRAN_SUCCESS) { 
-      // Cleanup
-      if (resample_needed) {
-        for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
-          msresamp_crcf_destroy(rs.q[k]);
-          free(rs.temp_y[k]);
-        }
-        free(rs.temp_x);
-      }
-      return SRSRAN_ERROR; 
-    }
-    auto end_time = std::chrono::steady_clock::now();
-    std::cout << "--- Trial " << i << ": SSB decode time = "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() << " ms"
-              << " ---" << std::endl;
-    ssb_decode_times.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
-    print_ssb_decode_time_metrics(ssb_decode_times);    
-    // sleep from 1 - 5 seconds, randomly selected
-    auto sleep_duration = std::chrono::milliseconds(1000 + (rand() % 4000));
-    std::cout << "Sleeping for " << sleep_duration.count() << " ms before next trial..." << std::endl;
-    std::this_thread::sleep_for(sleep_duration);
-  }
-  // Cleanup
-  if (resample_needed) {
-    for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
-      msresamp_crcf_destroy(rs.q[k]);
-      free(rs.temp_y[k]);
-    }
-    free(rs.temp_x);
-  }
-
-  std::cout << "==== All SSB decode times (ms) ====" << std::endl;
-  for (size_t i = 0; i < ssb_decode_times.size(); i++) {
-    std::cout << "Trial " << i << ": " << ssb_decode_times[i] << " ms" << std::endl;
-  }
-
-  print_ssb_decode_time_metrics(ssb_decode_times);
-
-
-  return SRSRAN_SUCCESS;
-}
-
-// Find and decode the SSB
-int Radio::DetectSSB(resample_state_t rs)
+std::tuple<int, std::vector<std::tuple<float, float>>> Radio::DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs)
 {
   // SSB scan state
   uint32_t ssb_scs_hz = SRSRAN_SUBC_SPACING_NR(cs_args.ssb_scs);
@@ -598,14 +511,19 @@ int Radio::DetectSSB(resample_state_t rs)
 
   // SSB Scan loop -- retries until it finds the SSB
   bool cell_found = false;
+  auto ssb_search_timeout = std::chrono::seconds(timeout_sec);
   auto ssb_search_start_time = std::chrono::steady_clock::now(); // track how long it takes to find the SSB
-  float max_ssb_pbch_meas_corr = 0.0; // track the max PBCH correlation measurement during the scan for debugging and benchmarking
+  std::vector<std::tuple<float, float>> ssb_pbch_corrs; // if log_pbch_corrs, record the PBCH correlation times and values for all scanned SSBs
   while (not cell_found) {
     ss.reset();
     auto now = std::chrono::steady_clock::now();
-    printf("[SSB Scan] Scanning for SSB... Elapsed time: %.2f seconds Max PBCH corr for possible SSB: %f\n",
-           std::chrono::duration_cast<std::chrono::milliseconds>(now - ssb_search_start_time).count() / 1000.0, max_ssb_pbch_meas_corr);
-    
+    printf("[SSB Scan] Scanning for SSB... Elapsed time: %.2fs\n",
+           std::chrono::duration_cast<std::chrono::milliseconds>(now - ssb_search_start_time).count() / 1000.0);
+    if (now - ssb_search_start_time > ssb_search_timeout) {
+      std::cout << "SSB scan timeout after " << timeout_sec << " seconds. Exiting SSB scan loop." << std::endl;
+      return std::make_tuple(SRSRAN_ERROR, ssb_pbch_corrs);
+    }
+
     while (not ss.end()) {
       // Get SSB center frequency
       cs_args.ssb_freq_hz = ss.get_frequency();
@@ -640,7 +558,7 @@ int Radio::DetectSSB(resample_state_t rs)
       srsran_searcher_cfg_t.duplex_mode    = args_t.duplex_mode;
       if (not srsran_searcher.start(srsran_searcher_cfg_t)) {
         std::cout << "Searcher: failed to start cell search" << std::endl;
-        return NR_FAILURE;
+        return std::make_tuple(SRSRAN_ERROR, ssb_pbch_corrs);
       }
       /* Set the searching frequency to ssb_freq */
       /* Because the srsRAN implementation use the center_freq_hz for cell search */
@@ -666,9 +584,9 @@ int Radio::DetectSSB(resample_state_t rs)
         srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
 
         if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
-          return SRSRAN_ERROR;
+          return std::make_tuple(SRSRAN_ERROR, ssb_pbch_corrs);
         }
-
+        
         if (resample_needed) {
           // srsran_vec_fprint2_c(fp_time_series_pre_resample,
           //    pre_resampling_rx_buffer, pre_resampling_slot_sz);
@@ -705,9 +623,10 @@ int Radio::DetectSSB(resample_state_t rs)
 
         *(last_rx_time.get_ptr(0)) = rf_timestamp.get(0);
         cs_ret                     = srsran_searcher.run_slot(rx_buffer, slot_sz);
-        float pbch_meas_corr = cs_ret.ssb_res.pbch_meas_corr;
-        if (pbch_meas_corr > max_ssb_pbch_meas_corr) {
-          max_ssb_pbch_meas_corr = pbch_meas_corr;
+        if (log_pbch_corrs) {
+          auto now = std::chrono::steady_clock::now(); //
+          double ts = std::chrono::duration<double>(now.time_since_epoch()).count();
+          ssb_pbch_corrs.emplace_back(ts, cs_ret.ssb_res.pbch_meas_corr);
         }
         // std::cout << "Slot_sz: " << slot_sz << std::endl;
         if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
@@ -734,7 +653,6 @@ int Radio::DetectSSB(resample_state_t rs)
   std::cout << "[SSB Scan] Cell Found! Elapsed time: "
             << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ssb_search_start_time).count() / 1000.0
             << " seconds" << std::endl;
-  std::cout << "Max SSB PBCH Meas Corr: " << max_ssb_pbch_meas_corr << std::endl;
   std::cout << "Cell Found!" << std::endl;
   std::cout << "N_id: " << cs_ret.ssb_res.N_id << std::endl;
   std::cout << "Decoding MIB..." << std::endl;
@@ -743,9 +661,9 @@ int Radio::DetectSSB(resample_state_t rs)
   if (task_scheduler_nrscope.DecodeMIB(&args_t, &cs_ret, &srsran_searcher_cfg_t, rs.r, rf_args.srate_hz) <
       SRSRAN_SUCCESS) {
     ERROR("Error init task scheduler");
-    return NR_FAILURE;
+    return std::make_tuple(SRSRAN_ERROR, ssb_pbch_corrs);
   }
-  return SRSRAN_SUCCESS;
+  return std::make_tuple(SRSRAN_SUCCESS, ssb_pbch_corrs);
 }
 
 int Radio::RadioInitandStart()
