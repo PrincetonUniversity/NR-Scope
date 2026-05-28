@@ -25,6 +25,7 @@
 #include "srsran/config.h"
 #include "srsran/phy/common/phy_common_nr.h"
 #include "srsran/phy/dft/dft.h"
+#include "srsran/phy/ch_estimation/dmrs_pbch.h"
 #include "srsran/phy/phch/pbch_nr.h"
 #include <inttypes.h>
 
@@ -128,6 +129,8 @@ typedef struct {
   uint32_t                      N_id;         ///< Most suitable physical cell identifier
   uint32_t                      t_offset;     ///< Time offset in the input samples
   srsran_pbch_msg_nr_t          pbch_msg;     ///< Physical broadcast channel message of the most suitable SSB candidate
+  srsran_dmrs_pbch_meas_t pbch_meas; 
+  float                         pss_corr;     ///< Correlation value of the PSS of the most suitable SSB candidate
   srsran_csi_trs_measurements_t measurements; ///< Measurements
 } srsran_ssb_search_res_t;
 

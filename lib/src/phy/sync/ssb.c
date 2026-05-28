@@ -20,7 +20,7 @@
  */
 
 #include "srsran/phy/sync/ssb.h"
-#include "srsran/phy/ch_estimation/dmrs_pbch.h"
+// #include "srsran/phy/ch_estimation/dmrs_pbch.h"
 #include "srsran/phy/sync/pss_nr.h"
 #include "srsran/phy/sync/sss_nr.h"
 #include "srsran/phy/utils/debug.h"
@@ -42,6 +42,7 @@
  * Correlation size in function of the symbol size. It selects a power of two number at least 8 times bigger than the
  * given symbol size but not bigger than 2^13 points.
  */
+// #define SSB_CORR_SZ(SYMB_SZ) SRSRAN_MIN(1U << (uint32_t)ceil(log2((double)(SYMB_SZ)) + 3.0), 1U << 14U)
 #define SSB_CORR_SZ(SYMB_SZ) SRSRAN_MIN(1U << (uint32_t)ceil(log2((double)(SYMB_SZ)) + 3.0), 1U << 14U)
 
 /*
@@ -871,7 +872,9 @@ static int ssb_pss_search(srsran_ssb_t* q,
                           uint32_t      nof_samples,
                           uint32_t*     found_N_id_2,
                           uint32_t*     found_delay,
-                          float*        coarse_cfo_hz)
+                          float*        coarse_cfo_hz, 
+                          float*        corr_rv
+                        )
 {
   // verify it is initialised
   if (q->corr_sz == 0) {
@@ -975,6 +978,8 @@ static int ssb_pss_search(srsran_ssb_t* q,
     t_offset += q->corr_window;
   }
   // printf("coarse offset: %d\n", best_shift);
+  // Save the normalised first-pass correlation before the fine-search reset
+  float best_corr_normalised = best_corr;
   // From the best sequence correlate in frequency domain
   {
     // Reset best correlation
@@ -1029,10 +1034,10 @@ static int ssb_pss_search(srsran_ssb_t* q,
 
   // Save findings
   // printf("best delay in pss search: %u\n", best_delay);
-
   *found_delay   = best_delay;
   *found_N_id_2  = best_N_id_2;
   *coarse_cfo_hz = -(float)best_shift * coarse_cfo_ref_hz;
+  *corr_rv = best_corr_normalised;
 
   return SRSRAN_SUCCESS;
 }
@@ -1065,7 +1070,8 @@ int srsran_ssb_csi_search(srsran_ssb_t*                  q,
   uint32_t N_id_2        = 0;
   uint32_t t_offset      = 0;
   float    coarse_cfo_hz = 0.0f;
-  if (ssb_pss_search(q, in, nof_samples, &N_id_2, &t_offset, &coarse_cfo_hz) < SRSRAN_SUCCESS) {
+  float    pss_corr      = 0.0f;
+  if (ssb_pss_search(q, in, nof_samples, &N_id_2, &t_offset, &coarse_cfo_hz, &pss_corr) < SRSRAN_SUCCESS) {
     ERROR("Error searching for N_id_2");
     return SRSRAN_ERROR;
   }
@@ -1359,12 +1365,13 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
   uint32_t N_id_2        = 0;
   uint32_t t_offset      = 0;
   float    coarse_cfo_hz = 0.0f;
-
+  float    pss_corr      = 0.0f;
   // printf("nof_samples in srsran_ssb_search: %d\n", nof_samples);
-  if (ssb_pss_search(q, in, nof_samples, &N_id_2, &t_offset, &coarse_cfo_hz) < SRSRAN_SUCCESS) {
+  if (ssb_pss_search(q, in, nof_samples, &N_id_2, &t_offset, &coarse_cfo_hz, &pss_corr) < SRSRAN_SUCCESS) {
     ERROR("Error searching for N_id_2");
     return SRSRAN_ERROR;
   }
+  res->pss_corr = pss_corr;
   // printf("pss nof_samples: %d\n", nof_samples);
   // printf("pss found delay: %d\n", t_offset);
   // Remove CP offset prior demodulation
@@ -1377,6 +1384,7 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
   // printf("q->cp_sz: %d\n", q->cp_sz);
   // printf("t_offset: %d\n", t_offset);
   // printf("q->ssb_sz: %d\n", q->cp_sz);
+  res->t_offset     = t_offset;
 
   // Make sure SSB time offset is in bounded in the input buffer
   if (t_offset + q->ssb_sz > nof_samples) {
@@ -1400,6 +1408,8 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
 
   // Select N_id
   uint32_t N_id = SRSRAN_NID_NR(N_id_1, N_id_2);
+  res->N_id         = N_id;
+
   // printf("N_id_1: %d\n", N_id_1);
   // printf("N_id_2: %d\n", N_id_2);
   // printf("N_id: %d\n", N_id);
@@ -1427,6 +1437,7 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
   // printf("ssb.c, q->args.pbch_dmrs_thr: %f\n", q->args.pbch_dmrs_thr);
 
   // Avoid decoding if the selected PBCH DMRS do not reach the minimum threshold
+  res->pbch_meas = pbch_meas;
   if (pbch_meas.corr < q->args.pbch_dmrs_thr) {
     return SRSRAN_SUCCESS;
   }
@@ -1437,12 +1448,22 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
     ERROR("Error decoding PBCH");
     return SRSRAN_ERROR;
   }
+  res->pbch_msg     = pbch_msg;
   // uint8_t sfn_4lsb;                       ///< SFN 4 LSB
   // uint8_t ssb_idx;                        ///< SS/PBCH blocks index described in TS 38.213 4.1
   // uint8_t k_ssb_msb;                      ///< Subcarrier offset MSB described in TS 38.211 7.4.3.1
   // printf("sfn_4lsb: %d\n", pbch_msg.sfn_4lsb);
   // printf("ssb_idx: %d\n", pbch_msg.ssb_idx);
   // printf("k_ssb_msb: %d\n", pbch_msg.k_ssb_msb);
+
+  // Perform measurements from PSS and SSS
+  srsran_csi_trs_measurements_t measurements = {};
+  if (ssb_measure(q, ssb_grid, N_id, &measurements) < SRSRAN_SUCCESS) {
+    ERROR("Error measuring");
+    return SRSRAN_ERROR;
+  }
+  res->measurements = measurements;
+  res->measurements.cfo_hz += coarse_cfo_hz;
 
 
   // If PBCH was not decoded, skip measurements
@@ -1460,19 +1481,19 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
 
 
 
-  // Perform measurements from PSS and SSS
-  srsran_csi_trs_measurements_t measurements = {};
-  if (ssb_measure(q, ssb_grid, N_id, &measurements) < SRSRAN_SUCCESS) {
-    ERROR("Error measuring");
-    return SRSRAN_ERROR;
-  }
+  // // Perform measurements from PSS and SSS
+  // srsran_csi_trs_measurements_t measurements = {};
+  // if (ssb_measure(q, ssb_grid, N_id, &measurements) < SRSRAN_SUCCESS) {
+  //   ERROR("Error measuring");
+  //   return SRSRAN_ERROR;
+  // }
 
   // Save result
-  res->N_id         = N_id;
-  res->t_offset     = t_offset;
-  res->pbch_msg     = pbch_msg;
-  res->measurements = measurements;
-  res->measurements.cfo_hz += coarse_cfo_hz;
+  // res->N_id         = N_id;
+  // res->t_offset     = t_offset;
+  // res->pbch_msg     = pbch_msg;
+  // res->measurements = measurements;
+  // res->measurements.cfo_hz += coarse_cfo_hz;
 
   return SRSRAN_SUCCESS;
 }

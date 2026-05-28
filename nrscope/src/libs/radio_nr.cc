@@ -11,7 +11,8 @@
 
 static SRSRAN_AGC_CALLBACK(radio_set_rx_gain_wrapper)
 {
-  NRSCOPE_PRINT("[AGC gain adj] new rx gain: %f\n", gain_db);
+  printf("[AGC gain adj callback] new rx gain: %f\n", gain_db);
+  // NRSCOPE_PRINT("[AGC gain adj] new rx gain: %f\n", gain_db);
   ((srsran::radio_interface_phy*)h)->set_rx_gain(gain_db);
 }
 
@@ -520,141 +521,176 @@ int Radio::RadioInitandStart()
                                       rrc_recfg);
 
   std::cout << "Task scheduler started..." << std::endl;
-  while (not ss.end()) {
-    // Get SSB center frequency
-    cs_args.ssb_freq_hz = ss.get_frequency();
-    // Advance SSB frequency raster
-    ss.next();
 
-    /* Calculate frequency offset between the base-band center frequency and
-      the SSB absolute frequency */
-    uint32_t offset_hz =
-        (uint32_t)std::abs(std::round(cs_args.ssb_freq_hz - args_t.base_carrier.dl_center_frequency_hz));
+  bool cell_found = false;
+  uint64_t retry_ct = 0;
+  double current_rx_freq_hz = -1.0;  // before the outer while loop
+  // timestamp when we start looking for the ssb
+  auto ssb_search_start_time = std::chrono::steady_clock::now();
 
-    // The SSB absolute frequency is invalid if it is outside the range and
-    // the offset is NOT multiple of the subcarrier spacing
-    if ((cs_args.ssb_freq_hz < ssb_center_freq_min_hz) or (cs_args.ssb_freq_hz > ssb_center_freq_max_hz) or
-        (offset_hz % ssb_scs_hz != 0)) {
-      // Skip this frequency
-      continue;
-    }
+  while (not cell_found) {
+    printf("Cell search retry count: %lu\n", retry_ct);
+    retry_ct += 1;
+    // retry search forever until the cell is found
+    ss.reset();
 
-    /* xuyang debug: skip all other nearby measure and
-      just focus on the wanted SSB freq */
-    if (offset_hz > 1) {
-      continue;
-    }
+    while (not ss.end()) {
+      // Get SSB center frequency
+      cs_args.ssb_freq_hz = ss.get_frequency();
+      // Advance SSB frequency raster
+      ss.next();
 
-    /* which is indeed the srsran srate */
-    srsran_searcher_cfg_t.srate_hz       = args_t.srate_hz;
-    srsran_searcher_cfg_t.center_freq_hz = cs_args.ssb_freq_hz;
-    srsran_searcher_cfg_t.ssb_freq_hz    = cs_args.ssb_freq_hz;
-    srsran_searcher_cfg_t.ssb_scs        = args_t.ssb_scs;
-    srsran_searcher_cfg_t.ssb_pattern    = args_t.ssb_pattern;
-    srsran_searcher_cfg_t.duplex_mode    = args_t.duplex_mode;
-    if (not srsran_searcher.start(srsran_searcher_cfg_t)) {
-      std::cout << "Searcher: failed to start cell search" << std::endl;
-      return NR_FAILURE;
-    }
-    /* Set the searching frequency to ssb_freq */
-    /* Because the srsRAN implementation use the center_freq_hz for cell search */
-    cs_args.center_freq_hz = cs_args.ssb_freq_hz;
-    // std::cout << cs_args.ssb_freq_hz << std::endl;
-    args_t.base_carrier.ssb_center_freq_hz = cs_args.ssb_freq_hz;
+      /* Calculate frequency offset between the base-band center frequency and
+        the SSB absolute frequency */
+      uint32_t offset_hz =
+          (uint32_t)std::abs(std::round(cs_args.ssb_freq_hz - args_t.base_carrier.dl_center_frequency_hz));
 
-    nrscope_radio_set_rx_freq(radio.get(), srsran_searcher_cfg_t.ssb_freq_hz);
-    // radio->release_freq(0);
-    // radio->set_rx_freq(0, srsran_searcher_cfg_t.ssb_freq_hz);
-
-    srsran::rf_buffer_t rf_buffer = {};
-    rf_buffer.set_nof_samples(pre_resampling_slot_sz);
-    rf_buffer.set(0, pre_resampling_rx_buffer); // + slot_sz);
-
-    for (uint32_t trial = 0; trial < nof_trials; trial++) {
-      if (trial == 0) {
-        srsran_vec_cf_zero(rx_buffer, slot_sz);
-        srsran_vec_cf_zero(pre_resampling_rx_buffer, pre_resampling_slot_sz);
-      }
-      // srsran_vec_cf_copy(rx_buffer, rx_buffer + slot_sz, slot_sz);
-
-      srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
-
-      if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
-        return SRSRAN_ERROR;
+      // The SSB absolute frequency is invalid if it is outside the range and
+      // the offset is NOT multiple of the subcarrier spacing
+      if ((cs_args.ssb_freq_hz < ssb_center_freq_min_hz) or (cs_args.ssb_freq_hz > ssb_center_freq_max_hz) or
+          (offset_hz % ssb_scs_hz != 0)) {
+        // Skip this frequency
+        continue;
       }
 
-      if (resample_needed) {
-        // srsran_vec_fprint2_c(fp_time_series_pre_resample,
-        //    pre_resampling_rx_buffer, pre_resampling_slot_sz);
-        copy_c_to_cpp_complex_arr_and_zero_padding(pre_resampling_rx_buffer, temp_x, pre_resampling_slot_sz, temp_x_sz);
-        uint32_t                 splitted_nx = pre_resampling_slot_sz / RESAMPLE_WORKER_NUM;
-        std::vector<std::thread> ssb_scan_resample_threads;
-        for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
-          ssb_scan_resample_threads.emplace_back(
-              &resample_partially, &q[k], temp_x, temp_y[k], k, splitted_nx, &actual_slot_szs[k]);
+      /* xuyang debug: skip all other nearby measure and
+        just focus on the wanted SSB freq */
+      if (offset_hz > 1) {
+        continue;
+      }
+      printf("[SSB search] center: %.3f MHz, range: %.3f - %.3f MHz, trials: %u\n",
+            cs_args.ssb_freq_hz / 1e6,
+            (cs_args.ssb_freq_hz - ssb_bw_hz / 2.0) / 1e6,
+            (cs_args.ssb_freq_hz + ssb_bw_hz / 2.0) / 1e6,
+            nof_trials);
+
+      /* which is indeed the srsran srate */
+      srsran_searcher_cfg_t.srate_hz       = args_t.srate_hz;
+      srsran_searcher_cfg_t.center_freq_hz = cs_args.ssb_freq_hz;
+      srsran_searcher_cfg_t.ssb_freq_hz    = cs_args.ssb_freq_hz;
+      srsran_searcher_cfg_t.ssb_scs        = args_t.ssb_scs;
+      srsran_searcher_cfg_t.ssb_pattern    = args_t.ssb_pattern;
+      srsran_searcher_cfg_t.duplex_mode    = args_t.duplex_mode;
+      if (not srsran_searcher.start(srsran_searcher_cfg_t)) {
+        std::cout << "Searcher: failed to start cell search" << std::endl;
+        return NR_FAILURE;
+      }
+      /* Set the searching frequency to ssb_freq */
+      /* Because the srsRAN implementation use the center_freq_hz for cell search */
+      cs_args.center_freq_hz = cs_args.ssb_freq_hz;
+      // std::cout << cs_args.ssb_freq_hz << std::endl;
+      args_t.base_carrier.ssb_center_freq_hz = cs_args.ssb_freq_hz;
+
+      // Update frequency if it has changed
+      if (srsran_searcher_cfg_t.ssb_freq_hz != current_rx_freq_hz) {
+          nrscope_radio_set_rx_freq(radio.get(), srsran_searcher_cfg_t.ssb_freq_hz);
+          current_rx_freq_hz = srsran_searcher_cfg_t.ssb_freq_hz;
+      }
+      // nrscope_radio_set_rx_freq(radio.get(), srsran_searcher_cfg_t.ssb_freq_hz);
+      // radio->release_freq(0);
+      // radio->set_rx_freq(0, srsran_searcher_cfg_t.ssb_freq_hz);
+
+      srsran::rf_buffer_t rf_buffer = {};
+      rf_buffer.set_nof_samples(pre_resampling_slot_sz);
+      rf_buffer.set(0, pre_resampling_rx_buffer); // + slot_sz);
+
+      for (uint32_t trial = 0; trial < nof_trials; trial++) {
+        if (trial == 0) {
+          srsran_vec_cf_zero(rx_buffer, slot_sz);
+          srsran_vec_cf_zero(pre_resampling_rx_buffer, pre_resampling_slot_sz);
         }
-        // msresamp_crcf_execute(q, temp_x, pre_resampling_slot_sz,
-        //    temp_y, &actual_slot_sz);
+        // srsran_vec_cf_copy(rx_buffer, rx_buffer + slot_sz, slot_sz);
 
-        for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
-          if (ssb_scan_resample_threads[k].joinable()) {
-            ssb_scan_resample_threads[k].join();
+        srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
+
+        if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
+          return SRSRAN_ERROR;
+        }
+
+        if (resample_needed) {
+          // srsran_vec_fprint2_c(fp_time_series_pre_resample,
+          //    pre_resampling_rx_buffer, pre_resampling_slot_sz);
+          copy_c_to_cpp_complex_arr_and_zero_padding(pre_resampling_rx_buffer, temp_x, pre_resampling_slot_sz, temp_x_sz);
+          uint32_t                 splitted_nx = pre_resampling_slot_sz / RESAMPLE_WORKER_NUM;
+          std::vector<std::thread> ssb_scan_resample_threads;
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            ssb_scan_resample_threads.emplace_back(
+                &resample_partially, &q[k], temp_x, temp_y[k], k, splitted_nx, &actual_slot_szs[k]);
           }
-        }
+          // msresamp_crcf_execute(q, temp_x, pre_resampling_slot_sz,
+          //    temp_y, &actual_slot_sz);
 
-        // sequentially merge back
-        cf_t* buf_split_ptr = rx_buffer;
-        for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
-          copy_cpp_to_c_complex_arr(temp_y[k], buf_split_ptr, actual_slot_szs[k]);
-          buf_split_ptr += actual_slot_szs[k];
-        }
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            if (ssb_scan_resample_threads[k].joinable()) {
+              ssb_scan_resample_threads[k].join();
+            }
+          }
 
-        // srsran_vec_fprint2_c(fp_time_series_post_resample,
-        //    rx_buffer, actual_slot_sz);
-      } else {
-        // pre_resampling_slot_sz should be the same as slot_sz as
-        // resample ratio is 1 in this case
-        srsran_vec_cf_copy(rx_buffer, pre_resampling_rx_buffer, pre_resampling_slot_sz);
-      }
+          // sequentially merge back
+          cf_t* buf_split_ptr = rx_buffer;
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            copy_cpp_to_c_complex_arr(temp_y[k], buf_split_ptr, actual_slot_szs[k]);
+            buf_split_ptr += actual_slot_szs[k];
+          }
 
-      *(last_rx_time.get_ptr(0)) = rf_timestamp.get(0);
-      cs_ret                     = srsran_searcher.run_slot(rx_buffer, slot_sz);
-      // std::cout << "Slot_sz: " << slot_sz << std::endl;
-      if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
-        if (pci == 9999) {
-          // pci not configured, return the first detected cell
-          break;
+          // srsran_vec_fprint2_c(fp_time_series_post_resample,
+          //    rx_buffer, actual_slot_sz);
         } else {
-          if (cs_ret.ssb_res.N_id == pci) {
-            // pci configured and the pci matches, return
+          // pre_resampling_slot_sz should be the same as slot_sz as
+          // resample ratio is 1 in this case
+          srsran_vec_cf_copy(rx_buffer, pre_resampling_rx_buffer, pre_resampling_slot_sz);
+        }
+
+        *(last_rx_time.get_ptr(0)) = rf_timestamp.get(0);
+        cs_ret                     = srsran_searcher.run_slot(rx_buffer, slot_sz);
+        // Print correlations for benchmarking
+        if (cs_ret.ssb_res.pbch_meas.corr > 0.05) {
+          auto cur_time = std::chrono::steady_clock::now();
+          printf("[SSB search] cur_time: %ld CRC: %d pss corr: %+1.5f pbch corr: %+1.5f\n", std::chrono::duration_cast<std::chrono::milliseconds>(cur_time.time_since_epoch()).count(), (int)(cs_ret.ssb_res.pbch_msg.crc), cs_ret.ssb_res.pss_corr, cs_ret.ssb_res.pbch_meas.corr);
+        }
+
+        // std::cout << "Slot_sz: " << slot_sz << std::endl;
+        if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
+          if (pci == 9999) {
+            // pci not configured, return the first detected cell
             break;
           } else {
-            // pci configured but not match, skip the current cell
-            cs_ret.result = srsue::nr::cell_search::ret_t::CELL_NOT_FOUND;
+            if (cs_ret.ssb_res.N_id == pci) {
+              // pci configured and the pci matches, return
+              break;
+            } else {
+              // pci configured but not match, skip the current cell
+              cs_ret.result = srsue::nr::cell_search::ret_t::CELL_NOT_FOUND;
+            }
           }
         }
       }
-    }
-    if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
-      std::cout << "Cell Found!" << std::endl;
-      std::cout << "N_id: " << cs_ret.ssb_res.N_id << std::endl;
-      std::cout << "Decoding MIB..." << std::endl;
+      if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
+        std::cout << "Cell Found!" << std::endl;
+        std::cout << "N_id: " << cs_ret.ssb_res.N_id << std::endl;
+        std::cout << "Decoding MIB..." << std::endl;
+        cell_found = true;
+        auto ssb_search_end_time = std::chrono::steady_clock::now();
+        std::cout << "[SSB search] total search time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(ssb_search_end_time - ssb_search_start_time).count()
+                  << " ms" << std::endl;
 
-      /* And the states are updated in the task_scheduler*/
-      if (task_scheduler_nrscope.DecodeMIB(&args_t, &cs_ret, &srsran_searcher_cfg_t, r, rf_args.srate_hz) <
-          SRSRAN_SUCCESS) {
-        ERROR("Error init task scheduler");
-        return NR_FAILURE;
-      }
+        /* And the states are updated in the task_scheduler*/
+        if (task_scheduler_nrscope.DecodeMIB(&args_t, &cs_ret, &srsran_searcher_cfg_t, r, rf_args.srate_hz) <
+            SRSRAN_SUCCESS) {
+          ERROR("Error init task scheduler");
+          return NR_FAILURE;
+        }
 
-      if (SyncandDownlinkInit() < SRSRAN_SUCCESS) {
-        ERROR("Error decoding MIB");
-        return NR_FAILURE;
-      }
+        if (SyncandDownlinkInit() < SRSRAN_SUCCESS) {
+          ERROR("Error decoding MIB");
+          return NR_FAILURE;
+        }
 
-      if (RadioCapture() < SRSASN_SUCCESS) {
-        ERROR("Error in RadioCapture");
-        return NR_FAILURE;
+        if (RadioCapture() < SRSASN_SUCCESS) {
+          ERROR("Error in RadioCapture");
+          return NR_FAILURE;
+        }
       }
     }
   }

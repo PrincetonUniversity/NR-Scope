@@ -307,24 +307,26 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
     ERROR("RACHDecoder -- Error in blind search");
     return SRSRAN_ERROR;
   }
-  // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_rach.pdcch_info_count; pdcch_idx++) {
-  //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_rach.pdcch_info[pdcch_idx]);
-  //   if(info->result.crc){ // Only print the RSRP result when the DCI's CRC is correct.
-  //     NRSCOPE_PRINT("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //       "nof_bits=%d; crc=%s;\n",
-  //       srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //       info->dci_ctx.rnti,
-  //       info->dci_ctx.coreset_id,
-  //       srsran_ss_type_str(info->dci_ctx.ss_type),
-  //       info->dci_ctx.location.ncce,
-  //       info->dci_ctx.location.L,
-  //       info->measure.epre_dBfs,
-  //       info->measure.rsrp_dBfs,
-  //       info->measure.norm_corr,
-  //       info->nof_bits,
-  //       info->result.crc ? "OK" : "KO");
-  //   }
-  // }
+  for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_rach.pdcch_info_count; pdcch_idx++) {
+    const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_rach.pdcch_info[pdcch_idx]);
+
+    if(info->result.crc){ // Only print the RSRP result when the DCI's CRC is correct.
+      printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; nof_bits=%d; crc=%s; coreset_start_rb=%d\n",
+        srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
+        info->dci_ctx.rnti,
+        info->dci_ctx.coreset_id,
+        srsran_ss_type_str(info->dci_ctx.ss_type),
+        info->dci_ctx.location.ncce,
+        info->dci_ctx.location.L,
+        info->measure.epre_dBfs,
+        info->measure.rsrp_dBfs,
+        info->measure.norm_corr,
+        info->nof_bits,
+        info->result.crc ? "OK" : "KO",
+        info->dci_ctx.coreset_start_rb);
+    }
+
+  }
 
   if (nof_found_dci < 1) {
     NRSCOPE_PRINT("RACHDecoder -- No DCI found :'(\n");

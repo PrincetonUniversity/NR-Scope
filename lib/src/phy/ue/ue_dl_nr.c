@@ -24,6 +24,9 @@
 #include <complex.h>
 #include <stdio.h>
 
+#include "nrscope_print.h"
+
+
 #define UE_DL_NR_PDCCH_CORR_DEFAULT_THR 0.5f
 #define UE_DL_NR_PDCCH_EPRE_DEFAULT_THR -80.0f
 
@@ -605,12 +608,15 @@ static int ue_dl_nr_find_dci_ncce_nrscope_dciloop(srsran_ue_dl_nr_t*     q,
   }
 
   // Decode PDCCH
+  TSTART(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop) 
+  // in pdcch_nr.c
   if (srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(&q->pdcch, q->sf_symbols[0], 
       q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
   // if (srsran_pdcch_nr_decode(&q->pdcch, q->sf_symbols[0], q->pdcch_ce, dci_msg, pdcch_res) < SRSRAN_SUCCESS) {
     ERROR("Error decoding PDCCH");
     return SRSRAN_ERROR;
   }
+  TEND(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop)
 
 #if 0
   static uint32_t num_pdcch = 0;
@@ -1021,6 +1027,8 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
     // Reset the pdcch_info_count.
     // q->pdcch_info_count = 0;
     // Iterate all possible aggregation levels
+    // NRSCOPE_PRINT_ERROR("[ue_dl_nr_find_dci_ss_nrscope_dciloop] processing %u levels of aggregation", SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR);
+    // 5 levels; ~ [4, 3, 2, 1, 0] candidates each, total ~10 iterations
     for (uint32_t L = 0;
         L < SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR;
         L++) {
@@ -1033,6 +1041,7 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
         ERROR("Error calculating DCI candidate location");
         return SRSRAN_ERROR;
       }
+      // NRSCOPE_PRINT_ERROR("[ue_dl_nr_find_dci_ss_nrscope_dciloop] L=%u, nof_candidates=%u\n", L, nof_candidates);
 
       // Iterate over the candidates
       for (int ncce_idx = 0; ncce_idx < nof_candidates && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR; ncce_idx++) {
@@ -1059,9 +1068,12 @@ static int ue_dl_nr_find_dci_ss_nrscope_dciloop(srsran_ue_dl_nr_t*           q,
 
         // Find and decode PDCCH transmission in the given ncce
         srsran_pdcch_nr_res_t res = {};
+        TSTART(t_ue_dl_nr_find_dci_ncce_nrscope_dciloop) // ~10 calls total; 
         if (ue_dl_nr_find_dci_ncce_nrscope_dciloop(q, &dci_msg, &res, coreset_id, rnti) < SRSRAN_SUCCESS) {
           return SRSRAN_ERROR;
         }
+        TEND(t_ue_dl_nr_find_dci_ncce_nrscope_dciloop)
+        // printf("^^^L=%u, ncce=%u^^^\n", L, ncce_idx);
 
         // If the CRC was not match, move to next candidate
         if (!res.crc) {
@@ -1268,7 +1280,10 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
   q->pdcch_info_count = 0;
 
   // Iterate all possible common and UE search spaces
+  // uint32_t iter_ct = 0;
+  // printf("[srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop] start iterating search spaces...\n");
   for (uint32_t i = 0; i < SRSRAN_UE_DL_NR_MAX_NOF_SEARCH_SPACE && q->dl_dci_msg_count < nof_dci_msg; i++) {
+    // iter_ct++;
     // Skip search space if not present
     // if (q->cfg.search_space_present[i]) {
     //   printf("search space: %d, present: %d, search space id: %d\n", i, q->cfg.search_space_present[i], q->cfg.search_space[i].id);
@@ -1279,13 +1294,16 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
 
     // Find DCIs in the selected search space
     // int ret = ue_dl_nr_find_dci_ss_nrscope(q, slot_cfg, &q->cfg.search_space[i], rnti_list[0], rnti_type);
+    TSTART(srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop__t_ue_dl_nr_find_dci_ss_nrscope_dciloop) // ~90us
     int ret = ue_dl_nr_find_dci_ss_nrscope_dciloop(q, slot_cfg, &q->cfg.search_space[i], rnti, rnti_type);
+    TEND(srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop__t_ue_dl_nr_find_dci_ss_nrscope_dciloop)
 
     if (ret < SRSRAN_SUCCESS) {
       ERROR("Error searching DCI");
       return SRSRAN_ERROR;
     }
   }
+  // printf("[srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop] iter_ct: %u\n", iter_ct);
 
   // bool need_search = false;
   // if (q->dl_dci_msg_count == 0 && q->ul_dci_count == 0) {
@@ -1346,6 +1364,10 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
 
   // Convert found DCI messages into DL grants
   uint32_t dci_msg_count = SRSRAN_MIN(nof_dci_msg, q->dl_dci_msg_count);
+  if (dci_msg_count == 0) {    
+    return 0; // Early return is just for time profiling
+  }
+  TSTART(srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop__t_unpack_dl_dci) // 1us
   for (uint32_t i = 0; i < dci_msg_count; i++) {
     if (srsran_dci_nr_dl_unpack(&q->dci, &q->dl_dci_msg[i], &dci_dl_list[i]) < SRSRAN_SUCCESS) {
       ERROR("Error unpacking grant %d;", i);
@@ -1367,6 +1389,7 @@ int srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(srsran_ue_dl_nr_t*       q,
     //   printf("Now we know %u rntis.", *rnti_list_length);
     // }
   }
+  TEND(srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop__t_unpack_dl_dci)
 
   return (int)dci_msg_count;
 }

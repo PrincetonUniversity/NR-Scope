@@ -123,6 +123,12 @@ private:
   }
 
 public:
+  uhd_error set_rx_antenna(const std::string& antenna, size_t channel = 0)
+  {
+    Info("Setting rx_antenna to '" << antenna << "' on channel " << channel);
+    SRSRAN_UHD_SAFE_C_LOG_ERROR(usrp->set_rx_antenna(antenna, channel);)
+  }
+
   rf_uhd_generic() { Info("RF UHD Generic instance constructed"); }
   virtual ~rf_uhd_generic()
   {

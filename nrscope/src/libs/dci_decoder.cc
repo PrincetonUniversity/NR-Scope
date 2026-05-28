@@ -1,4 +1,5 @@
 #include "nrscope/hdr/dci_decoder.h"
+#include "nrscope/hdr/nrscope_print.h"
 
 DCIDecoder::DCIDecoder(uint32_t max_nof_rntis)
 {
@@ -1015,25 +1016,33 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
     memset(&dci_ul[idx], 0, sizeof(srsran_dci_dl_nr_t));
   }
 
+  TSTART(t_fft_nrscope) // ~200us
   srsran_ue_dl_nr_estimate_fft_nrscope(&ue_dl_dci, slot, arg_scs);
+  TEND(t_fft_nrscope)
 
   int total_dl_dci = 0;
   int total_ul_dci = 0;
 
+  // if (slot->idx == 0)
+  //   std::cout << "DCIDecoder -- Start decoding slot " << slot->idx << " with " << n_rntis << " RNTIs." << std::endl;
   for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++) {
+    TSTART(t_dci_decode_rnti)
     // With carrier aggregation
     memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
     memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
 
+    TSTART(t_CA_srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop) // ~200us per loop, outer loop can be ~30+ RNTIs
     int nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
         ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
+    TEND(t_CA_srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop)
     if (nof_dl_dci < SRSRAN_SUCCESS) {
       ERROR("Error in blind search");
     }
 
+    TSTART(t_CA_srsran_ue_dl_nr_find_ul_dci) // ~0us
     int nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(
         ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
+    TEND(t_CA_srsran_ue_dl_nr_find_ul_dci)
 
     if (nof_dl_dci > 0) {
       dci_dl[rnti_idx] = dci_dl_tmp[0];
@@ -1103,15 +1112,18 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
     //   ue_dl_tmp->cfg.search_space[1].nof_candidates[4]
     // );
 
+    TSTART(t_non_CA_srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop)  // ~200us per loop, outer loop can be ~30+ RNTIs
     int nof_dl_dci_nca = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
         ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
+    TEND(t_non_CA_srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop)
     if (nof_dl_dci_nca < SRSRAN_SUCCESS) {
       ERROR("Error in blind search");
     }
 
+    TSTART(t_non_CA_srsran_ue_dl_nr_find_ul_dci) // ~1us
     int nof_ul_dci_nca = srsran_ue_dl_nr_find_ul_dci(
         ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
+    TEND(t_non_CA_srsran_ue_dl_nr_find_ul_dci)
 
     if (nof_dl_dci_nca > 0) {
       dci_dl[rnti_idx] = dci_dl_tmp[0];
@@ -1147,7 +1159,8 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
       // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
       printf("DCIDecoder -- DCI Found without CA\n");
     }
-  }
+    TEND(t_dci_decode_rnti)
+  } // end main for loop
 
   if (total_dl_dci > 0) {
     for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++) {
@@ -1163,15 +1176,17 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
           srsran_sch_cfg_nr_t pdsch_cfg = {};
           pdsch_cfg.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
 
+          TSTART(t_srsran_ra_dl_dci_to_grant_nr)
           if (srsran_ra_dl_dci_to_grant_nr(
                   &carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[dci_idx_dl], &pdsch_cfg, &pdsch_cfg.grant) <
               SRSRAN_SUCCESS) {
             ERROR("Error decoding PDSCH search");
             // return result;
           }
+          TEND(t_srsran_ra_dl_dci_to_grant_nr)
+
           srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
           printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
-
           sharded_results[dci_decoder_id].dl_grants[dci_idx_dl] = pdsch_cfg;
           sharded_results[dci_decoder_id].nof_dl_used_prbs += pdsch_cfg.grant.nof_prb * pdsch_cfg.grant.L;
 
@@ -1228,11 +1243,13 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
         // We can calculate the UL bandwidth for this subframe by ourselves.
         srsran_sch_cfg_nr_t pusch_cfg = {};
         pusch_cfg.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
+        TSTART(t_srsran_ra_ul_dci_to_grant_nr)
         if (srsran_ra_ul_dci_to_grant_nr(
                 &carrier_ul, slot, &pusch_hl_cfg, &dci_ul[dci_idx_ul], &pusch_cfg, &pusch_cfg.grant) < SRSRAN_SUCCESS) {
           ERROR("Error decoding PUSCH search");
           // return result;
         }
+        TEND(t_srsran_ra_ul_dci_to_grant_nr)
         srsran_sch_cfg_nr_info(&pusch_cfg, str, (uint32_t)sizeof(str));
         printf("DCIDecoder -- PUSCH_cfg:\n%s", str);
 

@@ -843,6 +843,19 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
     }
   }
 
+  // Set RX antenna if specified in device args (e.g. rx_antenna=TX/RX)
+  if (device_addr.has_key("rx_antenna")) {
+    std::string ant = device_addr["rx_antenna"];
+    rf_uhd_generic* generic_uhd = dynamic_cast<rf_uhd_generic*>(handler->uhd.get());
+    if (generic_uhd != nullptr) {
+      for (size_t ch = 0; ch < (size_t)nof_channels; ch++) {
+        if (generic_uhd->set_rx_antenna(ant, ch) != UHD_ERROR_NONE) {
+          ERROR("Failed to set RX antenna to '%s' on channel %zu\n", ant.c_str(), ch);
+          return SRSRAN_ERROR;
+        }
+      }
+    }
+  }
 
   handler->nof_rx_channels = nof_channels;
   handler->nof_tx_channels = nof_channels;

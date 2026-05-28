@@ -29,6 +29,8 @@
 #include "srsran/phy/utils/debug.h"
 #include "srsran/phy/utils/vector.h"
 
+#include "nrscope_print.h"
+
 #define PDCCH_NR_POLAR_RM_IBIL 0
 
 #define PDCCH_INFO_TX(...) INFO("PDCCH Tx: " __VA_ARGS__)
@@ -972,6 +974,7 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope(srsran_pdcch_nr_t*      q,
   return SRSRAN_SUCCESS;
 }
 
+// innermost loop of DCI decoding. Called up to 24000X per slot
 int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
                            cf_t*                   slot_symbols,
                            srsran_dmrs_pdcch_ce_t* ce,
@@ -1022,8 +1025,9 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
   // srsran_vec_fprint_c(stdout, ce->ce, q->M);
 
   // Equalise
+  TSTART(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_predecoding)
   srsran_predecoding_single(q->symbols, ce->ce, q->symbols, NULL, q->M, 1.0f, ce->noise_var);
-
+  TEND(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_predecoding)
   // Print symbols if enabled
   if (SRSRAN_DEBUG_ENABLED && get_srsran_verbose_level() >= SRSRAN_VERBOSE_DEBUG && !is_handler_registered()) {
     PDCCH_DEBUG_RX("symbols=");
@@ -1034,14 +1038,18 @@ int srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop(srsran_pdcch_nr_t*      q,
 
   // Demodulation
   int8_t* llr = (int8_t*)q->f;
+  TSTART(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_demodulation)
   srsran_demod_soft_demodulate_b(SRSRAN_MOD_QPSK, q->symbols, llr, q->M);
+  TEND(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_demodulation)
 
   // Measure EVM if configured
+  TSTART(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_evm)
   if (q->evm_buffer != NULL) {
     res->evm = srsran_evm_run_b(q->evm_buffer, &q->modem_table, q->symbols, llr, q->E);
   } else {
     res->evm = NAN;
   }
+  TEND(srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop__t_evm)
 
   // Negate all LLR
   for (uint32_t i = 0; i < q->E; i++) {
