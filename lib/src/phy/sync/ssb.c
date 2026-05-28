@@ -1427,6 +1427,7 @@ int srsran_ssb_search(srsran_ssb_t* q, const cf_t* in, uint32_t nof_samples, srs
   // printf("ssb.c, q->args.pbch_dmrs_thr: %f\n", q->args.pbch_dmrs_thr);
 
   // Avoid decoding if the selected PBCH DMRS do not reach the minimum threshold
+  res->pbch_meas_corr = pbch_meas.corr;
   if (pbch_meas.corr < q->args.pbch_dmrs_thr) {
     return SRSRAN_SUCCESS;
   }

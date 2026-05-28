@@ -129,6 +129,7 @@ typedef struct {
   uint32_t                      t_offset;     ///< Time offset in the input samples
   srsran_pbch_msg_nr_t          pbch_msg;     ///< Physical broadcast channel message of the most suitable SSB candidate
   srsran_csi_trs_measurements_t measurements; ///< Measurements
+  float pbch_meas_corr; ///< PBCH DMRS correlation value for the selected SSB candidate
 } srsran_ssb_search_res_t;
 
 /**
