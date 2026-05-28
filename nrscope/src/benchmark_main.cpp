@@ -96,6 +96,7 @@ int BenchmarkSSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_
     } else {
       result.success = false;
       result.detection_time = 0;
+      result.pbch_corrs = std::get<1>(detect_res);
       ssb_detection_results.push_back(result);
     }
     print_ssb_detection_result(result);    

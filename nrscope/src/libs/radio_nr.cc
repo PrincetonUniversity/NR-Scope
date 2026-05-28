@@ -626,7 +626,7 @@ std::tuple<int, std::vector<std::tuple<double, double>>> Radio::DetectSSB(resamp
         if (log_pbch_corrs) {
           auto now = std::chrono::steady_clock::now(); //
           double ts = std::chrono::duration<double>(now.time_since_epoch()).count();
-          ssb_pbch_corrs.emplace_back(ts, cs_ret.ssb_res.pbch_meas_corr);
+          ssb_pbch_corrs.emplace_back(ts, (double)cs_ret.ssb_res.pbch_meas_corr);
         }
         // std::cout << "Slot_sz: " << slot_sz << std::endl;
         if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
