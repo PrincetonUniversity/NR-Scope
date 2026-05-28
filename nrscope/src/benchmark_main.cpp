@@ -1,5 +1,4 @@
 #include <iostream>
-#include <iomanip>
 #include <string>
 #include <unistd.h>
 
@@ -19,15 +18,15 @@
 
 struct SSBDetectionResult {
   bool success; // whether the SSB was successfully detected
-  float start_time; // the time when the SSB detection started
-  float detection_time; // time to detect (0 if detection failed)
-  std::vector<std::tuple<float, float>> pbch_corrs; // Optional PBCH correlation values for debugging
+  double start_time; // the time when the SSB detection started
+  double detection_time; // time to detect (0 if detection failed)
+  std::vector<std::tuple<double, double>> pbch_corrs; // Optional PBCH correlation values for debugging
 };
 
 // summary of one result
 void print_ssb_detection_result(const SSBDetectionResult& result)
 {
-  auto max_corr = 0.0f;
+  auto max_corr = 0.0;
   if (!result.pbch_corrs.empty()) {
     for (const auto& corr_pair : result.pbch_corrs) {
       max_corr = std::max(max_corr, std::get<1>(corr_pair));
@@ -59,7 +58,7 @@ void print_ssb_detection_results(const std::vector<SSBDetectionResult>& results)
           std::cout << ", ";
         }
       }
-      std::cout << "]" << std::endl;
+      std::cout << "] }" << std::endl;
     }
     else {
       std::cout << "{\"trial\": " << &result - &results[0] << ", \"pbch_corrs\": []}" << std::endl;
@@ -84,9 +83,9 @@ int BenchmarkSSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_
   std::vector<SSBDetectionResult> ssb_detection_results; // store results of all trials
 
   for (uint32_t i = 0; i < n_trials; i++) {
-    auto start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::system_clock::now();
     auto detect_res = radio.DetectSSB(rs, timeout_sec, true);
-    auto end_time = std::chrono::steady_clock::now();
+    auto end_time = std::chrono::system_clock::now();
     SSBDetectionResult result;
     result.start_time = std::chrono::duration<double>(start_time.time_since_epoch()).count();
     if (std::get<0>(detect_res) == SRSRAN_SUCCESS) {

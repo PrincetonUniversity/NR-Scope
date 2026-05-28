@@ -173,7 +173,7 @@ public:
    * @param log_pbch_corrs whether to log the PBCH correlation values for debugging
    * @return Tuple with <0> = return code (SRSRAN_SUCCESS or SRSRAN_ERROR), <1> = vector of PBCH correlation values
   */
-  std::tuple<int, std::vector<std::tuple<float, float>>> DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs);
+  std::tuple<int, std::vector<std::tuple<double, double>>> DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs);
 
   
   /**

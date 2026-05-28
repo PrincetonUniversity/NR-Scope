@@ -495,7 +495,7 @@ int Radio::RadioInit(resample_state_t* rs)
 }
 
 
-std::tuple<int, std::vector<std::tuple<float, float>>> Radio::DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs)
+std::tuple<int, std::vector<std::tuple<double, double>>> Radio::DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs)
 {
   // SSB scan state
   uint32_t ssb_scs_hz = SRSRAN_SUBC_SPACING_NR(cs_args.ssb_scs);
@@ -513,7 +513,7 @@ std::tuple<int, std::vector<std::tuple<float, float>>> Radio::DetectSSB(resample
   bool cell_found = false;
   auto ssb_search_timeout = std::chrono::seconds(timeout_sec);
   auto ssb_search_start_time = std::chrono::steady_clock::now(); // track how long it takes to find the SSB
-  std::vector<std::tuple<float, float>> ssb_pbch_corrs; // if log_pbch_corrs, record the PBCH correlation times and values for all scanned SSBs
+  std::vector<std::tuple<double, double>> ssb_pbch_corrs; // if log_pbch_corrs, record the PBCH correlation times and values for all scanned SSBs
   while (not cell_found) {
     ss.reset();
     auto now = std::chrono::steady_clock::now();
