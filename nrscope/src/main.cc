@@ -13,7 +13,7 @@ int main(int argc, char** argv){
   // Initialise logging infrastructure
   srslog::init();
 
-  std::string file_name = "config.yaml";
+  std::string file_name = (argc > 1) ? argv[1] : "config.yaml";
 
   int nof_usrp = get_nof_usrp(file_name);
   std::vector<Radio> radios(nof_usrp);

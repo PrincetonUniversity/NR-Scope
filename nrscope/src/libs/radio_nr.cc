@@ -46,7 +46,7 @@ Radio::~Radio() {}
 
 int Radio::RadioThread()
 {
-  RadioInitandStart();
+  RadioInitandStart();  
   return SRSRAN_SUCCESS;
 }
 
@@ -381,6 +381,372 @@ int Radio::ScanInitandStart()
 }
 
 
+/* Resampling state and initialization */
+struct resample_state_t {
+  uint32_t actual_slot_szs[RESAMPLE_WORKER_NUM];
+  float r;
+  float As;
+  msresamp_crcf q[RESAMPLE_WORKER_NUM];
+  uint32_t temp_x_sz;
+  uint32_t temp_y_sz;
+  std::complex<float>* temp_x;
+  std::complex<float>* temp_y[RESAMPLE_WORKER_NUM];
+};
+
+static void init_resample_state(resample_state_t* state, cell_searcher_args_t args_t, srsran::rf_args_t rf_args, uint32_t pre_resampling_slot_sz) {
+  state->r  = (float)rf_args.srsran_srate_hz / (float)rf_args.srate_hz;
+  state->As = TARGET_STOPBAND_SUPPRESSION_DB;
+  for (uint8_t i = 0; i < RESAMPLE_WORKER_NUM; i++) {
+    state->q[i] = msresamp_crcf_create(state->r, state->As);
+  }
+
+  float delay = msresamp_crcf_get_delay(state->q[0]);
+  // add a few zero padding
+  state->temp_x_sz = SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz + (int)ceilf(delay) + 10;
+  state->temp_x    = (std::complex<float>*)malloc(state->temp_x_sz * sizeof(std::complex<float>));
+
+  state->temp_y_sz = (uint32_t)(state->temp_x_sz * state->r * 2);
+  for (uint8_t i = 0; i < RESAMPLE_WORKER_NUM; i++) {
+    state->temp_y[i] = (std::complex<float>*)malloc(state->temp_y_sz * sizeof(std::complex<float>));
+  }
+}
+
+int Radio::RadioInit(resample_state_t* rs)
+{
+  // record/replay mode init
+  switch (mode) {
+    case rx_mode::NORMAL:
+      init_normal();
+      break;
+    case rx_mode::RECORD:
+      init_record("samples.bin", record_buf_size_gb);
+      break;
+    case rx_mode::REPLAY:
+      init_replay("samples.bin");
+      break;
+    default:
+      ERROR("Invalid mode");
+      return NR_FAILURE;
+  }  
+  // SDR init
+  rf_args.dl_freq          = args_t.base_carrier.dl_center_frequency_hz;
+  radio = nrscope_radio_init(radio_shared, rf_args);
+
+  args_t.srate_hz          = rf_args.srsran_srate_hz;
+  args_t.rf_device_name    = rf_args.device_name;
+  args_t.rf_device_args    = rf_args.device_args;
+  args_t.rf_log_level      = "info";
+  args_t.rf_rx_gain_dB     = rf_args.rx_gain;
+  args_t.rf_freq_offset_Hz = rf_args.freq_offset;
+  args_t.phy_log_level     = "warning";
+  args_t.stack_log_level   = "warning";
+  args_t.duration_ms       = 1000;
+  args_t.set_ssb_from_band(ssb_scs);
+  args_t.base_carrier.scs = args_t.ssb_scs;
+  if (args_t.duplex_mode == SRSRAN_DUPLEX_MODE_TDD) {
+    args_t.base_carrier.ul_center_frequency_hz = args_t.base_carrier.dl_center_frequency_hz;
+  }
+
+  if (fabs(rf_args.srsran_srate_hz - rf_args.srate_hz) < 0.1) {
+    resample_needed = false;
+  } else {
+    resample_needed = true;
+  }
+  std::cout << "resample_needed: " << resample_needed << std::endl;
+
+  pre_resampling_slot_sz = (uint32_t)(rf_args.srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(ssb_scs));
+
+  // Allocate receive buffer
+  slot_sz   = (uint32_t)(rf_args.srsran_srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(ssb_scs));
+  rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz * RING_BUF_SIZE);
+  std::cout << "slot_sz: " << slot_sz << std::endl;
+  srsran_vec_zero(rx_buffer,
+                  SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz * RING_BUF_SIZE * sizeof(cf_t));
+
+  // Allocate pre-resampling receive buffer
+  pre_resampling_rx_buffer = srsran_vec_cf_malloc(SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz);
+  std::cout << "pre_resampling_slot_sz: " << pre_resampling_slot_sz << std::endl;
+  srsran_vec_zero(pre_resampling_rx_buffer,
+                  SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz * sizeof(cf_t));
+
+  cs_args.center_freq_hz = args_t.base_carrier.dl_center_frequency_hz;
+  cs_args.ssb_freq_hz    = args_t.base_carrier.dl_center_frequency_hz;
+  cs_args.ssb_scs        = args_t.ssb_scs;
+  cs_args.ssb_pattern    = args_t.ssb_pattern;
+  cs_args.duplex_mode    = args_t.duplex_mode;
+
+  /* Initialize the task_scheduler and the workers in it.
+     They will all remain inactive until the MIB is found. */
+  task_scheduler_nrscope.InitandStart(local_log,
+                                      to_google,
+                                      rf_index,
+                                      nof_threads,
+                                      nof_rnti_worker_groups,
+                                      single_threaded_workers,
+                                      nof_bwps,
+                                      cpu_affinity,
+                                      args_t,
+                                      nof_workers,
+                                      rrc_recfg);
+
+  std::cout << "Task scheduler started..." << std::endl;
+
+  // init resampling state
+  if(resample_needed) {
+    init_resample_state(rs, args_t, rf_args, pre_resampling_slot_sz);
+    if (!rk_initialized) {
+      prepare_resampler(rk,
+                        (float)rf_args.srsran_srate_hz / (float)rf_args.srate_hz,
+                        SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs) * pre_resampling_slot_sz,
+                        RESAMPLE_WORKER_NUM);
+      rk_initialized = true;
+    }
+  }
+  return NR_SUCCESS;
+}
+
+
+static void print_ssb_decode_time_metrics(const std::vector<double>& times)
+{
+  double sum = 0;
+  for (const auto& t : times) { sum += t; }
+  double mean = sum / times.size();
+  double variance = 0;
+  for (const auto& t : times) { variance += (t - mean) * (t - mean); }
+  variance /= times.size();
+  double stddev = std::sqrt(variance);
+  std::cout << "==== SSB decode time distribution summary ====" << std::endl;
+  std::cout << "Mean: " << mean << " ms" << std::endl;
+  std::cout << "Standard Deviation: " << stddev << " ms" << std::endl;
+  std::cout << "Minimum: " << *std::min_element(times.begin(), times.end()) << " ms" << std::endl;
+  std::cout << "Maximum: " << *std::max_element(times.begin(), times.end()) << " ms" << std::endl;
+  std::cout << "==== SSB decode time distribution summary ====" << std::endl;
+}
+
+// run the scan loop of RadioInitandStart repeatedly for benchmarking
+int Radio::BenchmarkSSBDetectionTime(int n_trials)
+{
+  resample_state_t rs;
+  if (RadioInit(&rs) != SRSRAN_SUCCESS) {
+    return NR_FAILURE;
+  }
+
+  // vector of ssb decode time results
+  std::vector<double> ssb_decode_times;
+
+  std::cout << "==== Benchmarking SSB detection time in " << n_trials << " trials ====" << std::endl;
+
+  for (uint32_t i = 0; i < n_trials; i++) {
+    std::cout << "--- Starting trial " << i << " ---" << std::endl;
+    auto start_time = std::chrono::steady_clock::now();
+    if (DetectSSB(rs) != SRSRAN_SUCCESS) { 
+      // Cleanup
+      if (resample_needed) {
+        for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+          msresamp_crcf_destroy(rs.q[k]);
+          free(rs.temp_y[k]);
+        }
+        free(rs.temp_x);
+      }
+      return SRSRAN_ERROR; 
+    }
+    auto end_time = std::chrono::steady_clock::now();
+    std::cout << "--- Trial " << i << ": SSB decode time = "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() << " ms"
+              << " ---" << std::endl;
+    ssb_decode_times.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+    print_ssb_decode_time_metrics(ssb_decode_times);    
+    // sleep from 1 - 5 seconds, randomly selected
+    auto sleep_duration = std::chrono::milliseconds(1000 + (rand() % 4000));
+    std::cout << "Sleeping for " << sleep_duration.count() << " ms before next trial..." << std::endl;
+    std::this_thread::sleep_for(sleep_duration);
+  }
+  // Cleanup
+  if (resample_needed) {
+    for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+      msresamp_crcf_destroy(rs.q[k]);
+      free(rs.temp_y[k]);
+    }
+    free(rs.temp_x);
+  }
+
+  std::cout << "==== All SSB decode times (ms) ====" << std::endl;
+  for (size_t i = 0; i < ssb_decode_times.size(); i++) {
+    std::cout << "Trial " << i << ": " << ssb_decode_times[i] << " ms" << std::endl;
+  }
+
+  print_ssb_decode_time_metrics(ssb_decode_times);
+
+
+  return SRSRAN_SUCCESS;
+}
+
+// Find and decode the SSB
+int Radio::DetectSSB(resample_state_t rs)
+{
+  // SSB scan state
+  uint32_t ssb_scs_hz = SRSRAN_SUBC_SPACING_NR(cs_args.ssb_scs);
+  double   ssb_bw_hz  = SRSRAN_SSB_BW_SUBC * ssb_scs_hz;
+  double   ssb_center_freq_min_hz =
+      args_t.base_carrier.dl_center_frequency_hz - (args_t.srate_hz * 0.7 - ssb_bw_hz) / 2.0;
+  double ssb_center_freq_max_hz =
+      args_t.base_carrier.dl_center_frequency_hz + (args_t.srate_hz * 0.7 - ssb_bw_hz) / 2.0;
+
+  uint32_t band = bands.get_band_from_dl_freq_Hz_and_scs(args_t.base_carrier.dl_center_frequency_hz, cs_args.ssb_scs);
+  srsran::srsran_band_helper::sync_raster_t ss = bands.get_sync_raster(band, cs_args.ssb_scs);
+  srsran_assert(ss.valid(), "Invalid synchronization raster");
+
+  // SSB Scan loop -- retries until it finds the SSB
+  bool cell_found = false;
+  auto ssb_search_start_time = std::chrono::steady_clock::now(); // track how long it takes to find the SSB
+  float max_ssb_pbch_meas_corr = 0.0; // track the max PBCH correlation measurement during the scan for debugging and benchmarking
+  while (not cell_found) {
+    ss.reset();
+    auto now = std::chrono::steady_clock::now();
+    printf("[SSB Scan] Scanning for SSB... Elapsed time: %.2f seconds Max PBCH corr for possible SSB: %f\n",
+           std::chrono::duration_cast<std::chrono::milliseconds>(now - ssb_search_start_time).count() / 1000.0, max_ssb_pbch_meas_corr);
+    
+    while (not ss.end()) {
+      // Get SSB center frequency
+      cs_args.ssb_freq_hz = ss.get_frequency();
+      // Advance SSB frequency raster
+      ss.next();
+
+      /* Calculate frequency offset between the base-band center frequency and
+        the SSB absolute frequency */
+      uint32_t offset_hz =
+          (uint32_t)std::abs(std::round(cs_args.ssb_freq_hz - args_t.base_carrier.dl_center_frequency_hz));
+
+      // The SSB absolute frequency is invalid if it is outside the range and
+      // the offset is NOT multiple of the subcarrier spacing
+      if ((cs_args.ssb_freq_hz < ssb_center_freq_min_hz) or (cs_args.ssb_freq_hz > ssb_center_freq_max_hz) or
+          (offset_hz % ssb_scs_hz != 0)) {
+        // Skip this frequency
+        continue;
+      }
+
+      /* xuyang debug: skip all other nearby measure and
+        just focus on the wanted SSB freq */
+      if (offset_hz > 1) {
+        continue;
+      }
+
+      /* which is indeed the srsran srate */
+      srsran_searcher_cfg_t.srate_hz       = args_t.srate_hz;
+      srsran_searcher_cfg_t.center_freq_hz = cs_args.ssb_freq_hz;
+      srsran_searcher_cfg_t.ssb_freq_hz    = cs_args.ssb_freq_hz;
+      srsran_searcher_cfg_t.ssb_scs        = args_t.ssb_scs;
+      srsran_searcher_cfg_t.ssb_pattern    = args_t.ssb_pattern;
+      srsran_searcher_cfg_t.duplex_mode    = args_t.duplex_mode;
+      if (not srsran_searcher.start(srsran_searcher_cfg_t)) {
+        std::cout << "Searcher: failed to start cell search" << std::endl;
+        return NR_FAILURE;
+      }
+      /* Set the searching frequency to ssb_freq */
+      /* Because the srsRAN implementation use the center_freq_hz for cell search */
+      cs_args.center_freq_hz = cs_args.ssb_freq_hz;
+      // std::cout << cs_args.ssb_freq_hz << std::endl;
+      args_t.base_carrier.ssb_center_freq_hz = cs_args.ssb_freq_hz;
+
+      nrscope_radio_set_rx_freq(radio.get(), srsran_searcher_cfg_t.ssb_freq_hz);
+      // radio->release_freq(0);
+      // radio->set_rx_freq(0, srsran_searcher_cfg_t.ssb_freq_hz);
+
+      srsran::rf_buffer_t rf_buffer = {};
+      rf_buffer.set_nof_samples(pre_resampling_slot_sz);
+      rf_buffer.set(0, pre_resampling_rx_buffer); // + slot_sz);
+
+      for (uint32_t trial = 0; trial < nof_trials; trial++) {
+        if (trial == 0) {
+          srsran_vec_cf_zero(rx_buffer, slot_sz);
+          srsran_vec_cf_zero(pre_resampling_rx_buffer, pre_resampling_slot_sz);
+        }
+        // srsran_vec_cf_copy(rx_buffer, rx_buffer + slot_sz, slot_sz);
+
+        srsran::rf_timestamp_t& rf_timestamp = last_rx_time;
+
+        if (nrscope_rx(radio.get(), rf_buffer, rf_timestamp) != rx_result::RX_SUCCESS) {
+          return SRSRAN_ERROR;
+        }
+
+        if (resample_needed) {
+          // srsran_vec_fprint2_c(fp_time_series_pre_resample,
+          //    pre_resampling_rx_buffer, pre_resampling_slot_sz);
+          copy_c_to_cpp_complex_arr_and_zero_padding(pre_resampling_rx_buffer, rs.temp_x, pre_resampling_slot_sz, rs.temp_x_sz);
+          uint32_t                 splitted_nx = pre_resampling_slot_sz / RESAMPLE_WORKER_NUM;
+          std::vector<std::thread> ssb_scan_resample_threads;
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            ssb_scan_resample_threads.emplace_back(
+                &resample_partially, &rs.q[k], rs.temp_x, rs.temp_y[k], k, splitted_nx, &rs.actual_slot_szs[k]);
+          }
+          // msresamp_crcf_execute(q, temp_x, pre_resampling_slot_sz,
+          //    temp_y, &actual_slot_sz);
+
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            if (ssb_scan_resample_threads[k].joinable()) {
+              ssb_scan_resample_threads[k].join();
+            }
+          }
+
+          // sequentially merge back
+          cf_t* buf_split_ptr = rx_buffer;
+          for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+            copy_cpp_to_c_complex_arr(rs.temp_y[k], buf_split_ptr, rs.actual_slot_szs[k]);
+            buf_split_ptr += rs.actual_slot_szs[k];
+          }
+
+          // srsran_vec_fprint2_c(fp_time_series_post_resample,
+          //    rx_buffer, actual_slot_sz);
+        } else {
+          // pre_resampling_slot_sz should be the same as slot_sz as
+          // resample ratio is 1 in this case
+          srsran_vec_cf_copy(rx_buffer, pre_resampling_rx_buffer, pre_resampling_slot_sz);
+        }
+
+        *(last_rx_time.get_ptr(0)) = rf_timestamp.get(0);
+        cs_ret                     = srsran_searcher.run_slot(rx_buffer, slot_sz);
+        float pbch_meas_corr = cs_ret.ssb_res.pbch_meas_corr;
+        if (pbch_meas_corr > max_ssb_pbch_meas_corr) {
+          max_ssb_pbch_meas_corr = pbch_meas_corr;
+        }
+        // std::cout << "Slot_sz: " << slot_sz << std::endl;
+        if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
+          if (pci == 9999) {
+            // pci not configured, return the first detected cell
+            break;
+          } else {
+            if (cs_ret.ssb_res.N_id == pci) {
+              // pci configured and the pci matches, return
+              break;
+            } else {
+              // pci configured but not match, skip the current cell
+              cs_ret.result = srsue::nr::cell_search::ret_t::CELL_NOT_FOUND;
+            }
+          }
+        }
+      }
+      if (cs_ret.result == srsue::nr::cell_search::ret_t::CELL_FOUND) {
+        cell_found = true;
+      }
+    }
+  }
+  // Cell found; move on to sync and capture
+  std::cout << "[SSB Scan] Cell Found! Elapsed time: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ssb_search_start_time).count() / 1000.0
+            << " seconds" << std::endl;
+  std::cout << "Max SSB PBCH Meas Corr: " << max_ssb_pbch_meas_corr << std::endl;
+  std::cout << "Cell Found!" << std::endl;
+  std::cout << "N_id: " << cs_ret.ssb_res.N_id << std::endl;
+  std::cout << "Decoding MIB..." << std::endl;
+
+  /* And the states are updated in the task_scheduler*/
+  if (task_scheduler_nrscope.DecodeMIB(&args_t, &cs_ret, &srsran_searcher_cfg_t, rs.r, rf_args.srate_hz) <
+      SRSRAN_SUCCESS) {
+    ERROR("Error init task scheduler");
+    return NR_FAILURE;
+  }
+  return SRSRAN_SUCCESS;
+}
 
 int Radio::RadioInitandStart()
 {

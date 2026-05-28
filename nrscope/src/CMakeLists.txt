@@ -11,6 +11,7 @@ endif (RPATH)
 
 add_executable(nrscope main.cc)
 add_executable(nrscan scan_main.cc)
+add_executable(nrbenchmark benchmark_main.cpp)
 
 set(SRSUE_SOURCES srsue_phy srsue_stack srsue_upper srsue_mac srsue_rrc srslog system)
 set(SRSRAN_SOURCES srsran_common srsran_mac srsran_phy srsran_rf_utils srsran_radio srsran_gtpu srsran_rlc srsran_pdcp rrc_asn1 srslog support system )
@@ -39,7 +40,21 @@ target_link_libraries(nrscan    srsue_phy
                                 srsran_radio
                                 rrc_nr_asn1
                                 nrscope_libs
-                                ${SRSUE_SOURCES} 
+                                ${SRSUE_SOURCES}
+                                ${SRSRAN_SOURCES}
+                                ${CMAKE_THREAD_LIBS_INIT}
+                                ${Boost_LIBRARIES}
+                                ${YAML_CPP_LIBRARIES}
+                                "/usr/local/lib/libliquid.so"
+                                "/usr/local/lib/libliquid.a")
+
+target_link_libraries(nrbenchmark srsue_phy
+                                srsran_common
+                                srsran_phy
+                                srsran_radio
+                                rrc_nr_asn1
+                                nrscope_libs
+                                ${SRSUE_SOURCES}
                                 ${SRSRAN_SOURCES}
                                 ${CMAKE_THREAD_LIBS_INIT}
                                 ${Boost_LIBRARIES}
@@ -50,6 +65,7 @@ target_link_libraries(nrscan    srsue_phy
 if(PUSH_TO_GOOGLE)
   target_link_libraries(nrscope ${PYTHON_LIBRARIES})
   target_link_libraries(nrscan ${PYTHON_LIBRARIES})
+  target_link_libraries(nrbenchmark ${PYTHON_LIBRARIES})
 endif()
 
 if (RPATH)

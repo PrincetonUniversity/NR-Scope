@@ -24,6 +24,9 @@
 
 #define TARGET_STOPBAND_SUPPRESSION_DB 60.0f;
 
+
+struct resample_state_t;
+
 class Radio
 {
 public:
@@ -141,6 +144,29 @@ public:
   int RadioInitandStart();
 
   /**
+   * Initialize parameters and set up state, including for radio, resampling, and 
+   * the task scheduler. Currently only used by RadioInitandStart, 
+   * but should also be used by ScanInitandStart in the future.
+   *
+   * @return SRSRAN_SUCCESS (0) if the function is successful. NR_FAILURE (-1)
+   * if something goes wrong.
+   */
+  int RadioInit(resample_state_t* rs);
+
+  /** 
+   * The first stage of operation: detect the SSB and decode the MIB. 
+   * This is currently only used by BenchmarkSSBDetectionTime, 
+   * but should be used by RadioInitandStart and ScanInitandStart in the future.
+  */
+  int DetectSSB(resample_state_t rs);
+
+  
+  /** Measure the SSB detection time.
+   * 
+   */
+  int BenchmarkSSBDetectionTime(int n_trials);
+
+  /**
    * This function goes through the per band (denoted by outer loop), and
    * search each GSCN raster point in the band (denoted by inner loop)
    *
@@ -171,6 +197,8 @@ public:
   int RadioCapture();
 
 private:
+
+
   /**
    * sync, track sync, and grab 1ms raw samples from USRP continuously
    *
