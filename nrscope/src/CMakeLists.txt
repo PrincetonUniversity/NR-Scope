@@ -11,7 +11,7 @@ endif (RPATH)
 
 add_executable(nrscope main.cc)
 add_executable(nrscan scan_main.cc)
-add_executable(nrbenchmark benchmark_main.cpp)
+add_executable(nrbenchmark bench_main.cpp)
 
 set(SRSUE_SOURCES srsue_phy srsue_stack srsue_upper srsue_mac srsue_rrc srslog system)
 set(SRSRAN_SOURCES srsran_common srsran_mac srsran_phy srsran_rf_utils srsran_radio srsran_gtpu srsran_rlc srsran_pdcp rrc_asn1 srslog support system )
