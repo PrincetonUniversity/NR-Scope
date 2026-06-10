@@ -55,6 +55,11 @@ private:
     Info("Setting rx_subdev_spec to '" << string << "'");
     SRSRAN_UHD_SAFE_C_LOG_ERROR(usrp->set_rx_subdev_spec(string);)
   }
+  uhd_error set_rx_antenna_port(size_t ch, const std::string& antenna)
+  {
+    Info("Setting rx_antenna to '" << antenna << "' on channel " << ch);
+    SRSRAN_UHD_SAFE_C_LOG_ERROR(usrp->set_rx_antenna(antenna, ch);)
+  }
 
   uhd_error test_ad936x_device(uint32_t nof_channels)
   {
@@ -171,6 +176,12 @@ public:
       dev_addr.pop("lo_freq_rx_hz");
     }
 
+    // RX antenna selection
+    std::string rx_antenna;
+    if (dev_addr.has_key("rx_antenna")) {
+      rx_antenna = dev_addr.pop("rx_antenna");
+    }
+
     // LO Frequency offset automatic
     if (dev_addr.has_key("lo_freq_offset_hz")) {
       lo_freq_offset_hz = dev_addr.cast("lo_freq_offset_hz", lo_freq_offset_hz);
@@ -205,6 +216,17 @@ public:
       if (err != UHD_ERROR_NONE) {
         return err;
       }
+    }
+
+    // Set receiver antenna if specified
+    if (not rx_antenna.empty()) {
+      for (size_t i = 0; i < (size_t)nof_channels; i++) {
+        err = set_rx_antenna_port(i, rx_antenna);
+        if (err != UHD_ERROR_NONE) {
+          return err;
+        }
+      }
+      printf("RF UHD: set RX antenna to '%s' on %zu channel(s)\n", rx_antenna.c_str(), (size_t)nof_channels);
     }
 
     // Initialize TX/RX stream args

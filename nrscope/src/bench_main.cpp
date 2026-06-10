@@ -83,6 +83,8 @@ int SSBSearchGain(Radio& radio, float gain_db_min, float gain_db_max, float gain
   std::cout << "==== SSB Search Results Summary ====" << std::endl;
 
   for (float gain = gain_db_min; gain <= gain_db_max + 1e-6f; gain += gain_db_step) {
+    // sleep for 1 second between gain changes to allow the radio to stabilize
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     radio.SetRxGain(gain);
     // check gain
     float actual_gain = radio.GetRxGain();
