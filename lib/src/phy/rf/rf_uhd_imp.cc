@@ -821,6 +821,7 @@ static int uhd_init(rf_uhd_handler_t* handler, char* args, uint32_t nof_channels
 
   // Set sync source
   if (handler->uhd->set_sync_source(sync_src, clock_src) != UHD_ERROR_NONE) {
+    std::cout << "Error setting sync source: " << sync_src << ", clock source: " << clock_src << std::endl;
     return SRSRAN_ERROR;
   }
   std::cout << "[init-dbg] set clock source: " << clock_src << ", sync source: " << sync_src << std::endl;
@@ -1356,6 +1357,7 @@ int rf_uhd_recv_with_time_multi(void*    h,
     trials++;
 
     if (error_code == uhd::rx_metadata_t::ERROR_CODE_OVERFLOW) {
+      printf("[RF UHD] RX OVERFLOW\n");
       log_overflow(handler);
     } else if (error_code == uhd::rx_metadata_t::ERROR_CODE_LATE_COMMAND) {
       log_late(handler, true);
