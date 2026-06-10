@@ -49,6 +49,11 @@ void Radio::SetRxGain(float gain_db)
   radio->set_rx_gain(gain_db);
 }
 
+float Radio::GetRxGain()
+{
+  return radio->get_rx_gain();
+}
+
 int Radio::RadioThread()
 {
   RadioInitandStart();  
@@ -435,6 +440,7 @@ int Radio::RadioInit(resample_state_t* rs)
   args_t.phy_log_level     = "warning";
   args_t.stack_log_level   = "warning";
   args_t.duration_ms       = 1000;
+  srslog::fetch_basic_logger("PHY").set_level(srslog::basic_levels::warning);
   args_t.set_ssb_from_band(ssb_scs);
   args_t.base_carrier.scs = args_t.ssb_scs;
   if (args_t.duplex_mode == SRSRAN_DUPLEX_MODE_TDD) {

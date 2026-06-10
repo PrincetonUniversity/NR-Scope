@@ -174,7 +174,8 @@ public:
   */
   std::tuple<int, std::vector<std::tuple<double, double>>> SearchSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs);
 
-  void SetRxGain(float gain_db);
+  void  SetRxGain(float gain_db);
+  float GetRxGain();
 
   
   /**

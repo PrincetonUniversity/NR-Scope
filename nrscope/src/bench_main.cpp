@@ -84,6 +84,9 @@ int SSBSearchGain(Radio& radio, float gain_db_min, float gain_db_max, float gain
 
   for (float gain = gain_db_min; gain <= gain_db_max + 1e-6f; gain += gain_db_step) {
     radio.SetRxGain(gain);
+    // check gain
+    float actual_gain = radio.GetRxGain();
+    std::cout << "Set rx gain to " << gain << " dB, returned rx gain is " << actual_gain << " dB" << std::endl;
 
     auto start_time = std::chrono::system_clock::now();
     auto detect_res = radio.SearchSSB(rs, timeout_sec, true);
