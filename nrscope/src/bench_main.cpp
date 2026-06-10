@@ -17,7 +17,7 @@
 
 
 
-struct SSBDetectionResult {
+struct SSBSearchResult {
   bool success; // whether the SSB was successfully detected
   double start_time; // the time when the SSB detection started
   double detection_time; // time to detect (0 if detection failed)
@@ -25,7 +25,7 @@ struct SSBDetectionResult {
 };
 
 // summary of one result
-void print_ssb_detection_result(const SSBDetectionResult& result)
+void print_ssb_search_result(const SSBSearchResult& result)
 {
   auto max_corr = 0.0;
   if (!result.pbch_corrs.empty()) {
@@ -41,12 +41,12 @@ void print_ssb_detection_result(const SSBDetectionResult& result)
             << "}" << std::endl;
 }
 
-void print_ssb_detection_results(const std::vector<SSBDetectionResult>& results)
+void print_ssb_search_results(const std::vector<SSBSearchResult>& results)
 {
   // print a summary of trials
-  std::cout << "==== SSB Detection Results Summary ====" << std::endl;
+  std::cout << "==== SSB Search Results Summary ====" << std::endl;
   for (const auto& result : results) {
-    print_ssb_detection_result(result);
+    print_ssb_search_result(result);
   }
   // print a list of (time, corr) values for all trials, one per line
   std::cout << "==== PBCH Correlation Timeseries ====" << std::endl;
@@ -68,8 +68,58 @@ void print_ssb_detection_results(const std::vector<SSBDetectionResult>& results)
 
 }
 
-int SSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
-  // Measure how long it takes to detect the SSB and decode the MIB in each trial.
+
+int SSBSearchGain(Radio& radio, float gain_db_min, float gain_db_max, float gain_db_step, uint32_t timeout_sec)
+  // Measure the ssb search strength across a range of gains.
+  // For each gain, attempt one SSB search and print max PBCH correlation,
+  // success/failure, and search time in JSON format.
+{
+  resample_state_t rs;
+  if (radio.RadioInit(&rs) != SRSRAN_SUCCESS) {
+    return SRSRAN_ERROR;
+  }
+
+  std::cout << "==== Benchmarking SSB search gain ====" << std::endl;
+  std::cout << "==== SSB Search Results Summary ====" << std::endl;
+
+  for (float gain = gain_db_min; gain <= gain_db_max + 1e-6f; gain += gain_db_step) {
+    radio.SetRxGain(gain);
+
+    auto start_time = std::chrono::system_clock::now();
+    auto detect_res = radio.SearchSSB(rs, timeout_sec, true);
+    auto end_time   = std::chrono::system_clock::now();
+
+    bool   success        = std::get<0>(detect_res) == SRSRAN_SUCCESS;
+    double detection_time = success ? std::chrono::duration<double>(end_time - start_time).count() : 0.0;
+    double start_time_d   = std::chrono::duration<double>(start_time.time_since_epoch()).count();
+
+    double max_corr = 0.0;
+    for (const auto& corr_pair : std::get<1>(detect_res)) {
+      max_corr = std::max(max_corr, std::get<1>(corr_pair));
+    }
+
+    std::cout << std::fixed << std::setprecision(6)
+              << "{\"gain_db\": " << gain
+              << ", \"start_time\": " << start_time_d
+              << ", \"ssb_found\": " << (success ? "true" : "false")
+              << ", \"detection_time\": " << detection_time
+              << ", \"max_pbch_correlation\": " << max_corr
+              << "}" << std::endl;
+  }
+
+  if (radio.resample_needed) {
+    for (uint8_t k = 0; k < RESAMPLE_WORKER_NUM; k++) {
+      msresamp_crcf_destroy(rs.q[k]);
+      free(rs.temp_y[k]);
+    }
+    free(rs.temp_x);
+  }
+
+  return SRSRAN_SUCCESS;
+}
+
+int SSBSearchTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
+  // Measure how long it takes to search for the SSB and decode the MIB in each trial.
   // Print results in JSON format, including max pbch correlation from each trial
 {
   resample_state_t rs;
@@ -80,28 +130,28 @@ int SSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
   // vector of ssb decode time results
   std::vector<double> ssb_decode_times;
 
-  std::cout << "==== Benchmarking SSB detection time ====" << std::endl;
+  std::cout << "==== Benchmarking SSB search time ====" << std::endl;
 
-  std::vector<SSBDetectionResult> ssb_detection_results; // store results of all trials
+  std::vector<SSBSearchResult> ssb_search_results; // store results of all trials
 
   for (uint32_t i = 0; i < n_trials; i++) {
     auto start_time = std::chrono::system_clock::now();
-    auto detect_res = radio.DetectSSB(rs, timeout_sec, true);
+    auto detect_res = radio.SearchSSB(rs, timeout_sec, true);
     auto end_time = std::chrono::system_clock::now();
-    SSBDetectionResult result;
+    SSBSearchResult result;
     result.start_time = std::chrono::duration<double>(start_time.time_since_epoch()).count();
     if (std::get<0>(detect_res) == SRSRAN_SUCCESS) {
       result.success = true;
       result.detection_time = std::chrono::duration<double>(end_time - start_time).count();
       result.pbch_corrs = std::get<1>(detect_res);
-      ssb_detection_results.push_back(result);
+      ssb_search_results.push_back(result);
     } else {
       result.success = false;
       result.detection_time = 0;
       result.pbch_corrs = std::get<1>(detect_res);
-      ssb_detection_results.push_back(result);
+      ssb_search_results.push_back(result);
     }
-    print_ssb_detection_result(result);    
+    print_ssb_search_result(result);    
     // sleep from 1 - 5 seconds, randomly selected
     auto sleep_duration = std::chrono::milliseconds(1000 + (rand() % 4000));
     std::this_thread::sleep_for(sleep_duration);
@@ -115,13 +165,13 @@ int SSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
     free(rs.temp_x);
   }
 
-  std::cout << "==== All SSB detection times (ms) ====" << std::endl;
+  std::cout << "==== All SSB search times (ms) ====" << std::endl;
   for (size_t i = 0; i < ssb_decode_times.size(); i++) {
     std::cout << "Trial " << i << ": " << ssb_decode_times[i] << " ms" << std::endl;
   }
 
-  std::cout << "==== SSB detection benchmark results ====" << std::endl;
-  print_ssb_detection_results(ssb_detection_results);
+  std::cout << "==== SSB search benchmark results ====" << std::endl;
+  print_ssb_search_results(ssb_search_results);
   return SRSRAN_SUCCESS;
 }
 
@@ -132,7 +182,8 @@ void print_available_commands()
   std::cout << "Usage: nrbench -c <config.yaml> <command> [args...]" << std::endl;
   std::cout << std::endl;
   std::cout << "Available commands:" << std::endl;
-  std::cout << "  ssbdetectiontime [n_trials] [timeout_sec]  Measure SSB detection latency over multiple trials" << std::endl;
+  std::cout << "  ssbtime [n_trials] [timeout_sec]              Measure SSB detection latency over multiple trials" << std::endl;
+  std::cout << "  ssbgain <gain_min> <gain_max> <gain_step> [timeout_sec]  Measure SSB strength across a gain sweep" << std::endl;
 }
 
 int main(int argc, char** argv){
@@ -160,7 +211,7 @@ int main(int argc, char** argv){
 
   std::string cmd = argv[pos++];
 
-  if (cmd != "ssbdetectiontime") {
+  if (cmd != "ssbtime" && cmd != "ssbgain") {
     std::cout << "Unknown command: " << cmd << std::endl;
     print_available_commands();
     return NR_FAILURE;
@@ -188,8 +239,21 @@ int main(int argc, char** argv){
     auto log_names = {radio.log_name};
     NRScopeLog::init_logger(log_names);
   }
-  uint32_t n_trials   = (pos < argc) ? std::stoul(argv[pos++]) : 10;
-  uint32_t timeout_sec = (pos < argc) ? std::stoul(argv[pos++]) : 10;
-  SSBDetectionTime(radio, n_trials, timeout_sec);
+  if (cmd == "ssbtime") {
+    uint32_t n_trials    = (pos < argc) ? std::stoul(argv[pos++]) : 10;
+    uint32_t timeout_sec = (pos < argc) ? std::stoul(argv[pos++]) : 10;
+    SSBSearchTime(radio, n_trials, timeout_sec);
+  } else if (cmd == "ssbgain") {
+    if (pos + 2 >= argc) {
+      std::cout << "ssbgain requires gain_min, gain_max, and gain_step" << std::endl;
+      print_available_commands();
+      return NR_FAILURE;
+    }
+    float    gain_min    = std::stof(argv[pos++]);
+    float    gain_max    = std::stof(argv[pos++]);
+    float    gain_step   = std::stof(argv[pos++]);
+    uint32_t timeout_sec = (pos < argc) ? std::stoul(argv[pos++]) : 10;
+    SSBSearchGain(radio, gain_min, gain_max, gain_step, timeout_sec);
+  }
   return NR_SUCCESS;
 }
