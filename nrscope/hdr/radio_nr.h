@@ -156,19 +156,18 @@ public:
 
   /**
    * Initialize parameters and set up state, including for radio, resampling, and 
-   * the task scheduler. Currently only used by RadioInitandStart, 
-   * but should also be used by ScanInitandStart in the future.
+   * the task scheduler. Currently only used by external benchmarks.
    *
+   * @param rs the resampling state to initialize (if resampling is necessary)
    * @return SRSRAN_SUCCESS (0) if the function is successful. NR_FAILURE (-1)
-   * if something goes wrong.
+   * if something goes wrong
    */
   int RadioInit(resample_state_t* rs);
 
   /** 
-   * The first stage of operation: detect the SSB and decode the MIB. 
-   * This is currently only used by BenchmarkSSBDetectionTime, 
-   * but should be used by RadioInitandStart and ScanInitandStart in the future.
-   * @param rs the resampling state, which contains the resampling worker states and buffers.
+   * Search for the SSB and decode the MIB when found.
+   * Currently only used by external benchmarks.
+   * @param rs the resampling state
    * @param timeout_sec the timeout in seconds
    * @param log_pbch_corrs whether to log the PBCH correlation values for debugging
    * @return Tuple with <0> = return code (SRSRAN_SUCCESS or SRSRAN_ERROR), <1> = vector of PBCH correlation values

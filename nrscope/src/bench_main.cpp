@@ -67,8 +67,9 @@ void print_ssb_detection_results(const std::vector<SSBDetectionResult>& results)
 
 }
 
-// Measure how long it takes to detect an SSB
 int BenchmarkSSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
+  // Measure how long it takes to detect the SSB and decode the MIB in each trial.
+  // Print results in JSON format, including max pbch correlation from each trial
 {
   resample_state_t rs;
   if (radio.RadioInit(&rs) != SRSRAN_SUCCESS) {

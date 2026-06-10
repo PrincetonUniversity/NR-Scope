@@ -496,6 +496,8 @@ int Radio::RadioInit(resample_state_t* rs)
 
 
 std::tuple<int, std::vector<std::tuple<double, double>>> Radio::DetectSSB(resample_state_t rs, uint32_t timeout_sec, bool log_pbch_corrs)
+  // Search for the SSB for up to timeout_sec seconds, return SRSRAN_SUCCESS if found, otherwise return SRSRAN_ERROR after timeout.
+  // Only used for benchmarking right now, full integration is TODO
 {
   // SSB scan state
   uint32_t ssb_scs_hz = SRSRAN_SUBC_SPACING_NR(cs_args.ssb_scs);
@@ -517,7 +519,7 @@ std::tuple<int, std::vector<std::tuple<double, double>>> Radio::DetectSSB(resamp
   while (not cell_found) {
     ss.reset();
     auto now = std::chrono::steady_clock::now();
-    printf("[SSB Scan] Scanning for SSB... Elapsed time: %.2fs\n",
+    printf("[SSB Scan] Still searching for SSB... Elapsed time: %.2fs\n",
            std::chrono::duration_cast<std::chrono::milliseconds>(now - ssb_search_start_time).count() / 1000.0);
     if (now - ssb_search_start_time > ssb_search_timeout) {
       std::cout << "SSB scan timeout after " << timeout_sec << " seconds. Exiting SSB scan loop." << std::endl;
