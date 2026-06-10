@@ -97,9 +97,14 @@ int SSBSearchGain(Radio& radio, float gain_db_min, float gain_db_max, float gain
     double start_time_d   = std::chrono::duration<double>(start_time.time_since_epoch()).count();
 
     double max_corr = 0.0;
+    double min_corr = 1.0;
+    double avg_corr = 0.0;
     for (const auto& corr_pair : std::get<1>(detect_res)) {
       max_corr = std::max(max_corr, std::get<1>(corr_pair));
+      min_corr = std::min(min_corr, std::get<1>(corr_pair));
+      avg_corr += std::get<1>(corr_pair);
     }
+    avg_corr /= std::get<1>(detect_res).size();
 
     std::cout << std::fixed << std::setprecision(6)
               << "{\"gain_db\": " << gain
@@ -107,6 +112,8 @@ int SSBSearchGain(Radio& radio, float gain_db_min, float gain_db_max, float gain
               << ", \"ssb_found\": " << (success ? "true" : "false")
               << ", \"detection_time\": " << detection_time
               << ", \"max_pbch_correlation\": " << max_corr
+              << ", \"min_pbch_correlation\": " << min_corr
+              << ", \"avg_pbch_correlation\": " << avg_corr
               << "}" << std::endl;
   }
 
