@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/load_config.h"
@@ -67,7 +68,7 @@ void print_ssb_detection_results(const std::vector<SSBDetectionResult>& results)
 
 }
 
-int BenchmarkSSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
+int SSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_sec)
   // Measure how long it takes to detect the SSB and decode the MIB in each trial.
   // Print results in JSON format, including max pbch correlation from each trial
 {
@@ -126,12 +127,44 @@ int BenchmarkSSBDetectionTime(Radio& radio, uint32_t n_trials, uint32_t timeout_
 
 
 
+void print_available_commands()
+{
+  std::cout << "Usage: nrbench -c <config.yaml> <command> [args...]" << std::endl;
+  std::cout << std::endl;
+  std::cout << "Available commands:" << std::endl;
+  std::cout << "  ssbdetectiontime [n_trials] [timeout_sec]  Measure SSB detection latency over multiple trials" << std::endl;
+}
+
 int main(int argc, char** argv){
 
   // Initialise logging infrastructure
   srslog::init();
 
-  std::string file_name = (argc > 1) ? argv[1] : "config.yaml";
+  std::string file_name = "config.yaml";
+  int opt;
+  while ((opt = getopt(argc, argv, "c:")) != -1) {
+    if (opt == 'c') {
+      file_name = optarg;
+    } else {
+      print_available_commands();
+      return NR_FAILURE;
+    }
+  }
+
+  // remaining positional args: command [args...]
+  int pos = optind;
+  if (pos >= argc) {
+    print_available_commands();
+    return NR_SUCCESS;
+  }
+
+  std::string cmd = argv[pos++];
+
+  if (cmd != "ssbdetectiontime") {
+    std::cout << "Unknown command: " << cmd << std::endl;
+    print_available_commands();
+    return NR_FAILURE;
+  }
 
   int nof_usrp = get_nof_usrp(file_name);
   if (nof_usrp != 1) {
@@ -155,7 +188,8 @@ int main(int argc, char** argv){
     auto log_names = {radio.log_name};
     NRScopeLog::init_logger(log_names);
   }
-  // run the SSB detection benchmark (10 trials, 10 seconds timeout for each trial)
-  BenchmarkSSBDetectionTime(radio, 10, 10);
+  uint32_t n_trials   = (pos < argc) ? std::stoul(argv[pos++]) : 10;
+  uint32_t timeout_sec = (pos < argc) ? std::stoul(argv[pos++]) : 10;
+  SSBDetectionTime(radio, n_trials, timeout_sec);
   return NR_SUCCESS;
 }
