@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "nrscope/hdr/nrscope_def.h"
 #include "nrscope/hdr/load_config.h"
@@ -13,7 +14,16 @@ int main(int argc, char** argv){
   // Initialise logging infrastructure
   srslog::init();
 
-  std::string file_name = (argc > 1) ? argv[1] : "config.yaml";
+  std::string file_name = "config.yaml";
+  int opt;
+  while ((opt = getopt(argc, argv, "c:")) != -1) {
+    if (opt == 'c') {
+      file_name = optarg;
+    } else {
+      std::cout << "Usage: " << argv[0] << " [-c config.yaml]" << std::endl;
+      return NR_FAILURE;
+    }
+  }
 
   int nof_usrp = get_nof_usrp(file_name);
   std::vector<Radio> radios(nof_usrp);

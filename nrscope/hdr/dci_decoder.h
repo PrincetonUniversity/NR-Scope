@@ -14,6 +14,7 @@ public:
   srsran_softbuffer_rx_t        softbuffer;
   srsran_dci_cfg_nr_t           dci_cfg;    // DCI format without carrier aggregation
   srsran_dci_cfg_nr_t           dci_cfg_ca; // DCI format with carrier aggregation
+  srsran_dci_nr_t               dci_nr_nca; // precomputed non-CA DCI sizes (merged candidate-first search)
   srsran_ue_dl_nr_args_t        ue_dl_args;
   srsran_pdcch_cfg_nr_t         pdcch_cfg;
 
@@ -38,6 +39,7 @@ public:
   uint32_t dci_decoder_id;
   uint32_t rnti_worker_group_id;
   uint8_t  bwp_worker_id;
+  int      worker_id = -1; // id of the owning NRScopeWorker; prints are gated to worker 0
 
   // std::vector<float> dl_prb_rate;
   // std::vector<float> ul_prb_rate;
@@ -63,6 +65,16 @@ public:
   int DCIDecoderandReceptionInit(WorkState* state, int bwp_id, cf_t* input[SRSRAN_MAX_PORTS]);
 
   int DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   slot,
+                                WorkState*                           state,
+                                std::vector<DCIFeedback>&            sharded_results,
+                                std::vector<std::vector<uint16_t> >& sharded_rntis,
+                                std::vector<uint32_t>&               nof_sharded_rntis,
+                                std::vector<float>&                  dl_prb_rate,
+                                std::vector<float>&                  dl_prb_bits_rate,
+                                std::vector<float>&                  ul_prb_rate,
+                                std::vector<float>&                  ul_prb_bits_rate);
+  
+  int DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*                   slot,
                                 WorkState*                           state,
                                 std::vector<DCIFeedback>&            sharded_results,
                                 std::vector<std::vector<uint16_t> >& sharded_rntis,

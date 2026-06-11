@@ -132,6 +132,7 @@ int NRScopeWorker::InitDCIDecoders()
       }
       decoder->dci_decoder_id       = i * worker_state.nof_bwps + j;
       decoder->rnti_worker_group_id = i;
+      decoder->worker_id            = worker_id;
       dci_decoders.push_back(std::unique_ptr<DCIDecoder>(decoder));
     }
   }
@@ -314,7 +315,8 @@ void NRScopeWorker::RunSingleThreaded()
       ul_prb_rate.resize(worker_state.nof_known_rntis);
       dl_prb_bits_rate.resize(worker_state.nof_known_rntis);
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
-      dci_decoders[0]->DecodeandParseDCIfromSlot(&slot,
+      // optimized, experimental version of decoder
+      dci_decoders[0]->DecodeandParseDCIfromSlotOptimized(&slot,
                                                   &worker_state,
                                                   sharded_results,
                                                   sharded_rntis,
