@@ -259,11 +259,6 @@ void NRScopeWorker::RunSingleThreaded()
   // Run everything in one thread.
   // Parallelize by adding more workers rather than spawning threads in each worker.
 {
-  if (worker_state.optimized_decoders) {
-    std::cout << "Running with optimized decoders." << std::endl;
-  } else {
-    std::cout << "Running with unoptimized decoders." << std::endl;
-  }
   while (true) {
     /* When there is a job, the semaphore is set and buffer is copied */
     sem_wait(&smph_has_job);
