@@ -316,26 +316,11 @@ void NRScopeWorker::RunSingleThreaded()
     }
     if (worker_state.dci_inited) {
       TSTART(t_dci_decode)
-      // TEMP diagnosis: dump the known-RNTI snapshot this worker holds at
-      // decode time, keyed by (sf_round, sfn, slot) so the lists can be
-      // aligned across runs. Tests whether fast decode leaves workers with a
-      // staler/smaller snapshot (missing recently-active RNTIs).
-      {
-        char buf[512];
-        int  off = snprintf(buf, sizeof(buf), "KNOWNRNTI sf=%lu sfn=%u slot=%u n=%u:",
-                            (unsigned long)sf_round, outcome.sfn, slot.idx, worker_state.nof_known_rntis);
-        for (uint32_t ri = 0; ri < worker_state.nof_known_rntis && off < (int)sizeof(buf) - 8; ri++) {
-          off += snprintf(buf + off, sizeof(buf) - off, " 0x%x", worker_state.known_rntis[ri]);
-        }
-        printf("%s\n", buf);
-      }
       slot_result.dci_result = true;
       dl_prb_rate.resize(worker_state.nof_known_rntis);
       ul_prb_rate.resize(worker_state.nof_known_rntis);
       dl_prb_bits_rate.resize(worker_state.nof_known_rntis);
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
-      dci_decoders[0]->dbg_sfn      = outcome.sfn;
-      dci_decoders[0]->dbg_sf_round = sf_round;
       if (worker_state.optimized_decoders) {
         // optimized, experimental version of decoder
         dci_decoders[0]->DecodeandParseDCIfromSlotOptimized(&slot,
@@ -361,22 +346,6 @@ void NRScopeWorker::RunSingleThreaded()
 
       MergeResults();
       slot_result.dci_feedback_results = results;
-
-      // TEMP diagnosis: slot_result captured (sf_round, sfn, slot) at the top
-      // of this iteration. If the worker's live members changed during decode,
-      // the dispatcher overwrote this worker's slot/buffer mid-decode (a
-      // handoff race) — which would corrupt the samples the decoder just used.
-      if (slot_result.sf_round != sf_round || slot_result.outcome.sfn != outcome.sfn ||
-          slot_result.slot.idx != slot.idx) {
-        printf("MIDFLIGHT worker=%d started(sf=%lu sfn=%u slot=%u) now(sf=%lu sfn=%u slot=%u)\n",
-               worker_id,
-               (unsigned long)slot_result.sf_round,
-               slot_result.outcome.sfn,
-               slot_result.slot.idx,
-               (unsigned long)sf_round,
-               outcome.sfn,
-               slot.idx);
-      }
     TEND(t_dci_decode)
     }
 

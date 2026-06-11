@@ -41,11 +41,6 @@ public:
   uint8_t  bwp_worker_id;
   int      worker_id = -1; // id of the owning NRScopeWorker; prints are gated to worker 0
 
-  // TEMP diagnosis: frame id set by the worker before each decode so per-RNTI
-  // outcome prints can be aligned to LOGGED/KNOWNRNTI by (sf_round, sfn, slot).
-  uint32_t dbg_sfn      = 0;
-  uint64_t dbg_sf_round = 0;
-
   // std::vector<float> dl_prb_rate;
   // std::vector<float> ul_prb_rate;
 

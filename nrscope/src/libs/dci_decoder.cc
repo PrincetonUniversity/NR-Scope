@@ -1,12 +1,5 @@
 #include "nrscope/hdr/dci_decoder.h"
 
-// TEMP diagnosis: process-wide counts of SUCCESSFUL DL grant conversions (the
-// ones that actually become CSV rows — failed conversions leave grant.rnti=0
-// and are dropped downstream). Compare orig vs opt run to localize whether the
-// CSV row deficit is at decode/conversion time or in the logging path.
-static std::atomic<long> g_orig_dl_ok{0};
-static std::atomic<long> g_opt_dl_ok{0};
-
 DCIDecoder::DCIDecoder(uint32_t max_nof_rntis)
 {
   ue_dl_tmp = (srsran_ue_dl_nr_t*)malloc(sizeof(srsran_ue_dl_nr_t));
@@ -33,7 +26,6 @@ DCIDecoder::~DCIDecoder() {}
 
 int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state, int bwp_id, cf_t* input[SRSRAN_MAX_PORTS])
 {
-  printf("TESTING CFCMP in unoptimized vs optimizeddecoder\n");
   memcpy(&base_carrier, &state->args_t.base_carrier, sizeof(srsran_carrier_nr_t));
 
   rrc_recfg_user = state->rrc_recfg_user;
@@ -978,19 +970,6 @@ int DCIDecoder::DCIDecoderandReceptionInit(WorkState* state, int bwp_id, cf_t* i
   return SRSRAN_SUCCESS;
 }
 
-// Defined further below (candidate-first blind search); declared here for the
-// TEMP in-process comparison in DecodeandParseDCIfromSlot.
-int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
-                                     const srsran_dci_nr_t*   dci_nca,
-                                     const srsran_slot_cfg_t* slot_cfg,
-                                     const uint16_t*          rnti_list,
-                                     uint32_t                 nof_rntis,
-                                     srsran_rnti_type_t       rnti_type,
-                                     srsran_dci_dl_nr_t*      dl_dci_out,
-                                     int*                     nof_dl_dci,
-                                     srsran_dci_ul_nr_t*      ul_dci_out,
-                                     int*                     nof_ul_dci);
-
 int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   slot,
                                           WorkState*                           state,
                                           std::vector<DCIFeedback>&            sharded_results,
@@ -1189,105 +1168,6 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
     }
   }
 
-  // ===== TEMP: in-process comparison of the original path's results (above)
-  // vs the candidate-first path on the same slot, from ALL workers (ungated).
-  // Prints CFCMP lines on any divergence; remove after diagnosis. =====
-  {
-    memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-    memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-    std::vector<srsran_dci_dl_nr_t> dl_cf(n_rntis);
-    std::vector<srsran_dci_ul_nr_t> ul_cf(n_rntis);
-    std::vector<int>                ndl_cf(n_rntis), nul_cf(n_rntis);
-    nrscope_candidate_first_find_dci(ue_dl_tmp,
-                                     &dci_nr_nca,
-                                     slot_tmp,
-                                     sharded_rntis[dci_decoder_id].data(),
-                                     n_rntis,
-                                     srsran_rnti_type_c,
-                                     dl_cf.data(),
-                                     ndl_cf.data(),
-                                     ul_cf.data(),
-                                     nul_cf.data());
-
-    for (uint32_t i = 0; i < n_rntis; i++) {
-      bool old_dl = (dci_dl[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-      bool old_ul = (dci_ul[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-      bool new_dl = ndl_cf[i] > 0;
-      bool new_ul = nul_cf[i] > 0;
-      if (old_dl != new_dl || old_ul != new_ul) {
-        printf("CFCMP PRESENCE slot=%u rnti=0x%x old(dl=%d,ul=%d) new(dl=%d,ul=%d)\n",
-               slot->idx,
-               sharded_rntis[dci_decoder_id][i],
-               old_dl,
-               old_ul,
-               new_dl,
-               new_ul);
-      }
-      if (old_dl && new_dl) {
-        char s_old[512] = {}, s_new[512] = {};
-        srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[i], s_old, sizeof(s_old));
-        srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dl_cf[i], s_new, sizeof(s_new));
-        if (strcmp(s_old, s_new) != 0) {
-          printf("CFCMP DL slot=%u rnti=0x%x\n"
-                 "  old: %s [tda=%u fmt=%d ss=%d crst=%d L=%d ncce=%d]\n"
-                 "  new: %s [tda=%u fmt=%d ss=%d crst=%d L=%d ncce=%d]\n",
-                 slot->idx,
-                 sharded_rntis[dci_decoder_id][i],
-                 s_old,
-                 dci_dl[i].time_domain_assigment,
-                 (int)dci_dl[i].ctx.format,
-                 (int)dci_dl[i].ctx.ss_type,
-                 dci_dl[i].ctx.coreset_id,
-                 dci_dl[i].ctx.location.L,
-                 dci_dl[i].ctx.location.ncce,
-                 s_new,
-                 dl_cf[i].time_domain_assigment,
-                 (int)dl_cf[i].ctx.format,
-                 (int)dl_cf[i].ctx.ss_type,
-                 dl_cf[i].ctx.coreset_id,
-                 dl_cf[i].ctx.location.L,
-                 dl_cf[i].ctx.location.ncce);
-        }
-      }
-    }
-  }
-  // ===== END TEMP comparison =====
-
-  // TEMP diagnosis: mirror of OPTDL in the original path, for 21438 (0x53be).
-  for (uint32_t i = 0; i < n_rntis; i++) {
-    if (sharded_rntis[dci_decoder_id][i] == 0x53be) {
-      bool     found  = (dci_dl[i].ctx.rnti == 0x53be);
-      int      convok = -1, gS = -1, gL = -1;
-      uint32_t tda = found ? dci_dl[i].time_domain_assigment : 0;
-      if (found && dci_dl[i].ctx.format == srsran_dci_format_nr_1_1) {
-        srsran_sch_cfg_nr_t tcfg = {};
-        tcfg.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
-        convok = (srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[i], &tcfg, &tcfg.grant) >=
-                  SRSRAN_SUCCESS)
-                     ? 1
-                     : 0;
-        gS = (int)tcfg.grant.S;
-        gL = (int)tcfg.grant.L;
-      }
-      printf("ORIGDL sf=%lu sfn=%u slot=%u rnti=0x53be found=%d tda=%u L=%d ncce=%d convok=%d gS=%d gL=%d "
-             "nded=%u ncom=%u dsliv=%u crst=%u\n",
-             (unsigned long)dbg_sf_round,
-             dbg_sfn,
-             slot->idx,
-             found ? 1 : 0,
-             tda,
-             found ? dci_dl[i].ctx.location.L : -1,
-             found ? (int)dci_dl[i].ctx.location.ncce : -1,
-             convok,
-             gS,
-             gL,
-             pdsch_hl_cfg.nof_dedicated_time_ra,
-             pdsch_hl_cfg.nof_common_time_ra,
-             tda < SRSRAN_MAX_NOF_TIME_RA ? pdsch_hl_cfg.dedicated_time_ra[tda].sliv : 9999,
-             found ? dci_dl[i].ctx.coreset_id : 99);
-    }
-  }
-
   if (total_dl_dci > 0) {
     for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++) {
       // the rnti will not be copied if no dci found
@@ -1306,19 +1186,7 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
                   &carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[dci_idx_dl], &pdsch_cfg, &pdsch_cfg.grant) <
               SRSRAN_SUCCESS) {
             ERROR("Error decoding PDSCH search");
-            // TEMP diagnosis: identify the message whose conversion failed
-            printf("PDSCHFAIL orig slot=%u rnti=0x%x fmt=%d tda=%u ss=%d crst=%d L=%d ncce=%d\n",
-                   slot->idx,
-                   dci_dl[dci_idx_dl].ctx.rnti,
-                   (int)dci_dl[dci_idx_dl].ctx.format,
-                   dci_dl[dci_idx_dl].time_domain_assigment,
-                   (int)dci_dl[dci_idx_dl].ctx.ss_type,
-                   dci_dl[dci_idx_dl].ctx.coreset_id,
-                   dci_dl[dci_idx_dl].ctx.location.L,
-                   dci_dl[dci_idx_dl].ctx.location.ncce);
             // return result;
-          } else {
-            g_orig_dl_ok++; // conversion succeeded -> this row will be logged
           }
           srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
           printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
@@ -1429,22 +1297,6 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
     //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
     //      ul_prb_bits_rate[idx]);
     // }
-  }
-
-  // TEMP diagnosis: process-wide tally of DCIs the ORIGINAL path found, to
-  // compare total decoded count against the optimized run.
-  {
-    static std::atomic<long> g_orig_dl{0}, g_orig_ul{0}, g_orig_calls{0};
-    long c  = ++g_orig_calls;
-    long dl = (g_orig_dl += total_dl_dci);
-    long ul = (g_orig_ul += total_ul_dci);
-    if (c % 200 == 0) {
-      printf("DCISUM orig: calls=%ld total_dl=%ld total_ul=%ld dl_logged=%ld\n",
-             c,
-             dl,
-             ul,
-             g_orig_dl_ok.load());
-    }
   }
 
   return SRSRAN_SUCCESS;
@@ -2292,15 +2144,11 @@ static std::atomic<bool> cand_first_dumped{false};
 // srsran_polar_code_get() rebuilds the frozen-set tables (setdiff + two
 // qsorts over N<=512) on every call, ~3us each, but the result depends only
 // on (K, E) and a config sees just a handful of pairs (DCI sizes x
-// aggregation levels).
-//
-// TEMP diagnosis: the cache is now THREAD_LOCAL (was process-wide shared).
-// This keeps it fast — each persistent single-threaded worker builds its own
-// ~8-entry cache — while removing all cross-worker sharing. If the opt-vs-orig
-// CSV deficit collapses at full speed with this, the shared cache was a race;
-// if it persists, the cache is exonerated. NOTE: only safe in
-// single_threaded_workers mode (persistent worker threads); the other mode
-// respawns DCI threads per slot and would rebuild/leak this every slot.
+// aggregation levels). Cache them per-thread: each persistent worker builds
+// its own ~8-entry cache, no cross-thread state. CAUTION: this is only sound
+// in single_threaded_workers mode (persistent worker threads). The per-slot
+// thread-respawn mode would start cold every slot (no caching benefit) and
+// leak each entry's polar_code_init mallocs on every thread exit.
 #define POLAR_CODE_CACHE_SIZE 32
 struct PolarCodeCacheEntry {
   uint16_t            K;
@@ -2888,20 +2736,10 @@ int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*           
   int total_dl_dci = 0;
   int total_ul_dci = 0;
 
-  if (print_enabled) {
-    printf("Size of srsran_ue_dl_nr_t and srsran_slot_cfg_t: %lu, %lu\n", sizeof(srsran_ue_dl_nr_t), sizeof(srsran_slot_cfg_t));
-  }
-
-
-  // Unique physical candidate locations across all RNTIs of this CA sweep:
-  // key = (coreset_id, L, ncce); the *_size sets also distinguish DCI size.
-  // These tell us what a candidate-first restructure would actually pay:
-  // uniq_meas ~ measure+prep work, uniq_pass_size ~ polar-decode work.
-  // std::set<uint64_t> uniq_meas, uniq_pass, uniq_pass_size;
-
-  
-  // Candidate-first pass, CA + non-CA sizes merged (validation: results
-  // compared against the old path, not used)
+  // Candidate-first blind search, CA + non-CA DCI sizes merged: one pass
+  // replaces the old per-RNTI CA-then-non-CA sweep (see
+  // DecodeandParseDCIfromSlot), decoding each unique candidate location once
+  // and CRC-trialing it against every claiming RNTI.
   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
   std::vector<srsran_dci_dl_nr_t> dl_cf(n_rntis);
@@ -2929,331 +2767,13 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
         }
   
 
-  // TDCISTART(t_rnti_loop)
-  // for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++) {
-  //   // With carrier aggregation
-  //   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-  //   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-
-  //   // int nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
-  //   //     ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-  //   int nof_dl_dci = nrscope_flat_find_dl_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
-  //   if (print_enabled) {
-  //     printf("rnti_idx: %d, sweep candidates: %d\n", rnti_idx, ue_dl_tmp->pdcch_info_count);
-  //   }
-  //   int n_decoded = 0;
-  //   for (uint32_t i = 0; i < ue_dl_tmp->pdcch_info_count; i++) {
-  //     const srsran_ue_dl_nr_pdcch_info_t* info = &ue_dl_tmp->pdcch_info[i];
-  //     const srsran_dmrs_pdcch_measure_t*  m    = &info->measure;
-
-  //     // (coreset_id, L, ncce) packed into one key; size-aware key adds nof_bits
-  //     uint64_t loc_key  = ((uint64_t)info->dci_ctx.coreset_id << 24) | ((uint64_t)info->dci_ctx.location.L << 16) |
-  //                         (uint64_t)info->dci_ctx.location.ncce;
-  //     uint64_t size_key = ((uint64_t)info->nof_bits << 32) | loc_key;
-  //     uniq_meas.insert(loc_key);
-
-  //     if (isnormal(m->norm_corr) && m->epre_dBfs >= ue_dl_tmp->pdcch_dmrs_epre_thr &&
-  //         m->norm_corr >= ue_dl_tmp->pdcch_dmrs_corr_thr) {
-  //       n_decoded++;
-  //       uniq_pass.insert(loc_key);
-  //       uniq_pass_size.insert(size_key);
-  //     }
-  //   }
-  //   if (print_enabled) {
-  //     printf("rnti_idx: %d, decoded candidates: %d\n", rnti_idx, n_decoded);
-  //     printf("rnti_idx: %d, stage us: measure=%.1f prep=%.1f evm=%.1f descr_rm=%.1f polar=%.1f tail=%.1f "
-  //            "(decoded %u of %u)\n",
-  //            rnti_idx,
-  //            flat_sweep_stats.t_measure_ns / 1e3,
-  //            flat_sweep_stats.t_prep_ns / 1e3,
-  //            flat_sweep_stats.t_evm_ns / 1e3,
-  //            flat_sweep_stats.t_descr_rm_ns / 1e3,
-  //            flat_sweep_stats.t_polar_ns / 1e3,
-  //            flat_sweep_stats.t_tail_ns / 1e3,
-  //            flat_sweep_stats.n_decoded,
-  //            flat_sweep_stats.n_candidates);
-  //   }
-
-  //   if (nof_dl_dci < SRSRAN_SUCCESS) {
-  //     ERROR("Error in blind search");
-  //   }
-
-  //   int nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
-
-
-  //   if (nof_dl_dci > 0) {
-  //     dci_dl[rnti_idx] = dci_dl_tmp[0];
-  //     total_dl_dci += nof_dl_dci;
-  //   }
-
-  //   if (nof_ul_dci > 0) {
-  //     dci_ul[rnti_idx] = dci_ul_tmp[0];
-  //     total_ul_dci += nof_ul_dci;
-  //   }
-
-  //   // printf("slot: %d\n", slot->idx);
-  //   // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
-  //   //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
-  //   //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //   //   "nof_bits=%d; crc=%s;\n",
-  //   //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //   //   info->dci_ctx.rnti,
-  //   //   info->dci_ctx.coreset_id,
-  //   //   srsran_ss_type_str(info->dci_ctx.ss_type),
-  //   //   info->dci_ctx.location.ncce,
-  //   //   info->dci_ctx.location.L,
-  //   //   info->measure.epre_dBfs,
-  //   //   info->measure.rsrp_dBfs,
-  //   //   info->measure.norm_corr,
-  //   //   info->nof_bits,
-  //   //   info->result.crc ? "OK" : "KO");
-  //   // }
-
-  //   if (nof_ul_dci > 0 || nof_dl_dci > 0) {
-  //     // The UE is either using CA or not, so if we find the DCI with CA,
-  //     // we don't need to try further.
-  //     // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     // printf("M=%d\n", ue_dl_tmp->pdcch.M);
-  //     // printf("symbols=");
-  //     // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     if (print_enabled) {
-  //       printf("DCIDecoder -- DCI found with CA\n");
-  //     }
-  //     continue;
-  //   }
-
-  //   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-  //   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-
-  //   // Set the DCI size for the non-carrier aggregation UEs.
-  //   if (srsran_ue_dl_nr_set_pdcch_config(ue_dl_tmp, &pdcch_cfg, &dci_cfg)) {
-  //     ERROR("Error setting CORESET");
-  //     return SRSRAN_ERROR;
-  //   }
-
-  //   // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n",
-  //   //   0,
-  //   //   ue_dl_tmp->cfg.search_space[0].id,
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[0],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[1],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[2],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[3],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[4]
-  //   // );
-
-  //   // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n",
-  //   //   1,
-  //   //   ue_dl_tmp->cfg.search_space[1].id,
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[0],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[1],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[2],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[3],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[4]
-  //   // );
-
-  //   // int nof_dl_dci_nca = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
-  //   //     ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-  //   int nof_dl_dci_nca = nrscope_flat_find_dl_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
-
-  //   if (nof_dl_dci_nca < SRSRAN_SUCCESS) {
-  //     ERROR("Error in blind search");
-  //   }
-
-  //   int nof_ul_dci_nca = srsran_ue_dl_nr_find_ul_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
-
-  //   if (nof_dl_dci_nca > 0) {
-  //     dci_dl[rnti_idx] = dci_dl_tmp[0];
-  //     total_dl_dci += nof_dl_dci_nca;
-  //   }
-
-  //   if (nof_ul_dci_nca > 0) {
-  //     dci_ul[rnti_idx] = dci_ul_tmp[0];
-  //     total_ul_dci += nof_ul_dci_nca;
-  //   }
-
-  //   // printf("slot: %d\n", slot->idx);
-  //   // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
-  //   //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
-  //   //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //   //   "nof_bits=%d; crc=%s;\n",
-  //   //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //   //   info->dci_ctx.rnti,
-  //   //   info->dci_ctx.coreset_id,
-  //   //   srsran_ss_type_str(info->dci_ctx.ss_type),
-  //   //   info->dci_ctx.location.ncce,
-  //   //   info->dci_ctx.location.L,
-  //   //   info->measure.epre_dBfs,
-  //   //   info->measure.rsrp_dBfs,
-  //   //   info->measure.norm_corr,
-  //   //   info->nof_bits,
-  //   //   info->result.crc ? "OK" : "KO");
-  //   // }
-  //   if (nof_dl_dci_nca > 0 || nof_ul_dci_nca > 0) {
-  //     // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     // printf("M=%d\n", ue_dl_tmp->pdcch.M);
-  //     // printf("symbols=");
-  //     // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     if (print_enabled) {
-  //       printf("DCIDecoder -- DCI Found without CA\n");
-  //     }
-  //   }
-  // }
-  // if (print_enabled) {
-  //   printf("Number of DL RNTIs: %d\n", n_rntis);
-  // }
-  // TDCIEND(t_rnti_loop)
-
-  // if (print_enabled) {
-  //   for (uint32_t i = 0; i < n_rntis; i++) {
-  //     bool old_dl = (dci_dl[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-  //     bool old_ul = (dci_ul[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-  //     bool new_dl = ndl_cf[i] > 0;
-  //     bool new_ul = nul_cf[i] > 0;
-  //     if (old_dl != new_dl || old_ul != new_ul) {
-  //       printf("CF MISMATCH rnti_idx %u: old dl=%d ul=%d, new dl=%d ul=%d\n", i, old_dl, old_ul, new_dl, new_ul);
-  //       continue;
-  //     }
-  //     if (old_dl) {
-  //       char s_old[1024] = {}, s_new[1024] = {};
-  //       srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[i], s_old, sizeof(s_old));
-  //       srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dl_cf[i], s_new, sizeof(s_new));
-  //       if (strcmp(s_old, s_new) != 0)
-  //         printf("CF DL CONTENT MISMATCH rnti_idx %u:\n  old: %s\n  new: %s\n", i, s_old, s_new);
-  //     }
-  //     if (old_ul) {
-  //       char s_old[1024] = {}, s_new[1024] = {};
-  //       srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[i], s_old, sizeof(s_old));
-  //       srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &ul_cf[i], s_new, sizeof(s_new));
-  //       if (strcmp(s_old, s_new) != 0)
-  //         printf("CF UL CONTENT MISMATCH rnti_idx %u:\n  old: %s\n  new: %s\n", i, s_old, s_new);
-  //     }
-  //   }
-  // }
-
-
-  // if (print_enabled) {
-  //   printf("unique locations measured: %zu, passing gates: %zu, (location,size) decodes: %zu\n",
-  //          uniq_meas.size(),
-  //          uniq_pass.size(),
-  //          uniq_pass_size.size());
-  // }
-
-  // CUTOVER.
+  // Publish the per-RNTI first hits into dci_dl[]/dci_ul[], which the grant
+  // processing below reads exactly as in the original path.
   for (uint32_t i = 0; i < n_rntis; i++) {
     if (ndl_cf[i] > 0) { dci_dl[i] = dl_cf[i]; total_dl_dci += ndl_cf[i]; }
     if (nul_cf[i] > 0) { dci_ul[i] = ul_cf[i]; total_ul_dci += nul_cf[i]; }
   }
 
-  // TEMP diagnosis: report the per-rnti fate for 21438 (0x53be), keyed by frame
-  // so it aligns to the LOGGED/KNOWNRNTI dumps. ndl=0 -> not found; ndl>0 with
-  // a huge tda -> found junk (will fail conversion); ndl>0 small tda -> found
-  // real (if then absent from CSV, lost downstream).
-  for (uint32_t i = 0; i < n_rntis; i++) {
-    if (sharded_rntis[dci_decoder_id][i] == 0x53be) {
-      int      convok = -1, gS = -1, gL = -1;
-      uint32_t tda = ndl_cf[i] > 0 ? dci_dl[i].time_domain_assigment : 0;
-      if (ndl_cf[i] > 0 && dci_dl[i].ctx.format == srsran_dci_format_nr_1_1) {
-        srsran_sch_cfg_nr_t tcfg = {};
-        tcfg.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
-        convok = (srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[i], &tcfg, &tcfg.grant) >=
-                  SRSRAN_SUCCESS)
-                     ? 1
-                     : 0;
-        gS = (int)tcfg.grant.S;
-        gL = (int)tcfg.grant.L;
-      }
-      printf("OPTDL sf=%lu sfn=%u slot=%u rnti=0x53be ndl=%d tda=%u L=%d ncce=%d convok=%d gS=%d gL=%d "
-             "nded=%u ncom=%u dsliv=%u crst=%u\n",
-             (unsigned long)dbg_sf_round,
-             dbg_sfn,
-             slot->idx,
-             ndl_cf[i],
-             tda,
-             ndl_cf[i] > 0 ? dci_dl[i].ctx.location.L : -1,
-             ndl_cf[i] > 0 ? (int)dci_dl[i].ctx.location.ncce : -1,
-             convok,
-             gS,
-             gL,
-             pdsch_hl_cfg.nof_dedicated_time_ra,
-             pdsch_hl_cfg.nof_common_time_ra,
-             tda < SRSRAN_MAX_NOF_TIME_RA ? pdsch_hl_cfg.dedicated_time_ra[tda].sliv : 9999,
-             ndl_cf[i] > 0 ? dci_dl[i].ctx.coreset_id : 99);
-    }
-  }
-
-  // ===== TEMP diagnosis: run the ORIGINAL per-rnti CA-then-nonCA search on the
-  // same slot+state and compare its selected DL first-hit + conversion outcome
-  // against the optimized path's dci_dl[i]. Trajectory-independent (both on the
-  // identical input). SELCMP fires on any divergence; if it stays silent the
-  // dl_logged gap is purely which slots/states each run processes.
-  //
-  // DISABLED: this re-runs the full original search per rnti, which slows the
-  // optimized path enough to erase its speed advantage — and that masks the
-  // very timing/known_rntis effect we are now probing (trial 9 matched ONLY
-  // because this was enabled). Re-enable to re-verify per-slot equivalence. =====
-#if 0
-  for (uint32_t i = 0; i < n_rntis; i++) {
-    uint16_t           cmp_rnti = sharded_rntis[dci_decoder_id][i];
-    srsran_dci_dl_nr_t orig_dl  = {};
-    bool               orig_has = false;
-
-    memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-    memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-    int o_dl = nrscope_flat_find_dl_dci(ue_dl_tmp, slot_tmp, cmp_rnti, srsran_rnti_type_c, dci_dl_tmp, 4);
-    int o_ul = srsran_ue_dl_nr_find_ul_dci(ue_dl_tmp, slot_tmp, cmp_rnti, srsran_rnti_type_c, dci_ul_tmp, 4);
-    if (o_dl > 0) {
-      orig_dl  = dci_dl_tmp[0];
-      orig_has = true;
-    }
-    if (o_dl <= 0 && o_ul <= 0) {
-      // CA found nothing -> original would try non-CA
-      memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-      memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-      srsran_ue_dl_nr_set_pdcch_config(ue_dl_tmp, &pdcch_cfg, &dci_cfg);
-      int o_dl_nca = nrscope_flat_find_dl_dci(ue_dl_tmp, slot_tmp, cmp_rnti, srsran_rnti_type_c, dci_dl_tmp, 4);
-      if (o_dl_nca > 0) {
-        orig_dl  = dci_dl_tmp[0];
-        orig_has = true;
-      }
-    }
-
-    bool opt_has = (dci_dl[i].ctx.rnti == cmp_rnti);
-    if (orig_has != opt_has) {
-      printf("SELCMP presence slot=%u rnti=0x%x orig_dl=%d opt_dl=%d\n", slot->idx, cmp_rnti, orig_has, opt_has);
-      continue;
-    }
-    if (orig_has && opt_has) {
-      char so[512] = {}, sn[512] = {};
-      srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &orig_dl, so, sizeof(so));
-      srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[i], sn, sizeof(sn));
-      if (strcmp(so, sn) != 0) {
-        printf("SELCMP msg slot=%u rnti=0x%x\n  orig: %s\n  opt : %s\n", slot->idx, cmp_rnti, so, sn);
-      } else if (orig_dl.ctx.format == srsran_dci_format_nr_1_1) {
-        // Identical message: conversion MUST agree. If it doesn't, a shared
-        // member used by conversion is being corrupted.
-        srsran_sch_cfg_nr_t go = {}, gn = {};
-        go.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
-        gn.dmrs.typeA_pos      = state->cell.mib.dmrs_typeA_pos;
-        int ro = srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &orig_dl, &go, &go.grant);
-        int rn = srsran_ra_dl_dci_to_grant_nr(&carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[i], &gn, &gn.grant);
-        if ((ro < SRSRAN_SUCCESS) != (rn < SRSRAN_SUCCESS)) {
-          printf("SELCMP conv slot=%u rnti=0x%x identical msg but conv differs orig=%d opt=%d\n",
-                 slot->idx,
-                 cmp_rnti,
-                 ro,
-                 rn);
-        }
-      }
-    }
-  }
-#endif
-  // ===== END TEMP =====
 
   if (total_dl_dci > 0) {
     for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++) {
@@ -3275,19 +2795,7 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
                   &carrier_dl, slot, &pdsch_hl_cfg, &dci_dl[dci_idx_dl], &pdsch_cfg, &pdsch_cfg.grant) <
               SRSRAN_SUCCESS) {
             ERROR("Error decoding PDSCH search");
-            // TEMP diagnosis: identify the message whose conversion failed
-            printf("PDSCHFAIL opt slot=%u rnti=0x%x fmt=%d tda=%u ss=%d crst=%d L=%d ncce=%d\n",
-                   slot->idx,
-                   dci_dl[dci_idx_dl].ctx.rnti,
-                   (int)dci_dl[dci_idx_dl].ctx.format,
-                   dci_dl[dci_idx_dl].time_domain_assigment,
-                   (int)dci_dl[dci_idx_dl].ctx.ss_type,
-                   dci_dl[dci_idx_dl].ctx.coreset_id,
-                   dci_dl[dci_idx_dl].ctx.location.L,
-                   dci_dl[dci_idx_dl].ctx.location.ncce);
             // return result;
-          } else {
-            g_opt_dl_ok++; // conversion succeeded -> this row will be logged
           }
           if (print_enabled) {
             srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
@@ -3404,22 +2912,6 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
     //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
     //      ul_prb_bits_rate[idx]);
     // }
-  }
-
-  // TEMP diagnosis: process-wide tally of DCIs the OPTIMIZED path found, to
-  // compare total decoded count against the original run.
-  {
-    static std::atomic<long> g_opt_dl{0}, g_opt_ul{0}, g_opt_calls{0};
-    long c  = ++g_opt_calls;
-    long dl = (g_opt_dl += total_dl_dci);
-    long ul = (g_opt_ul += total_ul_dci);
-    if (c % 200 == 0) {
-      printf("DCISUM opt: calls=%ld total_dl=%ld total_ul=%ld dl_logged=%ld\n",
-             c,
-             dl,
-             ul,
-             g_opt_dl_ok.load());
-    }
   }
 
   return SRSRAN_SUCCESS;
