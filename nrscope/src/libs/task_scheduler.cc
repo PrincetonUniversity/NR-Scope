@@ -293,17 +293,52 @@ int TaskSchedulerNRScope::UpdatewithResult(const SlotResult& now_result) // Pass
       // DCIFeedback result = results[b];
       const auto& result = results[b]; // avoid copy
       if ((result.dl_grants.size() > 0 or result.ul_grants.size() > 0)) {
-        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++) {
-          if (result.dl_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
+        // The result arrays are indexed by the RNTI-list *snapshot* the worker
+        // took at dispatch time. The live list may have changed since (RACH
+        // results append; the 5s expiration below erases, shifting indices),
+        // so match grants by VALUE and iterate the result's own size — the
+        // old index-equality check silently dropped every row whose index no
+        // longer lined up, and could read past the result arrays when the
+        // list had grown.
+        for (uint32_t i = 0; i < result.dl_grants.size(); i++) {
+          uint16_t dl_rnti = result.dl_grants[i].grant.rnti;
+          if (dl_rnti != 0) {
+            int cur_idx = -1;
+            for (uint32_t j = 0; j < task_scheduler_state.known_rntis.size(); j++) {
+              if (task_scheduler_state.known_rntis[j] == dl_rnti) {
+                cur_idx = (int)j;
+                break;
+              }
+            }
+            if (cur_idx != (int)i) {
+              // TEMP diagnosis: this row would have been dropped by the old
+              // index-based matching
+              printf("LOGSHIFT dl sfn=%u slot=%u rnti=0x%x snap_idx=%u cur_idx=%d\n",
+                     now_result.outcome.sfn,
+                     now_result.slot.idx,
+                     dl_rnti,
+                     i,
+                     cur_idx);
+            }
             LogNode log_node;
-            log_node.slot_idx                 = now_result.slot.idx;
-            log_node.system_frame_idx         = now_result.outcome.sfn;
-            log_node.timestamp                = now;
-            log_node.grant                    = result.dl_grants[i];
-            log_node.dci_format               = srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
-            log_node.dl_dci                   = result.dl_dcis[i];
-            log_node.bwp_id                   = result.dl_dcis[i].bwp_id;
-            task_scheduler_state.last_seen[i] = now;
+            log_node.slot_idx         = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp        = now;
+            log_node.grant            = result.dl_grants[i];
+            log_node.dci_format       = srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
+            log_node.dl_dci           = result.dl_dcis[i];
+            log_node.bwp_id           = result.dl_dcis[i].bwp_id;
+            // TEMP diagnosis: emit the trace-position key of every logged DL
+            // grant so missing rows can be aligned against the KNOWNRNTI
+            // snapshot dumps (which carry the same sf/sfn/slot key).
+            printf("LOGGED sf=%lu sfn=%u slot=%u rnti=0x%x\n",
+                   (unsigned long)now_result.sf_round,
+                   now_result.outcome.sfn,
+                   now_result.slot.idx,
+                   dl_rnti);
+            if (cur_idx >= 0) {
+              task_scheduler_state.last_seen[cur_idx] = now;
+            }
             if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -311,17 +346,37 @@ int TaskSchedulerNRScope::UpdatewithResult(const SlotResult& now_result) // Pass
               ToGoogle::push_google_node(log_node, rf_index);
             }
           }
+        }
 
-          if (result.ul_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
+        for (uint32_t i = 0; i < result.ul_grants.size(); i++) {
+          uint16_t ul_rnti = result.ul_grants[i].grant.rnti;
+          if (ul_rnti != 0) {
+            int cur_idx = -1;
+            for (uint32_t j = 0; j < task_scheduler_state.known_rntis.size(); j++) {
+              if (task_scheduler_state.known_rntis[j] == ul_rnti) {
+                cur_idx = (int)j;
+                break;
+              }
+            }
+            if (cur_idx != (int)i) {
+              printf("LOGSHIFT ul sfn=%u slot=%u rnti=0x%x snap_idx=%u cur_idx=%d\n",
+                     now_result.outcome.sfn,
+                     now_result.slot.idx,
+                     ul_rnti,
+                     i,
+                     cur_idx);
+            }
             LogNode log_node;
-            log_node.slot_idx                 = now_result.slot.idx;
-            log_node.system_frame_idx         = now_result.outcome.sfn;
-            log_node.timestamp                = now;
-            log_node.grant                    = result.ul_grants[i];
-            log_node.dci_format               = srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
-            log_node.ul_dci                   = result.ul_dcis[i];
-            log_node.bwp_id                   = result.ul_dcis[i].bwp_id;
-            task_scheduler_state.last_seen[i] = now;
+            log_node.slot_idx         = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp        = now;
+            log_node.grant            = result.ul_grants[i];
+            log_node.dci_format       = srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
+            log_node.ul_dci           = result.ul_dcis[i];
+            log_node.bwp_id           = result.ul_dcis[i].bwp_id;
+            if (cur_idx >= 0) {
+              task_scheduler_state.last_seen[cur_idx] = now;
+            }
             if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -535,9 +590,14 @@ int TaskSchedulerNRScope::StoreSlotData(uint64_t                    sf_round,
   total_slots++;
   if (!slot_data[i].processed.load(std::memory_order_acquire)) {
     missed_slots++;
-    if (missed_slots % 1000 == 0) {
-      NRSCOPE_PRINT_ERROR("Overwriting unprocessed slots (total missed: %lu/%lu). Consider improving processing throughput.", missed_slots, total_slots);
-    }
+    // TEMP diagnosis: identify every dropped slot (read the victim's identity
+    // before it is overwritten below) so drops can be matched against the
+    // missing CSV rows. Revert to the rate-limited summary once resolved.
+    NRSCOPE_PRINT_ERROR("SLOTDROP sfn=%u slot=%u (missed %lu/%lu)",
+                        slot_data[i].outcome.sfn,
+                        slot_data[i].slot.idx,
+                        missed_slots,
+                        total_slots);
   }
 
   s.sf_round = sf_round;
