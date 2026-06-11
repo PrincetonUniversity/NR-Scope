@@ -206,4 +206,11 @@ SRSRAN_API uint32_t srsran_pdcch_nr_info(const srsran_pdcch_nr_t*     q,
                                          char*                        str,
                                          uint32_t                     str_len);
 
+
+SRSRAN_API uint32_t pdcch_nr_cp(const srsran_pdcch_nr_t*     q,
+                            const srsran_dci_location_t* dci_location,
+                            cf_t*                        slot_grid,
+                            cf_t*                        symbols,
+                            bool                         put);
+
 #endif // SRSRAN_PDCCH_NR_H

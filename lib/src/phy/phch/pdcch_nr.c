@@ -404,7 +404,7 @@ int srsran_pdcch_nr_cce_to_reg_mapping(const srsran_coreset_t*      coreset,
   return pdcch_nr_cce_to_reg_mapping_interleaved(coreset, dci_location, rb_mask);
 }
 
-static uint32_t pdcch_nr_cp(const srsran_pdcch_nr_t*     q,
+uint32_t pdcch_nr_cp(const srsran_pdcch_nr_t*     q,
                             const srsran_dci_location_t* dci_location,
                             cf_t*                        slot_grid,
                             cf_t*                        symbols,

@@ -448,8 +448,7 @@ void NRScopeWorker::Run() // Main thread of backend worker
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
 
       /* Pick the regular or optimized DCI decoding path */
-      auto dci_decode_fn = worker_state.optimized_decoders ? &DCIDecoder::DecodeandParseDCIfromSlotOptimized
-                                                           : &DCIDecoder::DecodeandParseDCIfromSlot;
+      auto dci_decode_fn = &DCIDecoder::DecodeandParseDCIfromSlot;
 
       gettimeofday(&t0, NULL);
         if (worker_state.cpu_affinity) {

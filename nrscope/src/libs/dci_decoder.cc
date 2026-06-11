@@ -1296,776 +1296,18 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
   return SRSRAN_SUCCESS;
 }
 
-
-
-
-/******* optimized decoder method ********/
-
-// #define TDCISTART(name) struct timeval name##_t0, name##_t1; gettimeofday(&name##_t0, NULL);
-// #define TDCIEND(name)   gettimeofday(&name##_t1, NULL); \
-//   if (print_enabled) { \
-//     printf(#name ": %ld (us)\n", (name##_t1.tv_sec - name##_t0.tv_sec) * 1000000L + (name##_t1.tv_usec - name##_t0.tv_usec)); \
-//   }
-
-// no ops versions
-#define TDCISTART(name)
-#define TDCIEND(name)
-
-
-/*************** INLINED srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop ***************/
-// Flattened, single-file copy of the entire blind-search call chain so the
-// control flow can be read and instrumented in one place. Logic is copied
-// verbatim from the originals; commented-out code, debug prints and the
-// optional meas_time bookkeeping are stripped. Leaf DSP kernels (polar,
-// demodulator, equalizer, scrambling sequence, CRC, vector ops) remain
-// library calls.
-//
-// Original layers, top to bottom:
-//   srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop       lib/src/phy/ue/ue_dl_nr.c:1251
-//   ue_dl_nr_find_dci_ss_nrscope_dciloop              lib/src/phy/ue/ue_dl_nr.c:963
-//   ue_dl_nr_find_dci_ncce_nrscope_dciloop            lib/src/phy/ue/ue_dl_nr.c:532
-//   srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop  lib/src/phy/phch/pdcch_nr.c:975
-// plus their static helpers (copied below with a flat_ prefix):
-//   find_dci_msg                                      lib/src/phy/ue/ue_dl_nr.c:632
-//   srsran_pdcch_calculate_Y_p_n / srsran_pdcch_nr_get_ncce /
-//     srsran_pdcch_nr_locations_coreset               lib/src/phy/phch/pdcch_nr.c:41/59/106
-//   pdcch_nr_cp / pdcch_nr_c_init                     lib/src/phy/phch/pdcch_nr.c:407/461
-//   srsran_dmrs_pdcch_get_measure / _get_ce           lib/src/phy/ch_estimation/dmrs_pdcch.c:491/611
-//
-// UL-format hits are still enqueued on q->ul_dci_msg, so a following call to
-// srsran_ue_dl_nr_find_ul_dci() works unchanged.
-
-// The polar/evm headers have no extern "C" guards of their own (they are
-// normally only included from C translation units), so guard them here.
 extern "C" {
-#include "srsran/phy/fec/polar/polar_chanalloc.h"
-#include "srsran/phy/fec/polar/polar_code.h"
-#include "srsran/phy/fec/polar/polar_decoder.h"
-#include "srsran/phy/fec/polar/polar_interleaver.h"
-#include "srsran/phy/fec/polar/polar_rm.h"
-#include "srsran/phy/modem/evm.h"
+  #include "srsran/phy/fec/polar/polar_chanalloc.h"
+  #include "srsran/phy/fec/polar/polar_interleaver.h"
 }
-#include "srsran/phy/ue/srsgui_plot.h"
+#define NO_BIT_INTERLEAVE 0
 
-// File-local constants of the original .c files (not exported in any header):
-// dmrs_pdcch.c:33, dmrs_pdcch.c:40, pdcch_nr.c:32
-#define FLAT_NOF_PILOTS_X_RB 3
-#define FLAT_DMRS_PDCCH_MAX_NOF_PILOTS_CANDIDATE                                                                       \
-  ((SRSRAN_NRE / 3) * (1U << (SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR - 1U)) * 6U)
-#define FLAT_PDCCH_NR_POLAR_RM_IBIL 0
-
-// cf_t is GCC's _Complex float; these two avoid pulling C99 <complex.h> into a
-// C++ translation unit just for conjf()/cargf().
-static inline cf_t flat_conjf(cf_t x)
-{
-  __imag__ x = -__imag__ x;
-  return x;
-}
-
-static inline float flat_cargf(cf_t x)
-{
-  return atan2f(__imag__ x, __real__ x);
-}
-
-// pdcch_nr.c:41 — RNTI hash for UE-specific search space candidate placement
-// (TS 38.213 10.1). This is why candidate CCE locations differ per RNTI.
-static uint32_t flat_pdcch_calculate_Y_p_n(uint32_t coreset_id, uint16_t rnti, uint32_t n)
-{
-  static const uint32_t A_p[3] = {39827, 39829, 39839};
-  const uint32_t        D      = 65537;
-
-  uint32_t Y_p_n = (uint32_t)rnti;
-  for (uint32_t i = 0; i <= n; i++) {
-    Y_p_n = (A_p[coreset_id % 3] * Y_p_n) % D;
-  }
-
-  return Y_p_n;
-}
-
-// pdcch_nr.c:59 — CCE index of one candidate
-static int flat_pdcch_nr_get_ncce(const srsran_coreset_t*      coreset,
-                                  const srsran_search_space_t* search_space,
-                                  uint16_t                     rnti,
-                                  uint32_t                     aggregation_level,
-                                  uint32_t                     slot_idx,
-                                  uint32_t                     candidate)
-{
-  if (aggregation_level >= SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR) {
-    ERROR("Invalid aggregation level %d;", aggregation_level);
-    return SRSRAN_ERROR;
-  }
-
-  uint32_t L    = 1U << aggregation_level;                         // Aggregation level
-  uint32_t n_ci = 0;                                               // Carrier indicator field
-  uint32_t m    = candidate;                                       // Selected PDCCH candidate
-  uint32_t M    = search_space->nof_candidates[aggregation_level]; // Number of candidates
-
-  if (M == 0) {
-    ERROR("Invalid number of candidates %d for aggregation level %d", M, aggregation_level);
-    return SRSRAN_ERROR;
-  }
-
-  // Every REG is 1 PRB wide and a CCE is 6 REGs
-  uint32_t coreset_bw = srsran_coreset_get_bw(coreset);
-  uint32_t N_cce      = coreset_bw * coreset->duration / 6;
-
-  if (N_cce < L) {
-    ERROR("Error CORESET (total bandwidth of %d RBs and %d CCEs) cannot fit the aggregation level %d (%d)",
-          coreset_bw,
-          N_cce,
-          L,
-          aggregation_level);
-    return SRSRAN_ERROR;
-  }
-
-  // Y_p_n is 0 for common search spaces, RNTI hash for UE search space
-  uint32_t Y_p_n = 0;
-  if (search_space->type == srsran_search_space_type_ue) {
-    Y_p_n = flat_pdcch_calculate_Y_p_n(coreset->id, rnti, slot_idx);
-  }
-
-  return (int)(L * ((Y_p_n + (m * N_cce) / (L * M) + n_ci) % (N_cce / L)));
-}
-
-// pdcch_nr.c:106 — all candidate CCE locations for one aggregation level
-static int flat_pdcch_nr_locations_coreset(const srsran_coreset_t*      coreset,
-                                           const srsran_search_space_t* search_space,
-                                           uint16_t                     rnti,
-                                           uint32_t                     aggregation_level,
-                                           uint32_t                     slot_idx,
-                                           uint32_t locations[SRSRAN_SEARCH_SPACE_MAX_NOF_CANDIDATES_NR])
-{
-  if (coreset == NULL || search_space == NULL) {
-    return SRSRAN_ERROR_INVALID_INPUTS;
-  }
-
-  uint32_t nof_candidates = search_space->nof_candidates[aggregation_level];
-  nof_candidates          = SRSRAN_MIN(nof_candidates, SRSRAN_SEARCH_SPACE_MAX_NOF_CANDIDATES_NR);
-
-  for (uint32_t candidate = 0; candidate < nof_candidates; candidate++) {
-    int ret = flat_pdcch_nr_get_ncce(coreset, search_space, rnti, aggregation_level, slot_idx, candidate);
-    if (ret < SRSRAN_SUCCESS) {
-      return ret;
-    }
-    locations[candidate] = ret;
-  }
-
-  return nof_candidates;
-}
-
-// ue_dl_nr.c:632 — dedup check against the already-found DCI list
-static bool flat_find_dci_msg(srsran_dci_msg_nr_t* dci_msg, uint32_t nof_dci_msg, srsran_dci_msg_nr_t* match)
-{
-  bool     found    = false;
-  uint32_t nof_bits = match->nof_bits;
-
-  for (uint32_t k = 0; k < nof_dci_msg && !found; k++) {
-    if (dci_msg[k].nof_bits == nof_bits) {
-      if (memcmp(dci_msg[k].payload, match->payload, nof_bits) == 0) {
-        found = true;
-      }
-    }
-  }
-
-  return found;
-}
-
-// pdcch_nr.c:407 — copy the candidate's REs between resource grid and symbol
-// buffer (put=false reads from the grid, skipping the DMRS REs at k%4==1)
-static uint32_t flat_pdcch_nr_cp(const srsran_pdcch_nr_t*     q,
-                                 const srsran_dci_location_t* dci_location,
-                                 cf_t*                        slot_grid,
-                                 cf_t*                        symbols,
-                                 bool                         put)
-{
-  uint32_t offset_k = q->coreset.offset_rb * SRSRAN_NRE;
-
-  // Compute REG list
-  bool rb_mask[SRSRAN_MAX_PRB_NR] = {};
-  if (srsran_pdcch_nr_cce_to_reg_mapping(&q->coreset, dci_location, rb_mask) < SRSRAN_SUCCESS) {
-    return 0;
-  }
-
-  uint32_t count = 0;
-
-  // Iterate over symbols
-  for (uint32_t l = 0; l < q->coreset.duration; l++) {
-    // Iterate over frequency resource groups
-    uint32_t rb = 0;
-    for (uint32_t r = 0; r < SRSRAN_CORESET_FREQ_DOMAIN_RES_SIZE; r++) {
-      if (!q->coreset.freq_resources[r]) {
-        continue;
-      }
-
-      // For each RB in the frequency resource
-      for (uint32_t i = r * 6; i < (r + 1) * 6; i++, rb++) {
-        if (!rb_mask[rb]) {
-          continue;
-        }
-
-        // For each RE in the RB
-        for (uint32_t k = i * SRSRAN_NRE; k < (i + 1) * SRSRAN_NRE; k++) {
-          // Skip if it is a DMRS
-          if (k % 4 == 1) {
-            continue;
-          }
-
-          if (put) {
-            slot_grid[q->carrier.nof_prb * SRSRAN_NRE * l + k + offset_k] = symbols[count++];
-          } else {
-            symbols[count++] = slot_grid[q->carrier.nof_prb * SRSRAN_NRE * l + k + offset_k];
-          }
-        }
-      }
-    }
-  }
-
-  return count;
-}
-
-// pdcch_nr.c:461 — scrambling sequence init. Note: RNTI-dependent only when
-// the CORESET configures pdcch-DMRS-ScramblingID and this is a UE search
-// space; otherwise identical for all RNTIs.
-static uint32_t flat_pdcch_nr_c_init(const srsran_pdcch_nr_t* q, const srsran_dci_msg_nr_t* dci_msg)
-{
-  uint32_t n_id   = (dci_msg->ctx.ss_type == srsran_search_space_type_ue && q->coreset.dmrs_scrambling_id_present)
-                        ? q->coreset.dmrs_scrambling_id
-                        : q->carrier.pci;
-  uint32_t n_rnti = (dci_msg->ctx.ss_type == srsran_search_space_type_ue && q->coreset.dmrs_scrambling_id_present)
-                        ? dci_msg->ctx.rnti
-                        : 0U;
-  return ((n_rnti << 16U) + n_id) & 0x7fffffffU;
-}
-
-// dmrs_pdcch.c:491 — measure correlation/EPRE of one candidate from the
-// per-slot least-squares estimates (q->lse, filled once per slot by
-// srsran_dmrs_pdcch_estimate_nrscope)
-static int flat_dmrs_pdcch_get_measure(const srsran_dmrs_pdcch_estimator_t* q,
-                                       const srsran_dci_location_t*         dci_location,
-                                       srsran_dmrs_pdcch_measure_t*         measure)
-{
-  if (q == NULL || dci_location == NULL || measure == NULL) {
-    return SRSRAN_ERROR_INVALID_INPUTS;
-  }
-
-  if (q->coreset.duration < SRSRAN_CORESET_DURATION_MIN) {
-    ERROR("Invalid CORESET duration");
-    return SRSRAN_ERROR;
-  }
-
-  // Calculate CCE-to-REG mapping mask
-  bool rb_mask[SRSRAN_MAX_PRB_NR] = {};
-  if (srsran_pdcch_nr_cce_to_reg_mapping(&q->coreset, dci_location, rb_mask) < SRSRAN_SUCCESS) {
-    ERROR("Error in CCE-to-REG mapping");
-    return SRSRAN_SUCCESS;
-  }
-
-  float rsrp                              = 0.0f; //< Averages linear RSRP
-  float epre                              = 0.0f; //< Averages linear EPRE
-  float cfo_avg_Hz                        = 0.0f; //< Averages CFO in Radians
-  float sync_err_avg                      = 0.0f; //< Averages synchronization
-  cf_t  corr[SRSRAN_CORESET_DURATION_MAX] = {};   //< Saves correlation for the different symbols
-
-  // For each CORESET symbol
-  for (uint32_t l = 0; l < q->coreset.duration; l++) {
-    // Temporal least square estimates
-    cf_t     tmp[FLAT_DMRS_PDCCH_MAX_NOF_PILOTS_CANDIDATE] = {};
-    uint32_t nof_pilots                                    = 0;
-
-    // For each RB in the CORESET
-    for (uint32_t rb = 0; rb < q->coreset_bw; rb++) {
-      if (!rb_mask[rb]) {
-        continue;
-      }
-      srsran_vec_cf_copy(&tmp[nof_pilots], &q->lse[l][rb * FLAT_NOF_PILOTS_X_RB], FLAT_NOF_PILOTS_X_RB);
-      nof_pilots += FLAT_NOF_PILOTS_X_RB;
-    }
-
-    // Measure synchronization error and accumulate for average
-    float tmp_sync_err = srsran_vec_estimate_frequency(tmp, nof_pilots);
-    sync_err_avg += tmp_sync_err;
-
-    // Pre-compensate synchronization error (DMRS_PDCCH_SYNC_PRECOMPENSATE_MEAS=1)
-    srsran_vec_apply_cfo(tmp, tmp_sync_err, tmp, nof_pilots);
-
-    // Prevent undefined division
-    if (!nof_pilots) {
-      ERROR("Error in DMRS correlation. nof_pilots cannot be zero");
-      return SRSRAN_ERROR;
-    }
-
-    // Correlate DMRS
-    corr[l] = srsran_vec_acc_cc(tmp, nof_pilots) / (float)nof_pilots;
-
-    // Measure symbol RSRP
-    rsrp += __real__ corr[l] * __real__ corr[l] + __imag__ corr[l] * __imag__ corr[l];
-
-    // Measure symbol EPRE
-    epre += srsran_vec_avg_power_cf(tmp, nof_pilots);
-
-    // Measure CFO only from the second and third symbols
-    if (l != 0) {
-      float Ts = srsran_symbol_distance_s(l - 1, l, q->carrier.scs);
-      if (isnormal(Ts)) {
-        cfo_avg_Hz += flat_cargf(corr[l] * flat_conjf(corr[l - 1])) / (2.0f * (float)M_PI * Ts);
-      }
-    }
-  }
-
-  // Store results
-  measure->rsrp = rsrp / (float)q->coreset.duration;
-  measure->epre = epre / (float)q->coreset.duration;
-  if (q->coreset.duration > 1) {
-    // NOTE: verbatim from the original, which divides measure->cfo_hz (zeroed
-    // by the caller) instead of storing cfo_avg_Hz — so cfo_hz is always 0.
-    measure->cfo_hz /= (float)(q->coreset.duration - 1);
-  } else {
-    measure->cfo_hz = NAN;
-  }
-  (void)cfo_avg_Hz;
-  measure->sync_error_us =
-      sync_err_avg / (4.0e-6f * (float)q->coreset.duration * SRSRAN_SUBC_SPACING_NR(q->carrier.scs));
-
-  // Convert power measurements into logarithmic scale
-  measure->rsrp_dBfs = srsran_convert_power_to_dB(measure->rsrp);
-  measure->epre_dBfs = srsran_convert_power_to_dB(measure->epre);
-
-  // Store DMRS correlation
-  if (isnormal(measure->rsrp) && isnormal(measure->epre)) {
-    measure->norm_corr = measure->rsrp / measure->epre;
-  } else {
-    measure->norm_corr = 0.0f;
-  }
-
-  return SRSRAN_SUCCESS;
-}
-
-// dmrs_pdcch.c:611 — copy the candidate's channel estimates out of the
-// per-slot estimate buffer (q->ce), skipping DMRS REs
-static int flat_dmrs_pdcch_get_ce(const srsran_dmrs_pdcch_estimator_t* q,
-                                  const srsran_dci_location_t*         dci_location,
-                                  srsran_dmrs_pdcch_ce_t*              ce)
-{
-  if (q == NULL || dci_location == NULL || ce == NULL) {
-    return SRSRAN_ERROR_INVALID_INPUTS;
-  }
-
-  uint32_t L = 1U << dci_location->L;
-
-  if (q->coreset.duration < SRSRAN_CORESET_DURATION_MIN) {
-    ERROR("Invalid CORESET duration");
-    return SRSRAN_ERROR;
-  }
-
-  // Calculate CCE-to-REG mapping mask
-  bool rb_mask[SRSRAN_MAX_PRB_NR] = {};
-  if (srsran_pdcch_nr_cce_to_reg_mapping(&q->coreset, dci_location, rb_mask) < SRSRAN_SUCCESS) {
-    ERROR("Error in CCE-to-REG mapping");
-    return SRSRAN_SUCCESS;
-  }
-
-  uint32_t count = 0;
-
-  // For each PDCCH symbol
-  for (uint32_t l = 0; l < q->coreset.duration; l++) {
-    // For each CORESET RB
-    for (uint32_t rb = 0; rb < q->coreset_bw; rb++) {
-      if (!rb_mask[rb]) {
-        continue;
-      }
-
-      // Copy RB, skipping DMRS
-      for (uint32_t k = rb * SRSRAN_NRE; k < (rb + 1) * SRSRAN_NRE; k++) {
-        if (k % 4 != 1) {
-          ce->ce[count++] = q->ce[q->coreset_bw * SRSRAN_NRE * l + k];
-        }
-      }
-    }
-  }
-
-  // Double check extracted RE match ideal count
-  ce->nof_re = (SRSRAN_NRE - 3) * 6 * L;
-  if (count != ce->nof_re) {
-    ERROR("Incorrect number of extracted resources (%d != %d)", count, ce->nof_re);
-  }
-
-  // At the moment Noise is not calculated
-  ce->noise_var = 0.0f;
-
-  return SRSRAN_SUCCESS;
-}
-
-// Per-sweep stage timing, reset at the top of every nrscope_flat_find_dl_dci
-// call and accumulated across the innermost loop. thread_local so concurrent
-// DCI decoder threads don't race; read it right after the call, same thread.
-struct FlatSweepStats {
-  uint32_t n_candidates;     // innermost-loop iterations
-  uint32_t n_decoded;        // candidates that passed all gates (full pipeline)
-  int64_t  t_measure_ns;     // DMRS measure (runs for every candidate)
-  int64_t  t_prep_ns;        // CE extract + RE copy + equalize + demod
-  int64_t  t_evm_ns;         // srsran_evm_run_b
-  int64_t  t_descr_rm_ns;    // LLR negate + descramble + rate dematch
-  int64_t  t_polar_ns;       // polar decode
-  int64_t  t_tail_ns;        // chanalloc + deinterleave + CRC + payload copy
-};
-static thread_local FlatSweepStats flat_sweep_stats;
-
-static inline int64_t flat_now_ns()
-{
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
-}
-
-// Drop-in replacement for srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop():
-// identical signature, behavior and side effects. All control-flow layers are
-// inlined below; loop nesting is search space > DCI format (size-deduped) >
-// aggregation level > candidate location.
-int nrscope_flat_find_dl_dci(srsran_ue_dl_nr_t*       q,
-                             const srsran_slot_cfg_t* slot_cfg,
-                             uint16_t                 rnti,
-                             srsran_rnti_type_t       rnti_type,
-                             srsran_dci_dl_nr_t*      dci_dl_list,
-                             uint32_t                 nof_dci_msg)
-{
-  if (q == NULL || slot_cfg == NULL || dci_dl_list == NULL) {
-    return SRSRAN_ERROR_INVALID_INPUTS;
-  }
-
-  // Limit maximum number of DCI messages to find
-  nof_dci_msg = SRSRAN_MIN(nof_dci_msg, SRSRAN_MAX_DCI_MSG_NR);
-
-  // Reset grant and blind search information counters
-  q->dl_dci_msg_count = 0;
-  q->pdcch_info_count = 0;
-
-  flat_sweep_stats = {};
-
-  // ========== layer: srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop ==========
-  // Iterate all possible common and UE search spaces
-  for (uint32_t ss_idx = 0; ss_idx < SRSRAN_UE_DL_NR_MAX_NOF_SEARCH_SPACE && q->dl_dci_msg_count < nof_dci_msg;
-       ss_idx++) {
-    if (!q->cfg.search_space_present[ss_idx]) {
-      continue;
-    }
-    const srsran_search_space_t* search_space = &q->cfg.search_space[ss_idx];
-
-    // ========== layer: ue_dl_nr_find_dci_ss_nrscope_dciloop ==========
-    uint32_t dci_sizes[SRSRAN_DCI_NR_MAX_NOF_SIZES] = {};
-    uint32_t dci_sizes_count                        = 0;
-
-    // Select CORESET
-    uint32_t coreset_id = search_space->coreset_id;
-    if (coreset_id >= SRSRAN_UE_DL_NR_MAX_NOF_CORESET || !q->cfg.coreset_present[coreset_id]) {
-      ERROR("CORESET %d is not present in search space %d", search_space->coreset_id, search_space->id);
-      return SRSRAN_ERROR;
-    }
-    srsran_coreset_t* coreset = &q->cfg.coreset[coreset_id];
-
-    // Set CORESET in PDCCH decoder (inlined srsran_pdcch_nr_set_carrier)
-    q->pdcch.carrier = q->carrier;
-    q->pdcch.coreset = *coreset;
-
-    // Iterate all possible formats
-    for (uint32_t format_idx = 0; format_idx < SRSRAN_MIN(search_space->nof_formats, SRSRAN_DCI_FORMAT_NR_COUNT);
-         format_idx++) {
-      srsran_dci_format_nr_t dci_format = search_space->formats[format_idx];
-
-      // Calculate number of DCI bits
-      uint32_t dci_nof_bits = srsran_dci_nr_size(&q->dci, search_space->type, dci_format);
-      if (rnti_type == srsran_rnti_type_si) {
-        dci_nof_bits = srsran_dci_nr_size(&q->dci, srsran_search_space_type_common_0, srsran_dci_format_nr_1_0);
-      }
-      if (dci_nof_bits == 0) {
-        ERROR("Error DCI size");
-        return SRSRAN_ERROR;
-      }
-
-      // Skip DCI format if the size was already searched for the search space
-      bool skip = false;
-      for (uint32_t i = 0; i < dci_sizes_count && !skip; i++) {
-        if (dci_nof_bits == dci_sizes[i]) {
-          skip = true;
-        }
-      }
-      if (skip) {
-        continue;
-      }
-
-      // Append size
-      if (dci_sizes_count >= SRSRAN_DCI_NR_MAX_NOF_SIZES) {
-        ERROR("Exceed maximum number of DCI sizes");
-        return SRSRAN_ERROR;
-      }
-      dci_sizes[dci_sizes_count++] = dci_nof_bits;
-
-      // Iterate all possible aggregation levels
-      for (uint32_t L = 0;
-           L < SRSRAN_SEARCH_SPACE_NOF_AGGREGATION_LEVELS_NR && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR;
-           L++) {
-        // Calculate possible PDCCH DCI candidates (RNTI-dependent in UE SS)
-        uint32_t candidates[SRSRAN_SEARCH_SPACE_MAX_NOF_CANDIDATES_NR] = {};
-        int      nof_candidates                                        = flat_pdcch_nr_locations_coreset(
-            coreset, search_space, rnti, L, SRSRAN_SLOT_NR_MOD(q->carrier.scs, slot_cfg->idx), candidates);
-        if (nof_candidates < SRSRAN_SUCCESS) {
-          ERROR("Error calculating DCI candidate location");
-          return SRSRAN_ERROR;
-        }
-
-        // Iterate over the candidates
-        for (int ncce_idx = 0; ncce_idx < nof_candidates && q->dl_dci_msg_count < SRSRAN_MAX_DCI_MSG_NR; ncce_idx++) {
-          // Build DCI context
-          srsran_dci_ctx_t ctx = {};
-          ctx.location.L       = L;
-          ctx.location.ncce    = candidates[ncce_idx];
-          ctx.ss_type          = search_space->type;
-          ctx.coreset_id       = search_space->coreset_id;
-          ctx.coreset_start_rb = srsran_coreset_start_rb(&q->cfg.coreset[search_space->coreset_id]);
-          ctx.rnti_type        = rnti_type;
-          ctx.rnti             = rnti;
-          ctx.format           = dci_format;
-
-          // Build DCI message
-          srsran_dci_msg_nr_t dci_msg = {};
-          dci_msg.ctx                 = ctx;
-          dci_msg.nof_bits            = (uint32_t)dci_nof_bits;
-
-          // For SI-RNTI checking
-          if (rnti_type == srsran_rnti_type_si) {
-            dci_msg.ctx.ss_type = srsran_search_space_type_common_0A;
-          }
-
-          // ========== layer: ue_dl_nr_find_dci_ncce_nrscope_dciloop ==========
-          // Per-candidate measurement/debug bookkeeping
-          if (q->pdcch_info_count >= SRSRAN_MAX_NOF_CANDIDATES_SLOT_NR) {
-            ERROR("The UE does not expect more than %d candidates in this serving cell",
-                  SRSRAN_MAX_NOF_CANDIDATES_SLOT_NR);
-            return SRSRAN_ERROR;
-          }
-          srsran_ue_dl_nr_pdcch_info_t* pdcch_info = &q->pdcch_info[q->pdcch_info_count];
-          q->pdcch_info_count++;
-          SRSRAN_MEM_ZERO(pdcch_info, srsran_ue_dl_nr_pdcch_info_t, 1);
-          pdcch_info->dci_ctx            = dci_msg.ctx;
-          pdcch_info->nof_bits           = dci_msg.nof_bits;
-          srsran_dmrs_pdcch_measure_t* m = &pdcch_info->measure;
-
-          
-          flat_sweep_stats.n_candidates++;
-
-          // Measure the PDCCH candidate's DMRS
-          srsran_dci_location_t location = dci_msg.ctx.location;
-          int64_t               ts0      = flat_now_ns();
-          if (flat_dmrs_pdcch_get_measure(&q->dmrs_pdcch[coreset_id], &location, m) < SRSRAN_SUCCESS) {
-            ERROR("Error getting measure location L=%d, ncce=%d", location.L, location.ncce);
-            return SRSRAN_ERROR;
-          }
-          flat_sweep_stats.t_measure_ns += flat_now_ns() - ts0;
-
-          // Gates: invalid measurement / EPRE / correlation (cheap early exits)
-          if (!isnormal(m->norm_corr)) {
-            continue;
-          }
-          if (m->epre_dBfs < q->pdcch_dmrs_epre_thr) {
-            continue;
-          }
-          if (m->norm_corr < q->pdcch_dmrs_corr_thr) {
-            continue;
-          }
-
-          flat_sweep_stats.n_decoded++;
-          int64_t ts1 = flat_now_ns();
-
-          // Extract PDCCH channel estimates
-          if (flat_dmrs_pdcch_get_ce(&q->dmrs_pdcch[coreset_id], &location, q->pdcch_ce) < SRSRAN_SUCCESS) {
-            ERROR("Error extracting PDCCH DMRS");
-            return SRSRAN_ERROR;
-          }
-
-          // ========== layer: srsran_pdcch_nr_decode_with_rnti_nrscope_dciloop ==========
-          srsran_pdcch_nr_t* pdcch = &q->pdcch;
-
-          pdcch->K = dci_msg.nof_bits + 24U;                                  // Payload size including CRC
-          pdcch->M = (1U << dci_msg.ctx.location.L) * (SRSRAN_NRE - 3U) * 6U; // Number of RE
-          pdcch->E = pdcch->M * 2;                                            // Number of rate-matched bits
-
-          // Check number of estimates is correct
-          if (q->pdcch_ce->nof_re != pdcch->M) {
-            ERROR("Invalid number of channel estimates (%d != %d)", pdcch->M, q->pdcch_ce->nof_re);
-            return SRSRAN_ERROR;
-          }
-
-          // Get polar code
-          if (srsran_polar_code_get(&pdcch->code, pdcch->K, pdcch->E, 9U) < SRSRAN_SUCCESS) {
-            return SRSRAN_ERROR;
-          }
-
-          // Get symbols from grid
-          uint32_t m_re = flat_pdcch_nr_cp(pdcch, &dci_msg.ctx.location, q->sf_symbols[0], pdcch->symbols, false);
-          if (pdcch->M != m_re) {
-            ERROR("Unmatch number of RE (%d != %d)", m_re, pdcch->M);
-            return SRSRAN_ERROR;
-          }
-
-          // Equalise
-          srsran_predecoding_single(
-              pdcch->symbols, q->pdcch_ce->ce, pdcch->symbols, NULL, pdcch->M, 1.0f, q->pdcch_ce->noise_var);
-
-          // Demodulation
-          int8_t* llr = (int8_t*)pdcch->f;
-          srsran_demod_soft_demodulate_b(SRSRAN_MOD_QPSK, pdcch->symbols, llr, pdcch->M);
-
-          int64_t ts2 = flat_now_ns();
-          flat_sweep_stats.t_prep_ns += ts2 - ts1;
-
-          // Measure EVM if configured (NR-Scope sets pdcch.measure_evm=true,
-          // so this runs for every decoded candidate)
-          srsran_pdcch_nr_res_t res = {};
-          if (pdcch->evm_buffer != NULL) {
-            res.evm = srsran_evm_run_b(pdcch->evm_buffer, &pdcch->modem_table, pdcch->symbols, llr, pdcch->E);
-          } else {
-            res.evm = NAN;
-          }
-
-          int64_t ts3 = flat_now_ns();
-          flat_sweep_stats.t_evm_ns += ts3 - ts2;
-
-          // Negate all LLR
-          for (uint32_t i = 0; i < pdcch->E; i++) {
-            llr[i] *= -1;
-          }
-
-          // Descrambling
-          srsran_sequence_apply_c(llr, llr, pdcch->E, flat_pdcch_nr_c_init(pdcch, &dci_msg));
-
-          // Un-rate matching
-          int8_t* d = (int8_t*)pdcch->d;
-          if (srsran_polar_rm_rx_c(&pdcch->rm, llr, d, pdcch->E, pdcch->code.n, pdcch->K, FLAT_PDCCH_NR_POLAR_RM_IBIL) <
-              SRSRAN_SUCCESS) {
-            return SRSRAN_ERROR;
-          }
-
-          int64_t ts4 = flat_now_ns();
-          flat_sweep_stats.t_descr_rm_ns += ts4 - ts3;
-
-          // Decode (the expensive leaf)
-          if (srsran_polar_decoder_decode_c(
-                  &pdcch->decoder, d, pdcch->allocated, pdcch->code.n, pdcch->code.F_set, pdcch->code.F_set_size) <
-              SRSRAN_SUCCESS) {
-            return SRSRAN_ERROR;
-          }
-
-          int64_t ts5 = flat_now_ns();
-          flat_sweep_stats.t_polar_ns += ts5 - ts4;
-
-          // De-allocate channel
-          uint8_t c_prime[SRSRAN_POLAR_INTERLEAVER_K_MAX_IL];
-          srsran_polar_chanalloc_rx(
-              pdcch->allocated, c_prime, pdcch->code.K, pdcch->code.nPC, pdcch->code.K_set, pdcch->code.PC_set);
-
-          // Set first L bits to ones, c will have an offset of 24 bits
-          uint8_t* c = pdcch->c;
-          srsran_bit_unpack(UINT32_MAX, &c, 24U);
-
-          // De-interleave
-          srsran_polar_interleaver_run_u8(c_prime, c, pdcch->K, false);
-
-          // Unpack RNTI
-          uint8_t  unpacked_rnti[16] = {};
-          uint8_t* ptr               = unpacked_rnti;
-          srsran_bit_unpack(dci_msg.ctx.rnti, &ptr, 16);
-
-          // De-Scramble CRC with RNTI (besides c_init above, the only
-          // RNTI-dependent step of the whole decode)
-          srsran_vec_xor_bbb(unpacked_rnti, &c[pdcch->K - 16], &c[pdcch->K - 16], 16);
-
-          // Check CRC
-          ptr                = &c[pdcch->K - 24];
-          uint32_t checksum1 = srsran_crc_checksum(&pdcch->crc24c, pdcch->c, pdcch->K);
-          uint32_t checksum2 = srsran_bit_pack(&ptr, 24);
-          res.crc            = checksum1 == checksum2;
-
-          // Copy DCI message
-          srsran_vec_u8_copy(dci_msg.payload, c, dci_msg.nof_bits);
-
-          // Save information
-          pdcch_info->result = res;
-
-          flat_sweep_stats.t_tail_ns += flat_now_ns() - ts5;
-
-          // ========== back at layer: ue_dl_nr_find_dci_ss_nrscope_dciloop ==========
-          // If the CRC did not match, move to next candidate
-          if (!res.crc) {
-            continue;
-          }
-
-          // Push equalized symbols to the constellation plot (no-op unless
-          // the srsgui plot thread was initialized)
-          push_node(pdcch->symbols, pdcch->M);
-
-          // Detect if the DCI is the right direction; if not, flip the format
-          if (!srsran_dci_nr_valid_direction(&dci_msg)) {
-            switch (dci_msg.ctx.format) {
-              case srsran_dci_format_nr_0_0:
-                dci_msg.ctx.format = srsran_dci_format_nr_1_0;
-                break;
-              case srsran_dci_format_nr_0_1:
-                dci_msg.ctx.format = srsran_dci_format_nr_1_1;
-                break;
-              case srsran_dci_format_nr_1_0:
-                dci_msg.ctx.format = srsran_dci_format_nr_0_0;
-                break;
-              case srsran_dci_format_nr_1_1:
-                dci_msg.ctx.format = srsran_dci_format_nr_0_1;
-                break;
-              default:
-                continue;
-            }
-          }
-
-          // If UL grant, enqueue in the pending UL list, which a following
-          // srsran_ue_dl_nr_find_ul_dci() call drains
-          if (dci_msg.ctx.format == srsran_dci_format_nr_0_0 || dci_msg.ctx.format == srsran_dci_format_nr_0_1) {
-            // If the pending UL grant list is full or has the dci message, keep moving
-            if (q->ul_dci_count >= SRSRAN_MAX_DCI_MSG_NR || flat_find_dci_msg(q->ul_dci_msg, q->ul_dci_count, &dci_msg)) {
-              continue;
-            }
-            q->ul_dci_msg[q->ul_dci_count] = dci_msg;
-            q->ul_dci_count++;
-            continue;
-          }
-
-          // Check if the grant exists already in the DL list
-          if (flat_find_dci_msg(q->dl_dci_msg, q->dl_dci_msg_count, &dci_msg)) {
-            continue;
-          }
-
-          // Append DCI message into the list
-          q->dl_dci_msg[q->dl_dci_msg_count] = dci_msg;
-          q->dl_dci_msg_count++;
-        } // candidates
-      }   // aggregation levels
-    }     // formats
-  }       // search spaces
-
-  // ========== layer: back at srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop ==========
-  // Convert found DCI messages into DL grants
-  uint32_t dci_msg_count = SRSRAN_MIN(nof_dci_msg, q->dl_dci_msg_count);
-  for (uint32_t i = 0; i < dci_msg_count; i++) {
-    if (srsran_dci_nr_dl_unpack(&q->dci, &q->dl_dci_msg[i], &dci_dl_list[i]) < SRSRAN_SUCCESS) {
-      ERROR("Error unpacking grant %d;", i);
-      return SRSRAN_ERROR;
-    }
-  }
-
-  return (int)dci_msg_count;
-}
-/*************** END INLINED srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop ***************/
 
 /*************** CANDIDATE-FIRST BLIND SEARCH ***************/
 // Restructured blind search: instead of one full sweep per RNTI (which
 // re-measures and re-decodes the same physical candidate locations 8-12x),
-// this enumerates the UNIQUE candidate locations across all RNTIs first and
-// walks the pipeline once per location:
+// this enumerates the unique candidate locations across all RNTIs first and
+// applies most of the decode pipeline once per unique location:
 //
 //   phase 1: enumerate unique (coreset, L, ncce) locations
 //            - common search space locations are RNTI-independent: added once,
@@ -2094,8 +1336,13 @@ int nrscope_flat_find_dl_dci(srsran_ue_dl_nr_t*       q,
 //  - rnti_type is expected to be srsran_rnti_type_c (no SI/RA special cases).
 //  - q->pdcch_info gets one debug entry per unique location (not per RNTI
 //    sweep iteration like the original), with result.crc = "any RNTI hit".
-//  - Uses std::vector scratch; fine at ~60 locations/slot, can become a fixed
-//    arena if allocation ever shows up in a profile.
+
+
+
+// per-worker polar decode memoization
+// as part of the candidate-first restructuring, we cache the polar code construction
+// results in flat_polar_code_get_cached() to avoid redundant recomputation across 
+// to improve performance a little more
 
 // One polar decode: a unique (DCI size, format, c_init) at some location,
 // CRC-checked against every RNTI that monitors the location with that size.
@@ -2113,27 +1360,6 @@ struct CandLocationEntry {
   srsran_dci_location_t        loc;
   std::vector<CandDecodeGroup> groups;
 };
-
-// Per-call phase timing/counters for nrscope_candidate_first_find_dci,
-// reset at the top of each call; read right after the call, same thread.
-struct CandFirstStats {
-  uint32_t n_locations;  // unique locations enumerated
-  uint32_t n_passed;     // locations passing the gates (prep paid)
-  uint32_t n_decodes;    // (location, size, c_init) polar decodes
-  int64_t  t_enum_ns;    // phase 1: enumeration/dedup
-  int64_t  t_proc_ns;    // phase 2: measure/prep/decode/CRC
-  int64_t  t_unpack_ns;  // phase 3: unpack results
-  // phase 2 breakdown (t_proc_ns minus these = loop/bookkeeping overhead)
-  int64_t t_measure_ns;    // DMRS measure, all locations
-  int64_t t_prep_ns;       // CE extract + RE copy + equalize + demod + EVM + LLR save
-  int64_t t_groups_ns;     // per-(size,c_init) decode loop incl. CRC trials
-  int64_t t_polar_get_ns;  // subset of t_groups_ns: srsran_polar_code_get only
-};
-static thread_local CandFirstStats cand_first_stats;
-
-// One-shot diagnostic: the first call in the process dumps the full
-// location/group table phase 1 built, to verify the dedup is working.
-static std::atomic<bool> cand_first_dumped{false};
 
 // srsran_polar_code_get() rebuilds the frozen-set tables (setdiff + two
 // qsorts over N<=512) on every call, ~3us each, but the result depends only
@@ -2205,9 +1431,6 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
   const srsran_dci_nr_t* dci_ctxs[2] = {&q->dci, dci_nca};
   const uint32_t         nof_ctxs    = (dci_nca != NULL) ? 2U : 1U;
 
-  cand_first_stats = {};
-  int64_t t_phase  = flat_now_ns();
-
   // ========== phase 1: enumerate unique candidate locations ==========
   std::vector<CandLocationEntry> locations;
   locations.reserve(64);
@@ -2272,7 +1495,7 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
         uint16_t enum_rnti = rnti_list[is_ue_ss ? e : 0];
 
         uint32_t candidates[SRSRAN_SEARCH_SPACE_MAX_NOF_CANDIDATES_NR] = {};
-        int      nof_candidates                                        = flat_pdcch_nr_locations_coreset(
+        int      nof_candidates                                        = srsran_pdcch_nr_locations_coreset(
             coreset, search_space, enum_rnti, L, SRSRAN_SLOT_NR_MOD(q->carrier.scs, slot_cfg->idx), candidates);
         if (nof_candidates < SRSRAN_SUCCESS) {
           ERROR("Error calculating DCI candidate location");
@@ -2347,27 +1570,6 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
     }
   }
 
-  cand_first_stats.n_locations = (uint32_t)locations.size();
-  int64_t t_now                = flat_now_ns();
-  cand_first_stats.t_enum_ns   = t_now - t_phase;
-  t_phase                      = t_now;
-
-  // if (!cand_first_dumped.exchange(true)) {
-  //   printf("cand_first location dump (%zu locations, %u rntis):\n", locations.size(), nof_rntis);
-  //   for (auto& le : locations) {
-  //     printf("  crst=%u L=%u ncce=%-3u groups=%zu:", le.coreset_id, le.loc.L, le.loc.ncce, le.groups.size());
-  //     for (auto& g : le.groups) {
-  //       printf(" (bits=%u fmt=%d ss=%d scr=0x%x cfg=%u nrnti=%zu)",
-  //              g.nof_bits,
-  //              (int)g.format,
-  //              (int)g.ss_type,
-  //              g.scr_rnti,
-  //              g.cfg_idx,
-  //              g.rnti_idxs.size());
-  //     }
-  //     printf("\n");
-  //   }
-  // }
 
   // ========== phase 2: walk the pipeline once per unique location ==========
   // Found messages keep the size context they were decoded under so phase 3
@@ -2414,12 +1616,10 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
     srsran_dmrs_pdcch_measure_t* m = &pdcch_info->measure;
 
     // Measure the location's DMRS (correlation/EPRE)
-    int64_t tloc = flat_now_ns();
-    if (flat_dmrs_pdcch_get_measure(&q->dmrs_pdcch[entry.coreset_id], &entry.loc, m) < SRSRAN_SUCCESS) {
+    if (srsran_dmrs_pdcch_get_measure(&q->dmrs_pdcch[entry.coreset_id], &entry.loc, m) < SRSRAN_SUCCESS) {
       ERROR("Error getting measure location L=%d, ncce=%d", entry.loc.L, entry.loc.ncce);
       return SRSRAN_ERROR;
     }
-    cand_first_stats.t_measure_ns += flat_now_ns() - tloc;
 
     // Gates (identical to the per-RNTI sweep)
     if (!isnormal(m->norm_corr)) {
@@ -2432,11 +1632,9 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
       continue;
     }
 
-    cand_first_stats.n_passed++;
-    tloc = flat_now_ns();
 
     // ---- per-location prep: CE extract + RE copy + equalize + demod ----
-    if (flat_dmrs_pdcch_get_ce(&q->dmrs_pdcch[entry.coreset_id], &entry.loc, q->pdcch_ce) < SRSRAN_SUCCESS) {
+    if (srsran_dmrs_pdcch_get_ce(&q->dmrs_pdcch[entry.coreset_id], &entry.loc, q->pdcch_ce) < SRSRAN_SUCCESS) {
       ERROR("Error extracting PDCCH DMRS");
       return SRSRAN_ERROR;
     }
@@ -2451,7 +1649,7 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
       return SRSRAN_ERROR;
     }
 
-    uint32_t m_re = flat_pdcch_nr_cp(pdcch, &entry.loc, q->sf_symbols[0], pdcch->symbols, false);
+    uint32_t m_re = pdcch_nr_cp(pdcch, &entry.loc, q->sf_symbols[0], pdcch->symbols, false);
     if (M != m_re) {
       ERROR("Unmatch number of RE (%d != %d)", m_re, M);
       return SRSRAN_ERROR;
@@ -2477,16 +1675,12 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
     int8_t llr_raw[SRSRAN_PDCCH_MAX_RE * 2];
     srsran_vec_i8_copy(llr_raw, llr, E);
 
-    int64_t tgroups = flat_now_ns();
-    cand_first_stats.t_prep_ns += tgroups - tloc;
 
     // ---- per (size, format, c_init): dematch + polar decode + CRC prep ----
     for (auto& group : entry.groups) {
-      cand_first_stats.n_decodes++;
       uint32_t K = group.nof_bits + 24U;
       pdcch->K   = K;
 
-      int64_t tpg = flat_now_ns();
       const srsran_polar_code_t* code = flat_polar_code_get_cached(K, E);
       if (code == NULL) {
         // Cache unavailable (full or init failure): compute per call
@@ -2495,7 +1689,6 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
         }
         code = &pdcch->code;
       }
-      cand_first_stats.t_polar_get_ns += flat_now_ns() - tpg;
 
       // Descramble into the working buffer, leaving llr_raw intact
       uint32_t n_id = (group.ss_type == srsran_search_space_type_ue && pdcch->coreset.dmrs_scrambling_id_present)
@@ -2508,7 +1701,7 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
       srsran_sequence_apply_c(llr_raw, llr, E, c_init);
 
       int8_t* d = (int8_t*)pdcch->d;
-      if (srsran_polar_rm_rx_c(&pdcch->rm, llr, d, E, code->n, K, FLAT_PDCCH_NR_POLAR_RM_IBIL) < SRSRAN_SUCCESS) {
+      if (srsran_polar_rm_rx_c(&pdcch->rm, llr, d, E, code->n, K, NO_BIT_INTERLEAVE) < SRSRAN_SUCCESS) {
         return SRSRAN_ERROR;
       }
 
@@ -2590,12 +1783,7 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
         list.push_back({dci_msg, group.cfg_idx});
       }
     }
-    cand_first_stats.t_groups_ns += flat_now_ns() - tgroups;
   }
-
-  t_now                      = flat_now_ns();
-  cand_first_stats.t_proc_ns = t_now - t_phase;
-  t_phase                    = t_now;
 
   // ========== phase 3: unpack per-RNTI results ==========
   // A message that fails to unpack is dropped and not counted, matching the
@@ -2646,11 +1834,8 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
     total += nof_dl_dci[r] + nof_ul_dci[r];
   }
 
-  cand_first_stats.t_unpack_ns = flat_now_ns() - t_phase;
-
   return total;
 }
-/*************** END CANDIDATE-FIRST BLIND SEARCH ***************/
 
 
 int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*                   slot,
@@ -2663,13 +1848,8 @@ int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*           
                                           std::vector<float>&                  ul_prb_rate,
                                           std::vector<float>&                  ul_prb_bits_rate)
 {
-  // Workers process slots concurrently; emit logs from only one of them.
-  const bool print_enabled = false; // (worker_id == 0);
 
   if (!state->rach_found or !state->dci_inited) {
-    if (print_enabled) {
-      std::cout << "RACH not found or DCI decoder not initialized, quitting..." << std::endl;
-    }
     return SRSRAN_SUCCESS;
   }
 
@@ -2739,28 +1919,11 @@ int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*           
   std::vector<srsran_dci_dl_nr_t> dl_cf(n_rntis);
   std::vector<srsran_dci_ul_nr_t> ul_cf(n_rntis);
   std::vector<int> ndl_cf(n_rntis), nul_cf(n_rntis);
-  TDCISTART(t_candidate_first)
   // nrscope_candidate_first_find_dci(&ue_dl_dci, &dci_nr_nca, slot,
   nrscope_candidate_first_find_dci(ue_dl_tmp, &dci_nr_nca, slot_tmp,
       sharded_rntis[dci_decoder_id].data(), n_rntis, srsran_rnti_type_c,
       dl_cf.data(), ndl_cf.data(), ul_cf.data(), nul_cf.data());
-  TDCIEND(t_candidate_first)
-  if (print_enabled) {
-    printf("cand_first phases us: enum=%.1f proc=%.1f unpack=%.1f (locs=%u passed=%u decodes=%u)\n",
-          cand_first_stats.t_enum_ns / 1e3,
-          cand_first_stats.t_proc_ns / 1e3,
-          cand_first_stats.t_unpack_ns / 1e3,
-          cand_first_stats.n_locations,
-          cand_first_stats.n_passed,
-          cand_first_stats.n_decodes);
-printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) other=%.1f\n",
-       cand_first_stats.t_measure_ns / 1e3, cand_first_stats.t_prep_ns / 1e3,
-       cand_first_stats.t_groups_ns / 1e3, cand_first_stats.t_polar_get_ns / 1e3,
-       (cand_first_stats.t_proc_ns - cand_first_stats.t_measure_ns -
-        cand_first_stats.t_prep_ns - cand_first_stats.t_groups_ns) / 1e3);
-        }
   
-
   // Publish the per-RNTI first hits into dci_dl[]/dci_ul[], which the grant
   // processing below reads exactly as in the original path.
   for (uint32_t i = 0; i < n_rntis; i++) {
@@ -2768,17 +1931,12 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
     if (nul_cf[i] > 0) { dci_ul[i] = ul_cf[i]; total_ul_dci += nul_cf[i]; }
   }
 
-
   if (total_dl_dci > 0) {
     for (uint32_t dci_idx_dl = 0; dci_idx_dl < n_rntis; dci_idx_dl++) {
       // the rnti will not be copied if no dci found
       if (dci_dl[dci_idx_dl].ctx.rnti == sharded_rntis[dci_decoder_id][dci_idx_dl]) {
         sharded_results[dci_decoder_id].dl_dcis[dci_idx_dl] = dci_dl[dci_idx_dl];
         char str[1024]                                      = {};
-        if (print_enabled) {
-          srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[dci_idx_dl], str, (uint32_t)sizeof(str));
-          printf("DCIDecoder -- Found DCI: %s\n", str);
-        }
         // The grant may not be decoded correctly, since srsRAN's code is not complete.
         // We can calculate the DL bandwidth for this subframe by ourselves.
         if (dci_dl[dci_idx_dl].ctx.format == srsran_dci_format_nr_1_1) {
@@ -2790,10 +1948,6 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
               SRSRAN_SUCCESS) {
             ERROR("Error decoding PDSCH search");
             // return result;
-          }
-          if (print_enabled) {
-            srsran_sch_cfg_nr_info(&pdsch_cfg, str, (uint32_t)sizeof(str));
-            printf("DCIDecoder -- PDSCH_cfg:\n%s", str);
           }
 
           sharded_results[dci_decoder_id].dl_grants[dci_idx_dl] = pdsch_cfg;
@@ -2814,10 +1968,6 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
       if (dci_ul[dci_idx_ul].ctx.rnti == sharded_rntis[dci_decoder_id][dci_idx_ul]) {
         sharded_results[dci_decoder_id].ul_dcis[dci_idx_ul] = dci_ul[dci_idx_ul];
         char str[1024]                                      = {};
-        if (print_enabled) {
-          srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[dci_idx_ul], str, (uint32_t)sizeof(str));
-          printf("DCIDecoder -- Found DCI: %s\n", str);
-        }
         // The grant may not be decoded correctly, since srsRAN's code is not complete.
         // We can calculate the UL bandwidth for this subframe by ourselves.
         srsran_sch_cfg_nr_t pusch_cfg = {};
@@ -2826,10 +1976,6 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
                 &carrier_ul, slot, &pusch_hl_cfg, &dci_ul[dci_idx_ul], &pusch_cfg, &pusch_cfg.grant) < SRSRAN_SUCCESS) {
           ERROR("Error decoding PUSCH search");
           // return result;
-        }
-        if (print_enabled) {
-          srsran_sch_cfg_nr_info(&pusch_cfg, str, (uint32_t)sizeof(str));
-          printf("DCIDecoder -- PUSCH_cfg:\n%s", str);
         }
 
         sharded_results[dci_decoder_id].ul_grants[dci_idx_ul] = pusch_cfg;
