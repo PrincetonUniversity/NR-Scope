@@ -77,3 +77,20 @@ This branch also adds preliminary record and replay modes to NR-Scope.
 `record_buf_size_gb: 8`
 
 **Important: NR-Scope currently assumes that no other configurations change between a recording and a replay.**
+
+
+## DCI decoder optimizations
+
+This branch includes an optimized DCI decoder that reduces CPU utilization by approximately 50%. It has been validated to produce the same output as the old DCI decoder on a 60 second sample trace collected with record/replay (a 100Mhz cell near Princeton, NJ). Use it with the "optimized_decoders" argument. **NOTE: optimized_decoders only work with single_threaded_workers, as shown below.**
+
+```
+  single_threaded_workers: true
+  optimized_decoders: true
+```
+
+The figure in this directory, "dci-decoder-optimizations.png" (and below) illustrates preliminary results, comparing CPU utilization of the original workers (non single threaded), single threaded workers with original decoder logic, and finally the single threaded workers with decoder optimizations. 
+
+![DCI decoder optimizations](dci-decoder-optimizations.png)
+
+
+The dci decoder optimizations are essentially memoization. Previously, the decoder iterated over a slot for each RNTI, which performs a significant amount of duplicated work and adds cache pressure. The optimized decoders pre-compute all the possible locations for DCIs, perform most of the common pipeline once for each candidate location, and then perform a small amount of RNTI-specific work. This also means the optimized decoder is much less sensitive to workload, so we anticipate more significant performance improvements in higher volume scenarios.
