@@ -7,6 +7,13 @@ DCIDecoder::DCIDecoder(uint32_t max_nof_rntis)
 
   dci_dl = (srsran_dci_dl_nr_t*)malloc(sizeof(srsran_dci_dl_nr_t) * (max_nof_rntis));
   dci_ul = (srsran_dci_ul_nr_t*)malloc(sizeof(srsran_dci_ul_nr_t) * (max_nof_rntis));
+
+  // Zero the grant-conversion configs. 
+  // This caused undefined behavior that manifested as arbitrary 
+  // invalid decodes due to srsran_ra_dl_nr_time reading uninitialized values 
+  // from dedicated_time_ra/nof_dedicated_time_ra.
+  pdsch_hl_cfg = {};
+  pusch_hl_cfg = {};
 }
 
 DCIDecoder::~DCIDecoder() {}
@@ -2131,41 +2138,31 @@ static std::atomic<bool> cand_first_dumped{false};
 // srsran_polar_code_get() rebuilds the frozen-set tables (setdiff + two
 // qsorts over N<=512) on every call, ~3us each, but the result depends only
 // on (K, E) and a config sees just a handful of pairs (DCI sizes x
-// aggregation levels). Cache them process-wide: append-only, entries are
-// immutable once published, so readers scan lock-free and the mutex is only
-// taken to insert. (Not thread_local: DCI threads are respawned every slot,
-// which would rebuild the cache constantly and leak the entries' mallocs.)
+// aggregation levels). Cache them per-thread: each persistent worker builds
+// its own ~8-entry cache, no cross-thread state. CAUTION: this is only sound
+// in single_threaded_workers mode (persistent worker threads). The per-slot
+// thread-respawn mode would start cold every slot (no caching benefit) and
+// leak each entry's polar_code_init mallocs on every thread exit.
 #define POLAR_CODE_CACHE_SIZE 32
 struct PolarCodeCacheEntry {
   uint16_t            K;
   uint16_t            E;
   srsran_polar_code_t code;
 };
-static PolarCodeCacheEntry   polar_code_cache[POLAR_CODE_CACHE_SIZE];
-static std::atomic<uint32_t> polar_code_cache_count{0};
-static std::mutex            polar_code_cache_mutex;
+static thread_local PolarCodeCacheEntry polar_code_cache[POLAR_CODE_CACHE_SIZE];
+static thread_local uint32_t            polar_code_cache_count = 0;
 
 static const srsran_polar_code_t* flat_polar_code_get_cached(uint16_t K, uint16_t E)
 {
-  uint32_t n = polar_code_cache_count.load(std::memory_order_acquire);
-  for (uint32_t i = 0; i < n; i++) {
+  for (uint32_t i = 0; i < polar_code_cache_count; i++) {
     if (polar_code_cache[i].K == K && polar_code_cache[i].E == E) {
       return &polar_code_cache[i].code;
     }
   }
-
-  std::lock_guard<std::mutex> lock(polar_code_cache_mutex);
-  // Re-check under the lock: another thread may have inserted it meanwhile
-  n = polar_code_cache_count.load(std::memory_order_acquire);
-  for (uint32_t i = 0; i < n; i++) {
-    if (polar_code_cache[i].K == K && polar_code_cache[i].E == E) {
-      return &polar_code_cache[i].code;
-    }
-  }
-  if (n >= POLAR_CODE_CACHE_SIZE) {
+  if (polar_code_cache_count >= POLAR_CODE_CACHE_SIZE) {
     return NULL; // caller falls back to computing per call
   }
-  PolarCodeCacheEntry* entry = &polar_code_cache[n];
+  PolarCodeCacheEntry* entry = &polar_code_cache[polar_code_cache_count];
   if (srsran_polar_code_init(&entry->code) < SRSRAN_SUCCESS) {
     return NULL;
   }
@@ -2174,7 +2171,7 @@ static const srsran_polar_code_t* flat_polar_code_get_cached(uint16_t K, uint16_
   }
   entry->K = K;
   entry->E = E;
-  polar_code_cache_count.store(n + 1, std::memory_order_release);
+  polar_code_cache_count++;
   return &entry->code;
 }
 
@@ -2733,20 +2730,10 @@ int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*           
   int total_dl_dci = 0;
   int total_ul_dci = 0;
 
-  if (print_enabled) {
-    printf("Size of srsran_ue_dl_nr_t and srsran_slot_cfg_t: %lu, %lu\n", sizeof(srsran_ue_dl_nr_t), sizeof(srsran_slot_cfg_t));
-  }
-
-
-  // Unique physical candidate locations across all RNTIs of this CA sweep:
-  // key = (coreset_id, L, ncce); the *_size sets also distinguish DCI size.
-  // These tell us what a candidate-first restructure would actually pay:
-  // uniq_meas ~ measure+prep work, uniq_pass_size ~ polar-decode work.
-  // std::set<uint64_t> uniq_meas, uniq_pass, uniq_pass_size;
-
-  
-  // Candidate-first pass, CA + non-CA sizes merged (validation: results
-  // compared against the old path, not used)
+  // Candidate-first blind search, CA + non-CA DCI sizes merged: one pass
+  // replaces the old per-RNTI CA-then-non-CA sweep (see
+  // DecodeandParseDCIfromSlot), decoding each unique candidate location once
+  // and CRC-trialing it against every claiming RNTI.
   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
   std::vector<srsran_dci_dl_nr_t> dl_cf(n_rntis);
@@ -2774,222 +2761,8 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
         }
   
 
-  // TDCISTART(t_rnti_loop)
-  // for (uint32_t rnti_idx = 0; rnti_idx < n_rntis; rnti_idx++) {
-  //   // With carrier aggregation
-  //   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-  //   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-
-  //   // int nof_dl_dci = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
-  //   //     ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-  //   int nof_dl_dci = nrscope_flat_find_dl_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
-  //   if (print_enabled) {
-  //     printf("rnti_idx: %d, sweep candidates: %d\n", rnti_idx, ue_dl_tmp->pdcch_info_count);
-  //   }
-  //   int n_decoded = 0;
-  //   for (uint32_t i = 0; i < ue_dl_tmp->pdcch_info_count; i++) {
-  //     const srsran_ue_dl_nr_pdcch_info_t* info = &ue_dl_tmp->pdcch_info[i];
-  //     const srsran_dmrs_pdcch_measure_t*  m    = &info->measure;
-
-  //     // (coreset_id, L, ncce) packed into one key; size-aware key adds nof_bits
-  //     uint64_t loc_key  = ((uint64_t)info->dci_ctx.coreset_id << 24) | ((uint64_t)info->dci_ctx.location.L << 16) |
-  //                         (uint64_t)info->dci_ctx.location.ncce;
-  //     uint64_t size_key = ((uint64_t)info->nof_bits << 32) | loc_key;
-  //     uniq_meas.insert(loc_key);
-
-  //     if (isnormal(m->norm_corr) && m->epre_dBfs >= ue_dl_tmp->pdcch_dmrs_epre_thr &&
-  //         m->norm_corr >= ue_dl_tmp->pdcch_dmrs_corr_thr) {
-  //       n_decoded++;
-  //       uniq_pass.insert(loc_key);
-  //       uniq_pass_size.insert(size_key);
-  //     }
-  //   }
-  //   if (print_enabled) {
-  //     printf("rnti_idx: %d, decoded candidates: %d\n", rnti_idx, n_decoded);
-  //     printf("rnti_idx: %d, stage us: measure=%.1f prep=%.1f evm=%.1f descr_rm=%.1f polar=%.1f tail=%.1f "
-  //            "(decoded %u of %u)\n",
-  //            rnti_idx,
-  //            flat_sweep_stats.t_measure_ns / 1e3,
-  //            flat_sweep_stats.t_prep_ns / 1e3,
-  //            flat_sweep_stats.t_evm_ns / 1e3,
-  //            flat_sweep_stats.t_descr_rm_ns / 1e3,
-  //            flat_sweep_stats.t_polar_ns / 1e3,
-  //            flat_sweep_stats.t_tail_ns / 1e3,
-  //            flat_sweep_stats.n_decoded,
-  //            flat_sweep_stats.n_candidates);
-  //   }
-
-  //   if (nof_dl_dci < SRSRAN_SUCCESS) {
-  //     ERROR("Error in blind search");
-  //   }
-
-  //   int nof_ul_dci = srsran_ue_dl_nr_find_ul_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
-
-
-  //   if (nof_dl_dci > 0) {
-  //     dci_dl[rnti_idx] = dci_dl_tmp[0];
-  //     total_dl_dci += nof_dl_dci;
-  //   }
-
-  //   if (nof_ul_dci > 0) {
-  //     dci_ul[rnti_idx] = dci_ul_tmp[0];
-  //     total_ul_dci += nof_ul_dci;
-  //   }
-
-  //   // printf("slot: %d\n", slot->idx);
-  //   // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
-  //   //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
-  //   //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //   //   "nof_bits=%d; crc=%s;\n",
-  //   //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //   //   info->dci_ctx.rnti,
-  //   //   info->dci_ctx.coreset_id,
-  //   //   srsran_ss_type_str(info->dci_ctx.ss_type),
-  //   //   info->dci_ctx.location.ncce,
-  //   //   info->dci_ctx.location.L,
-  //   //   info->measure.epre_dBfs,
-  //   //   info->measure.rsrp_dBfs,
-  //   //   info->measure.norm_corr,
-  //   //   info->nof_bits,
-  //   //   info->result.crc ? "OK" : "KO");
-  //   // }
-
-  //   if (nof_ul_dci > 0 || nof_dl_dci > 0) {
-  //     // The UE is either using CA or not, so if we find the DCI with CA,
-  //     // we don't need to try further.
-  //     // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     // printf("M=%d\n", ue_dl_tmp->pdcch.M);
-  //     // printf("symbols=");
-  //     // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     if (print_enabled) {
-  //       printf("DCIDecoder -- DCI found with CA\n");
-  //     }
-  //     continue;
-  //   }
-
-  //   memcpy(ue_dl_tmp, &ue_dl_dci, sizeof(srsran_ue_dl_nr_t));
-  //   memcpy(slot_tmp, slot, sizeof(srsran_slot_cfg_t));
-
-  //   // Set the DCI size for the non-carrier aggregation UEs.
-  //   if (srsran_ue_dl_nr_set_pdcch_config(ue_dl_tmp, &pdcch_cfg, &dci_cfg)) {
-  //     ERROR("Error setting CORESET");
-  //     return SRSRAN_ERROR;
-  //   }
-
-  //   // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n",
-  //   //   0,
-  //   //   ue_dl_tmp->cfg.search_space[0].id,
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[0],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[1],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[2],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[3],
-  //   //   ue_dl_tmp->cfg.search_space[0].nof_candidates[4]
-  //   // );
-
-  //   // printf("id: %d, search space: %d, l1: %d, l2: %d, l3: %d, l4: %d, l5: %d\n",
-  //   //   1,
-  //   //   ue_dl_tmp->cfg.search_space[1].id,
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[0],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[1],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[2],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[3],
-  //   //   ue_dl_tmp->cfg.search_space[1].nof_candidates[4]
-  //   // );
-
-  //   // int nof_dl_dci_nca = srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop(
-  //   //     ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-  //   int nof_dl_dci_nca = nrscope_flat_find_dl_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_dl_tmp, 4);
-
-
-  //   if (nof_dl_dci_nca < SRSRAN_SUCCESS) {
-  //     ERROR("Error in blind search");
-  //   }
-
-  //   int nof_ul_dci_nca = srsran_ue_dl_nr_find_ul_dci(
-  //       ue_dl_tmp, slot_tmp, sharded_rntis[dci_decoder_id][rnti_idx], srsran_rnti_type_c, dci_ul_tmp, 4);
-
-  //   if (nof_dl_dci_nca > 0) {
-  //     dci_dl[rnti_idx] = dci_dl_tmp[0];
-  //     total_dl_dci += nof_dl_dci_nca;
-  //   }
-
-  //   if (nof_ul_dci_nca > 0) {
-  //     dci_ul[rnti_idx] = dci_ul_tmp[0];
-  //     total_ul_dci += nof_ul_dci_nca;
-  //   }
-
-  //   // printf("slot: %d\n", slot->idx);
-  //   // for (uint32_t pdcch_idx = 0; pdcch_idx < ue_dl_tmp->pdcch_info_count; pdcch_idx++) {
-  //   //   const srsran_ue_dl_nr_pdcch_info_t* info = &(ue_dl_tmp->pdcch_info[pdcch_idx]);
-  //   //   printf("PDCCH: %s-rnti=0x%x, crst_id=%d, ss_type=%s, ncce=%d, al=%d, EPRE=%+.2f, RSRP=%+.2f, corr=%.3f; "
-  //   //   "nof_bits=%d; crc=%s;\n",
-  //   //   srsran_rnti_type_str_short(info->dci_ctx.rnti_type),
-  //   //   info->dci_ctx.rnti,
-  //   //   info->dci_ctx.coreset_id,
-  //   //   srsran_ss_type_str(info->dci_ctx.ss_type),
-  //   //   info->dci_ctx.location.ncce,
-  //   //   info->dci_ctx.location.L,
-  //   //   info->measure.epre_dBfs,
-  //   //   info->measure.rsrp_dBfs,
-  //   //   info->measure.norm_corr,
-  //   //   info->nof_bits,
-  //   //   info->result.crc ? "OK" : "KO");
-  //   // }
-  //   if (nof_dl_dci_nca > 0 || nof_ul_dci_nca > 0) {
-  //     // NRScopePlot::push_node(ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     // printf("M=%d\n", ue_dl_tmp->pdcch.M);
-  //     // printf("symbols=");
-  //     // srsran_vec_fprint_c(stdout, ue_dl_tmp->pdcch.symbols, ue_dl_tmp->pdcch.M);
-  //     if (print_enabled) {
-  //       printf("DCIDecoder -- DCI Found without CA\n");
-  //     }
-  //   }
-  // }
-  // if (print_enabled) {
-  //   printf("Number of DL RNTIs: %d\n", n_rntis);
-  // }
-  // TDCIEND(t_rnti_loop)
-
-  // if (print_enabled) {
-  //   for (uint32_t i = 0; i < n_rntis; i++) {
-  //     bool old_dl = (dci_dl[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-  //     bool old_ul = (dci_ul[i].ctx.rnti == sharded_rntis[dci_decoder_id][i]);
-  //     bool new_dl = ndl_cf[i] > 0;
-  //     bool new_ul = nul_cf[i] > 0;
-  //     if (old_dl != new_dl || old_ul != new_ul) {
-  //       printf("CF MISMATCH rnti_idx %u: old dl=%d ul=%d, new dl=%d ul=%d\n", i, old_dl, old_ul, new_dl, new_ul);
-  //       continue;
-  //     }
-  //     if (old_dl) {
-  //       char s_old[1024] = {}, s_new[1024] = {};
-  //       srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dci_dl[i], s_old, sizeof(s_old));
-  //       srsran_dci_dl_nr_to_str(&(ue_dl_dci.dci), &dl_cf[i], s_new, sizeof(s_new));
-  //       if (strcmp(s_old, s_new) != 0)
-  //         printf("CF DL CONTENT MISMATCH rnti_idx %u:\n  old: %s\n  new: %s\n", i, s_old, s_new);
-  //     }
-  //     if (old_ul) {
-  //       char s_old[1024] = {}, s_new[1024] = {};
-  //       srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &dci_ul[i], s_old, sizeof(s_old));
-  //       srsran_dci_ul_nr_to_str(&(ue_dl_dci.dci), &ul_cf[i], s_new, sizeof(s_new));
-  //       if (strcmp(s_old, s_new) != 0)
-  //         printf("CF UL CONTENT MISMATCH rnti_idx %u:\n  old: %s\n  new: %s\n", i, s_old, s_new);
-  //     }
-  //   }
-  // }
-
-
-  // if (print_enabled) {
-  //   printf("unique locations measured: %zu, passing gates: %zu, (location,size) decodes: %zu\n",
-  //          uniq_meas.size(),
-  //          uniq_pass.size(),
-  //          uniq_pass_size.size());
-  // }
-
-  // CUTOVER.
+  // Publish the per-RNTI first hits into dci_dl[]/dci_ul[], which the grant
+  // processing below reads exactly as in the original path.
   for (uint32_t i = 0; i < n_rntis; i++) {
     if (ndl_cf[i] > 0) { dci_dl[i] = dl_cf[i]; total_dl_dci += ndl_cf[i]; }
     if (nul_cf[i] > 0) { dci_ul[i] = ul_cf[i]; total_ul_dci += nul_cf[i]; }
@@ -3034,39 +2807,7 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
         }
       }
     }
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs =
-    //  carrier_dl.nof_prb * (14 - 2) -
-    //  task_scheduler_nrscope->result.nof_dl_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] =
-    //    task_scheduler_nrscope->result.nof_dl_spare_prbs /
-    //    task_scheduler_nrscope->nof_known_rntis;
-    //   if(abs(task_scheduler_nrscope->result.spare_dl_prbs[idx]) >
-    //        carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_dl_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] =
-    //    (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx]
-    //    * dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_bits_rate[idx]);
-    // }
-  } else {
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs =
-    //    carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] =
-    //      (int)((float)task_scheduler_nrscope->result.nof_dl_spare_prbs /
-    //      (float)task_scheduler_nrscope->nof_known_rntis);
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_bits_rate[idx]);
-    // }
-  }
+  } else { }
 
   if (total_ul_dci > 0) {
     for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++) {
@@ -3101,40 +2842,7 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
             (float)pusch_cfg.grant.L;
       }
     }
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs =
-    //    carrier_dl.nof_prb * (14 - 2) -
-    //    task_scheduler_nrscope->result.nof_ul_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] =
-    //      task_scheduler_nrscope->result.nof_ul_spare_prbs /
-    //      task_scheduler_nrscope->nof_known_rntis;
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_bits_rate[idx]);
-    // }
-  } else {
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs =
-    //      carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] =
-    //      (int)((float)task_scheduler_nrscope->result.nof_ul_spare_prbs /
-    //      (float)task_scheduler_nrscope->nof_known_rntis);
-    //   if(abs(task_scheduler_nrscope->result.spare_ul_prbs[idx]) >
-    //      carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_ul_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_bits_rate[idx]);
-    // }
-  }
+  } else {  }
 
   return SRSRAN_SUCCESS;
 }
-
