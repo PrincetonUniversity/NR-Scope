@@ -293,17 +293,30 @@ int TaskSchedulerNRScope::UpdatewithResult(const SlotResult& now_result) // Pass
       // DCIFeedback result = results[b];
       const auto& result = results[b]; // avoid copy
       if ((result.dl_grants.size() > 0 or result.ul_grants.size() > 0)) {
-        for (uint32_t i = 0; i < task_scheduler_state.nof_known_rntis; i++) {
-          if (result.dl_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
+        // iterate over the results rather than relying on index, which 
+        // could be outdated due to a dynamic change from another thread.
+        // (not positive that is possible, but this is not expensive)
+        for (uint32_t i = 0; i < result.dl_grants.size(); i++) {
+          uint16_t dl_rnti = result.dl_grants[i].grant.rnti;
+          if (dl_rnti != 0) {
+            int cur_idx = -1;
+            for (uint32_t j = 0; j < task_scheduler_state.known_rntis.size(); j++) {
+              if (task_scheduler_state.known_rntis[j] == dl_rnti) {
+                cur_idx = (int)j;
+                break;
+              }
+            }
             LogNode log_node;
-            log_node.slot_idx                 = now_result.slot.idx;
-            log_node.system_frame_idx         = now_result.outcome.sfn;
-            log_node.timestamp                = now;
-            log_node.grant                    = result.dl_grants[i];
-            log_node.dci_format               = srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
-            log_node.dl_dci                   = result.dl_dcis[i];
-            log_node.bwp_id                   = result.dl_dcis[i].bwp_id;
-            task_scheduler_state.last_seen[i] = now;
+            log_node.slot_idx         = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp        = now;
+            log_node.grant            = result.dl_grants[i];
+            log_node.dci_format       = srsran_dci_format_nr_string(result.dl_dcis[i].ctx.format);
+            log_node.dl_dci           = result.dl_dcis[i];
+            log_node.bwp_id           = result.dl_dcis[i].bwp_id;
+            if (cur_idx >= 0) {
+              task_scheduler_state.last_seen[cur_idx] = now;
+            }
             if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
@@ -311,17 +324,29 @@ int TaskSchedulerNRScope::UpdatewithResult(const SlotResult& now_result) // Pass
               ToGoogle::push_google_node(log_node, rf_index);
             }
           }
+        }
 
-          if (result.ul_grants[i].grant.rnti == task_scheduler_state.known_rntis[i]) {
+        for (uint32_t i = 0; i < result.ul_grants.size(); i++) {
+          uint16_t ul_rnti = result.ul_grants[i].grant.rnti;
+          if (ul_rnti != 0) {
+            int cur_idx = -1;
+            for (uint32_t j = 0; j < task_scheduler_state.known_rntis.size(); j++) {
+              if (task_scheduler_state.known_rntis[j] == ul_rnti) {
+                cur_idx = (int)j;
+                break;
+              }
+            }
             LogNode log_node;
-            log_node.slot_idx                 = now_result.slot.idx;
-            log_node.system_frame_idx         = now_result.outcome.sfn;
-            log_node.timestamp                = now;
-            log_node.grant                    = result.ul_grants[i];
-            log_node.dci_format               = srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
-            log_node.ul_dci                   = result.ul_dcis[i];
-            log_node.bwp_id                   = result.ul_dcis[i].bwp_id;
-            task_scheduler_state.last_seen[i] = now;
+            log_node.slot_idx         = now_result.slot.idx;
+            log_node.system_frame_idx = now_result.outcome.sfn;
+            log_node.timestamp        = now;
+            log_node.grant            = result.ul_grants[i];
+            log_node.dci_format       = srsran_dci_format_nr_string(result.ul_dcis[i].ctx.format);
+            log_node.ul_dci           = result.ul_dcis[i];
+            log_node.bwp_id           = result.ul_dcis[i].bwp_id;
+            if (cur_idx >= 0) {
+              task_scheduler_state.last_seen[cur_idx] = now;
+            }
             if (local_log) {
               NRScopeLog::push_node(log_node, rf_index);
             }
