@@ -157,6 +157,12 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
         radios[i].single_threaded_workers = false;
       }
 
+      if (config_yaml[setting_name]["optimized_decoders"]) {
+        radios[i].optimized_decoders = config_yaml[setting_name]["optimized_decoders"].as<bool>();
+      } else {
+        radios[i].optimized_decoders = false;
+      }
+      
       if (config_yaml[setting_name]["nof_rnti_worker_groups"]) {
         radios[i].nof_rnti_worker_groups = config_yaml[setting_name]["nof_rnti_worker_groups"].as<int>();
       } else {

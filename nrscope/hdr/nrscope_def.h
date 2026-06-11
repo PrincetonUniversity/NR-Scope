@@ -182,6 +182,7 @@ struct WorkState_ {
   uint8_t  nof_bwps;
   bool     cpu_affinity;
   bool     single_threaded_workers;
+  bool     optimized_decoders;
 
   uint32_t slot_sz;
 

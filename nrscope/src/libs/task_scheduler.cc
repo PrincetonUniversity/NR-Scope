@@ -25,6 +25,7 @@ int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
                                        int32_t              nof_threads,
                                        uint32_t             nof_rnti_worker_groups,
                                        bool                 single_threaded_workers,
+                                       bool                 optimized_decoders,
                                        uint8_t              nof_bwps,
                                        bool                 cpu_affinity,
                                        cell_searcher_args_t args_t,
@@ -37,6 +38,7 @@ int TaskSchedulerNRScope::InitandStart(bool                 local_log_,
   task_scheduler_state.nof_threads            = nof_threads;
   task_scheduler_state.nof_rnti_worker_groups = nof_rnti_worker_groups;
   task_scheduler_state.single_threaded_workers = single_threaded_workers;
+  task_scheduler_state.optimized_decoders      = optimized_decoders;
   task_scheduler_state.nof_bwps               = nof_bwps;
   task_scheduler_state.args_t                 = args_t;
   task_scheduler_state.slot_sz = (uint32_t)(args_t.srate_hz / 1000.0f / SRSRAN_NOF_SLOTS_PER_SF_NR(args_t.ssb_scs));

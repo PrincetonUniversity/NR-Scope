@@ -1294,11 +1294,15 @@ int DCIDecoder::DecodeandParseDCIfromSlot(srsran_slot_cfg_t*                   s
 
 /******* optimized decoder method ********/
 
-#define TDCISTART(name) struct timeval name##_t0, name##_t1; gettimeofday(&name##_t0, NULL);
-#define TDCIEND(name)   gettimeofday(&name##_t1, NULL); \
-  if (print_enabled) { \
-    printf(#name ": %ld (us)\n", (name##_t1.tv_sec - name##_t0.tv_sec) * 1000000L + (name##_t1.tv_usec - name##_t0.tv_usec)); \
-  }
+// #define TDCISTART(name) struct timeval name##_t0, name##_t1; gettimeofday(&name##_t0, NULL);
+// #define TDCIEND(name)   gettimeofday(&name##_t1, NULL); \
+//   if (print_enabled) { \
+//     printf(#name ": %ld (us)\n", (name##_t1.tv_sec - name##_t0.tv_sec) * 1000000L + (name##_t1.tv_usec - name##_t0.tv_usec)); \
+//   }
+
+// no ops versions
+#define TDCISTART(name)
+#define TDCIEND(name)
 
 
 /*************** INLINED srsran_ue_dl_nr_find_dl_dci_nrscope_dciloop ***************/
@@ -2351,22 +2355,22 @@ int nrscope_candidate_first_find_dci(srsran_ue_dl_nr_t*       q,
   cand_first_stats.t_enum_ns   = t_now - t_phase;
   t_phase                      = t_now;
 
-  if (!cand_first_dumped.exchange(true)) {
-    printf("cand_first location dump (%zu locations, %u rntis):\n", locations.size(), nof_rntis);
-    for (auto& le : locations) {
-      printf("  crst=%u L=%u ncce=%-3u groups=%zu:", le.coreset_id, le.loc.L, le.loc.ncce, le.groups.size());
-      for (auto& g : le.groups) {
-        printf(" (bits=%u fmt=%d ss=%d scr=0x%x cfg=%u nrnti=%zu)",
-               g.nof_bits,
-               (int)g.format,
-               (int)g.ss_type,
-               g.scr_rnti,
-               g.cfg_idx,
-               g.rnti_idxs.size());
-      }
-      printf("\n");
-    }
-  }
+  // if (!cand_first_dumped.exchange(true)) {
+  //   printf("cand_first location dump (%zu locations, %u rntis):\n", locations.size(), nof_rntis);
+  //   for (auto& le : locations) {
+  //     printf("  crst=%u L=%u ncce=%-3u groups=%zu:", le.coreset_id, le.loc.L, le.loc.ncce, le.groups.size());
+  //     for (auto& g : le.groups) {
+  //       printf(" (bits=%u fmt=%d ss=%d scr=0x%x cfg=%u nrnti=%zu)",
+  //              g.nof_bits,
+  //              (int)g.format,
+  //              (int)g.ss_type,
+  //              g.scr_rnti,
+  //              g.cfg_idx,
+  //              g.rnti_idxs.size());
+  //     }
+  //     printf("\n");
+  //   }
+  // }
 
   // ========== phase 2: walk the pipeline once per unique location ==========
   // Found messages keep the size context they were decoded under so phase 3
@@ -2663,7 +2667,7 @@ int DCIDecoder::DecodeandParseDCIfromSlotOptimized(srsran_slot_cfg_t*           
                                           std::vector<float>&                  ul_prb_bits_rate)
 {
   // Workers process slots concurrently; emit logs from only one of them.
-  const bool print_enabled = (worker_id == 0);
+  const bool print_enabled = false; // (worker_id == 0);
 
   if (!state->rach_found or !state->dci_inited) {
     if (print_enabled) {

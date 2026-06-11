@@ -40,6 +40,7 @@ int NRScopeWorker::InitWorker(WorkState task_scheduler_state, int worker_id_)
   worker_state.nof_threads            = task_scheduler_state.nof_threads;
   worker_state.nof_rnti_worker_groups = task_scheduler_state.nof_rnti_worker_groups;
   worker_state.single_threaded_workers = task_scheduler_state.single_threaded_workers;
+  worker_state.optimized_decoders      = task_scheduler_state.optimized_decoders;
   worker_state.nof_bwps               = task_scheduler_state.nof_bwps;
   worker_state.args_t                 = task_scheduler_state.args_t;
   worker_state.slot_sz                = task_scheduler_state.slot_sz;
@@ -315,17 +316,29 @@ void NRScopeWorker::RunSingleThreaded()
       ul_prb_rate.resize(worker_state.nof_known_rntis);
       dl_prb_bits_rate.resize(worker_state.nof_known_rntis);
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
-      // optimized, experimental version of decoder
-      dci_decoders[0]->DecodeandParseDCIfromSlotOptimized(&slot,
-                                                  &worker_state,
-                                                  sharded_results,
-                                                  sharded_rntis,
-                                                  nof_sharded_rntis,
-                                                  dl_prb_rate,
-                                                  dl_prb_bits_rate,
-                                                  ul_prb_rate,
-                                                  ul_prb_bits_rate);
-                                                  
+      if (worker_state.optimized_decoders) {
+        // optimized, experimental version of decoder
+        dci_decoders[0]->DecodeandParseDCIfromSlotOptimized(&slot,
+                                                    &worker_state,
+                                                    sharded_results,
+                                                    sharded_rntis,
+                                                    nof_sharded_rntis,
+                                                    dl_prb_rate,
+                                                    dl_prb_bits_rate,
+                                                    ul_prb_rate,
+                                                    ul_prb_bits_rate);
+      } else {
+        dci_decoders[0]->DecodeandParseDCIfromSlot(&slot,
+                                                    &worker_state,
+                                                    sharded_results,
+                                                    sharded_rntis,
+                                                    nof_sharded_rntis,
+                                                    dl_prb_rate,
+                                                    dl_prb_bits_rate,
+                                                    ul_prb_rate,
+                                                    ul_prb_bits_rate);
+      }
+
       MergeResults();
       slot_result.dci_feedback_results = results;
     TEND(t_dci_decode)
@@ -434,13 +447,17 @@ void NRScopeWorker::Run() // Main thread of backend worker
       dl_prb_bits_rate.resize(worker_state.nof_known_rntis);
       ul_prb_bits_rate.resize(worker_state.nof_known_rntis);
 
+      /* Pick the regular or optimized DCI decoding path */
+      auto dci_decode_fn = worker_state.optimized_decoders ? &DCIDecoder::DecodeandParseDCIfromSlotOptimized
+                                                           : &DCIDecoder::DecodeandParseDCIfromSlot;
+
       gettimeofday(&t0, NULL);
         if (worker_state.cpu_affinity) {
           for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
             cpu_set_t cpu_set_dci;
             CPU_ZERO(&cpu_set_dci);
             CPU_SET(worker_id * (3 + worker_state.nof_threads) + i + 3, &cpu_set_dci);
-            dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
+            dci_threads.emplace_back(dci_decode_fn,
                                     dci_decoders[i].get(),
                                     &slot,
                                     &worker_state,
@@ -455,7 +472,7 @@ void NRScopeWorker::Run() // Main thread of backend worker
           }
         } else {
           for (uint32_t i = 0; i < worker_state.nof_threads; i++) {
-            dci_threads.emplace_back(&DCIDecoder::DecodeandParseDCIfromSlot,
+            dci_threads.emplace_back(dci_decode_fn,
                                     dci_decoders[i].get(),
                                     &slot,
                                     &worker_state,

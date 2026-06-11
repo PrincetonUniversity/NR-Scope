@@ -89,6 +89,7 @@ public:
   uint8_t  nof_bwps;
   uint32_t nof_workers;
   bool     single_threaded_workers;
+  bool     optimized_decoders;
 
   NRScopeTask::TaskSchedulerNRScope task_scheduler_nrscope;
 

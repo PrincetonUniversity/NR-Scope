@@ -49,6 +49,7 @@ public:
                    int32_t              nof_threads,
                    uint32_t             nof_rnti_worker_groups,
                    bool                 single_threaded_workers,
+                   bool                 optimized_decoders,
                    uint8_t              nof_bwps,
                    bool                 cpu_affinity,
                    cell_searcher_args_t args_t,
