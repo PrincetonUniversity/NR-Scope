@@ -8,16 +8,10 @@ DCIDecoder::DCIDecoder(uint32_t max_nof_rntis)
   dci_dl = (srsran_dci_dl_nr_t*)malloc(sizeof(srsran_dci_dl_nr_t) * (max_nof_rntis));
   dci_ul = (srsran_dci_ul_nr_t*)malloc(sizeof(srsran_dci_ul_nr_t) * (max_nof_rntis));
 
-  // Zero the grant-conversion configs. Their field-by-field setup in
-  // DCIDecoderandReceptionInit never writes nof_dedicated_time_ra /
-  // dedicated_time_ra, so left uninitialized they hold heap garbage. If
-  // nof_dedicated_time_ra reads nonzero, srsran_ra_dl_nr_time (row 6) reads a
-  // garbage dedicated_time_ra SLIV, yielding an invalid grant that fails
-  // validation and is silently dropped. The garbage depends on heap layout,
-  // so it manifested differently between builds (the optimized decoder lost
-  // ~15% of grants the original kept, purely because its allocations shifted
-  // the heap). Zeroing makes nof_dedicated_time_ra a deterministic 0 so the
-  // conversion correctly falls through to common_time_ra.
+  // Zero the grant-conversion configs. 
+  // This caused undefined behavior that manifested as arbitrary 
+  // invalid decodes due to srsran_ra_dl_nr_time reading uninitialized values 
+  // from dedicated_time_ra/nof_dedicated_time_ra.
   pdsch_hl_cfg = {};
   pusch_hl_cfg = {};
 }
@@ -2813,39 +2807,7 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
         }
       }
     }
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs =
-    //  carrier_dl.nof_prb * (14 - 2) -
-    //  task_scheduler_nrscope->result.nof_dl_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] =
-    //    task_scheduler_nrscope->result.nof_dl_spare_prbs /
-    //    task_scheduler_nrscope->nof_known_rntis;
-    //   if(abs(task_scheduler_nrscope->result.spare_dl_prbs[idx]) >
-    //        carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_dl_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] =
-    //    (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx]
-    //    * dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_bits_rate[idx]);
-    // }
-  } else {
-    // task_scheduler_nrscope->result.nof_dl_spare_prbs =
-    //    carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx++){
-    //   task_scheduler_nrscope->result.spare_dl_prbs[idx] =
-    //      (int)((float)task_scheduler_nrscope->result.nof_dl_spare_prbs /
-    //      (float)task_scheduler_nrscope->nof_known_rntis);
-    //   task_scheduler_nrscope->result.spare_dl_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_dl_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_dl_prbs[idx] *
-    //      dl_prb_bits_rate[idx]);
-    // }
-  }
+  } else { }
 
   if (total_ul_dci > 0) {
     for (uint32_t dci_idx_ul = 0; dci_idx_ul < n_rntis; dci_idx_ul++) {
@@ -2880,39 +2842,7 @@ printf("cand_first proc us: measure=%.1f prep=%.1f groups=%.1f (polar_get=%.1f) 
             (float)pusch_cfg.grant.L;
       }
     }
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs =
-    //    carrier_dl.nof_prb * (14 - 2) -
-    //    task_scheduler_nrscope->result.nof_ul_used_prbs;
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] =
-    //      task_scheduler_nrscope->result.nof_ul_spare_prbs /
-    //      task_scheduler_nrscope->nof_known_rntis;
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_bits_rate[idx]);
-    // }
-  } else {
-    // task_scheduler_nrscope->result.nof_ul_spare_prbs =
-    //      carrier_dl.nof_prb * (14 - 2);
-    // for(uint32_t idx = 0; idx < task_scheduler_nrscope->nof_known_rntis; idx ++){
-    //   task_scheduler_nrscope->result.spare_ul_prbs[idx] =
-    //      (int)((float)task_scheduler_nrscope->result.nof_ul_spare_prbs /
-    //      (float)task_scheduler_nrscope->nof_known_rntis);
-    //   if(abs(task_scheduler_nrscope->result.spare_ul_prbs[idx]) >
-    //      carrier_dl.nof_prb * (14 - 2)){
-    //     task_scheduler_nrscope->result.spare_ul_prbs[idx] = 0;
-    //   }
-    //   task_scheduler_nrscope->result.spare_ul_tbs[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_rate[idx]);
-    //   task_scheduler_nrscope->result.spare_ul_bits[idx] =
-    //      (int) ((float)task_scheduler_nrscope->result.spare_ul_prbs[idx] *
-    //      ul_prb_bits_rate[idx]);
-    // }
-  }
+  } else {  }
 
   return SRSRAN_SUCCESS;
 }
