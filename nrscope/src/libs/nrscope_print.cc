@@ -1,2 +1,2 @@
 #include "nrscope/hdr/nrscope_print.h"
-bool g_silent = false;
+bool g_silent = true;
