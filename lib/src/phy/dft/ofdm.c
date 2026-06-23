@@ -683,8 +683,7 @@ static int ofdm_init_nr_nrscope_15khz(srsran_ofdm_t* q, srsran_ofdm_cfg_t* cfg, 
   // printf("cp1: %d\n", cp1);
 
   int cp2 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  // int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(cp) + cp2;
+  int cp1 = SRSRAN_CP_ISNORM(cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
 
 
   // printf("cp1: %d\n", cp1);
