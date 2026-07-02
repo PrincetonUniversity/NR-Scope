@@ -1028,7 +1028,8 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
   // Otherwise calculate the phase
   uint32_t count = 0;
   int cp2 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2;
+  int cp1 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+  // int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2; // wrong for 15khz scs
   for (uint32_t l = 0; l < q->nof_symbols * SRSRAN_NOF_SLOTS_PER_SF; l++) {
     int cp_len;
     if (l == 0 || l == q->nof_symbols) {
