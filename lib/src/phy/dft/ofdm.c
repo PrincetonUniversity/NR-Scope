@@ -1018,7 +1018,7 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
   double   srate_hz  = symbol_sz * scs;
   // printf("symbol_sz: %u\n", symbol_sz);
   // printf("srate_hz: %lf\n", srate_hz);
-  printf("scs: %lf\n", scs);
+  // printf("scs: %lf\n", scs);
 
   // Assert parameters
   if (!isnormal(srate_hz)) {
