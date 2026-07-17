@@ -226,6 +226,7 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
 
     if (config_yaml[setting_name]["silent"]) {
       g_silent = config_yaml[setting_name]["silent"].as<bool>();
+      printf("    silent_mode: %d\n", g_silent);
       std::cout << "    silent_mode: " << g_silent << std::endl;
     }
 

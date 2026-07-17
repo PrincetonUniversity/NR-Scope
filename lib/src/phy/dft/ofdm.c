@@ -1018,7 +1018,7 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
   double   srate_hz  = symbol_sz * scs;
   // printf("symbol_sz: %u\n", symbol_sz);
   // printf("srate_hz: %lf\n", srate_hz);
-  // printf("scs: %lf\n", scs);
+  printf("scs: %lf\n", scs);
 
   // Assert parameters
   if (!isnormal(srate_hz)) {
@@ -1028,8 +1028,15 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
   // Otherwise calculate the phase
   uint32_t count = 0;
   int cp2 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  int cp1 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  // int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2; // wrong for 15khz scs
+  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2; // VERY wrong for 15khz scs (-11388)
+  // Not sure if this is the right equation for anything besides 15 kHz scs, 
+  // but it is better than the one above, which is definitely busted. -john
+  if (scs == 15000.0) {
+    int cp1_new = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(0, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
+    // 30 khz scs: cp1_new=240 cp1=264
+    // 15 khz scs: cp1_new=120 cp1=-11388
+    cp1 = cp1_new;
+  }
   for (uint32_t l = 0; l < q->nof_symbols * SRSRAN_NOF_SLOTS_PER_SF; l++) {
     int cp_len;
     if (l == 0 || l == q->nof_symbols) {
