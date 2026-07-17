@@ -455,7 +455,9 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
 
     asn1::json_writer js;
     result->master_cell_group.to_json(js);
-    NRSCOPE_PRINT("masterCellGroup: %s\n", js.to_string().c_str());
+    // NRSCOPE_PRINT("masterCellGroup: %s\n", js.to_string().c_str());
+    printf("masterCellGroup: %s\n", js.to_string().c_str());
+
 
     if (!(result->master_cell_group).sp_cell_cfg.recfg_with_sync.new_ue_id) {
       c_rnti = tc_rnti;
