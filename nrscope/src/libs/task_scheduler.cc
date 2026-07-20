@@ -104,7 +104,6 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
   char str[1024] = {};
   srsran_pbch_msg_nr_mib_info(&task_scheduler_state.cell.mib, str, 1024);
   printf("MIB: %s\n", str);
-  scm_on_cell(task_scheduler_state.cell); // copy to scm (if enabled)
   // printf("MIB payload: ");
   // for (int i =0; i<SRSRAN_PBCH_MSG_NR_MAX_SZ; i++){
   //   printf("%hhu ", cs_ret_->ssb_res.pbch_msg.payload[i]);
@@ -182,6 +181,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
   task_scheduler_state.cs_ret = *cs_ret_;
   memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
 
+  scm_on_cell(task_scheduler_state.cell); // copy to scm (if enabled)
   return SRSRAN_SUCCESS;
 }
 
