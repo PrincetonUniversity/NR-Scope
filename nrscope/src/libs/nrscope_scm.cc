@@ -86,7 +86,7 @@ void maybe_finish_locked() {
 void scm_on_cell(const cell_search_result_t& cell) {
   if (!scm_enabled) return;
   std::lock_guard<std::mutex> lock(state().mtx);
-  printf("SCM: got cell info and MIB (PCI %d, freq %lld Hz)\n", cell.pci, cell.ssb_abs_freq_hz);
+  printf("SCM: got cell info and MIB (PCI %u, freq %.0f Hz)\n", cell.pci, cell.ssb_abs_freq_hz);
   state().cell      = cell;
   state().have_cell = true;
   maybe_finish_locked();
