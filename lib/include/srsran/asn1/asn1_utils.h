@@ -1522,8 +1522,13 @@ struct setup_release_c {
     j.start_obj();
     switch (type_.value) {
       case types::release:
+        j.write_null("release");
         break;
       case types::setup:
+        // A SetupRelease CHOICE: emit the value under a "setup" key. Writing it
+        // without a fieldname produces invalid JSON ("field": { { ... } }) since
+        // the inner value opens its own object/scalar with no key.
+        j.write_fieldname("setup");
         asn1::to_json(j, setup());
         break;
       default:
