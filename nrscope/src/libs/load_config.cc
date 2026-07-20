@@ -18,6 +18,7 @@
 #include "nrscope/hdr/radio_nr.h"
 #include "nrscope/hdr/rrc_recfg_parse.h"
 #include "nrscope/hdr/nrscope_print.h"
+#include "nrscope/hdr/nrscope_scm.h"
 
 #include "srsran/phy/ue/srsgui_plot.h"
 
@@ -228,6 +229,12 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
       g_silent = config_yaml[setting_name]["silent"].as<bool>();
       printf("    silent_mode: %d\n", g_silent);
       std::cout << "    silent_mode: " << g_silent << std::endl;
+    }
+
+    if (config_yaml[setting_name]["scm"]) {
+      scm_enabled = config_yaml[setting_name]["scm"].as<bool>();
+      printf("    scm_mode: %d\n", scm_enabled);
+      std::cout << "    scm_mode: " << scm_enabled << std::endl;
     }
 
     // mode: normal, record, or replay

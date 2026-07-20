@@ -34,6 +34,7 @@ ScmState& state() {
 }
 
 // Minimal MIB/cell JSON. TODO(step 4): full field printer for srsran_mib_nr_t.
+// TODO: lookup the available data here, probably want to print everything available
 std::string cell_to_json(const cell_search_result_t& cell) {
   std::string s = "{";
   s += "\"pci\": " + std::to_string(cell.pci) + ", ";
@@ -85,6 +86,7 @@ void maybe_finish_locked() {
 void scm_on_cell(const cell_search_result_t& cell) {
   if (!scm_enabled) return;
   std::lock_guard<std::mutex> lock(state().mtx);
+  printf("SCM: got cell info and MIB (PCI %d, freq %lld Hz)\n", cell.pci, cell.ssb_abs_freq_hz);
   state().cell      = cell;
   state().have_cell = true;
   maybe_finish_locked();
@@ -93,6 +95,7 @@ void scm_on_cell(const cell_search_result_t& cell) {
 void scm_on_sib1(const asn1::rrc_nr::sib1_s& sib1) {
   if (!scm_enabled) return;
   std::lock_guard<std::mutex> lock(state().mtx);
+  printf("SCM: got SIB1\n");
   state().sib1      = sib1;
   state().have_sib1 = true;
   maybe_finish_locked();
@@ -101,6 +104,7 @@ void scm_on_sib1(const asn1::rrc_nr::sib1_s& sib1) {
 void scm_on_master_cell_group(const asn1::rrc_nr::cell_group_cfg_s& mcg) {
   if (!scm_enabled) return;
   std::lock_guard<std::mutex> lock(state().mtx);
+  printf("SCM: got master cell group from RACH MSG4\n");
   state().mcg      = mcg;
   state().have_mcg = true;
   maybe_finish_locked();
