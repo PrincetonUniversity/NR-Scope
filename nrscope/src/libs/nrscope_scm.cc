@@ -11,7 +11,7 @@ bool scm_enabled = false;
 namespace {
 
 // Output file (hardcoded for now; make configurable later).
-constexpr const char* kScmOutputPath = "scm.json";
+constexpr const char* kScmOutputPath = "raw_scm_data.json";
 
 // The single latched record for the targeted cell. Guarded by `mtx`: the three
 // handoffs are called from concurrent worker threads.
