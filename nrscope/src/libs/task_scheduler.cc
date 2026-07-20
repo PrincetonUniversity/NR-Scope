@@ -177,11 +177,19 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
       2;
   args_t_->base_carrier.nof_prb = srsran_coreset_get_bw(&task_scheduler_state.coreset0_t);
 
+
   task_scheduler_state.args_t = *args_t_;
   task_scheduler_state.cs_ret = *cs_ret_;
   memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
 
+  // Fill the rest of the cell information (mainly for SCM)
+  task_scheduler_state.cell.found           = true;
+  task_scheduler_state.cell.pci             = cs_ret_->ssb_res.N_id;
+  task_scheduler_state.cell.ssb_abs_freq_hz = srsran_searcher_cfg_t_->ssb_freq_hz;
+  task_scheduler_state.cell.duplex_mode     = args_t_->duplex_mode;
+
   scm_on_cell(task_scheduler_state.cell); // copy to scm (if enabled)
+
   return SRSRAN_SUCCESS;
 }
 
