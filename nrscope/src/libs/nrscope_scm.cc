@@ -18,14 +18,16 @@ constexpr const char* kScmOutputPath = "raw_scm_data.json";
 struct ScmState {
   std::mutex mtx;
 
-  bool have_cell = false;  // MIB (+ PCI / duplex / freq)
+  bool have_cell = false;  // PCI + SSB freq + MIB
   bool have_sib1 = false;
   bool have_mcg  = false;
   bool written   = false;
 
-  cell_search_result_t             cell;
-  asn1::rrc_nr::sib1_s             sib1;
-  asn1::rrc_nr::cell_group_cfg_s   mcg;
+  uint32_t                       pci = 0;
+  double                         ssb_freq_hz = 0.0;
+  srsran_mib_nr_t                mib = {};
+  asn1::rrc_nr::sib1_s           sib1;
+  asn1::rrc_nr::cell_group_cfg_s mcg;
 };
 
 ScmState& state() {
@@ -55,23 +57,13 @@ std::string mib_to_json(const srsran_mib_nr_t& mib) {
   return s;
 }
 
-// cell_search_result_t: SSB/PBCH-block detection results plus the decoded MIB.
-// Also a flat struct — every field is a scalar, an enum (with a to_str helper),
-// or the nested MIB above.
-std::string cell_to_json(const cell_search_result_t& cell) {
+// The cell block: detected PCI, the SSB tuning frequency (absolute-frequency
+// anchor — band/duplex/DL-center are derived from it downstream), and the MIB.
+std::string cell_to_json(uint32_t pci, double ssb_freq_hz, const srsran_mib_nr_t& mib) {
   std::string s = "{";
-  s += "\"found\": " + jbool(cell.found) + ", ";
-  s += "\"pci\": " + std::to_string(cell.pci) + ", ";
-  s += "\"ssb_abs_freq_hz\": " + std::to_string(cell.ssb_abs_freq_hz) + ", ";
-  s += "\"ssb_scs\": \"" + std::string(srsran_subcarrier_spacing_to_str(cell.ssb_scs)) + "\", ";
-  s += "\"ssb_pattern\": \"" + std::string(srsran_ssb_pattern_to_str(cell.ssb_pattern)) + "\", ";
-  s += "\"duplex_mode\": \"" +
-       std::string(cell.duplex_mode == SRSRAN_DUPLEX_MODE_TDD ? "TDD" : "FDD") + "\", ";
-  s += "\"k_ssb\": " + std::to_string(cell.k_ssb) + ", ";
-  s += "\"abs_ssb_scs\": " + std::to_string(cell.abs_ssb_scs) + ", ";
-  s += "\"abs_pdcch_scs\": " + std::to_string(cell.abs_pdcch_scs) + ", ";
-  s += "\"u\": " + std::to_string(cell.u) + ", ";
-  s += "\"mib\": " + mib_to_json(cell.mib);
+  s += "\"pci\": " + std::to_string(pci) + ", ";
+  s += "\"ssb_abs_freq_hz\": " + std::to_string(ssb_freq_hz) + ", ";
+  s += "\"mib\": " + mib_to_json(mib);
   s += "}";
   return s;
 }
@@ -86,7 +78,7 @@ void write_and_exit_locked() {
   s.mcg.to_json(js_mcg);
 
   std::string out = "{\n";
-  out += "  \"cell\": " + cell_to_json(s.cell) + ",\n";
+  out += "  \"cell\": " + cell_to_json(s.pci, s.ssb_freq_hz, s.mib) + ",\n";
   out += "  \"sib1\": " + std::string(js_sib1.to_string()) + ",\n";
   out += "  \"master_cell_group\": " + std::string(js_mcg.to_string()) + "\n";
   out += "}\n";
@@ -112,12 +104,14 @@ void maybe_finish_locked() {
 
 }  // namespace
 
-void scm_on_cell(const cell_search_result_t& cell) {
+void scm_on_cell(uint32_t pci, double ssb_freq_hz, const srsran_mib_nr_t& mib) {
   if (!scm_enabled) return;
   std::lock_guard<std::mutex> lock(state().mtx);
-  printf("SCM: got cell info and MIB (PCI %u, freq %.0f Hz)\n", cell.pci, cell.ssb_abs_freq_hz);
-  state().cell      = cell;
-  state().have_cell = true;
+  printf("SCM: got cell info and MIB (PCI %u, freq %.0f Hz)\n", pci, ssb_freq_hz);
+  state().pci         = pci;
+  state().ssb_freq_hz = ssb_freq_hz;
+  state().mib         = mib;
+  state().have_cell   = true;
   maybe_finish_locked();
 }
 
