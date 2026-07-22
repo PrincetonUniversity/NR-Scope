@@ -23,16 +23,140 @@ import time
 
 DEFAULT_FILE = "raw_scm_data.jsonl"
 
-# Per-record processing, shared by scan and follow. THIS is the thing to modify:
-# for now it just prints a one-line summary — extend here (decode the `record`
-# payloads, filter by sensor/pci, emit CSV, …).
+# Per-record processing, shared by scan and follow. THIS is the thing to modify.
+# V1 export: emit one SCM record (JSON) per cell, built from the `sib1` record —
+# which, thanks to the envelope, already carries pci / freq / capture time too, so
+# no cross-record join is needed. `mib` / `master_cell_group` records add nothing
+# to the V1 field set, so we skip them.
 def process_record(rec):
-    print(f"[{rec.get('sensor_id', '?')}] "
-          f"capture_ms={rec.get('mib_capture_ms', '?')} "
-          f"pci={rec.get('pci', '?')} "
-          f"freq={rec.get('ssb_freq_hz', '?')} "
-          f"type={rec.get('type', '?')}",
-          flush=True)
+    if rec.get("type") == "sib1":
+        print(json.dumps(scm_record_from_sib1(rec)), flush=True)
+
+
+# --- gNB-ID / sector split (V1.5) ------------------------------------------
+# NR packs a 36-bit NCI (SIB1 cellIdentity) as [ gNB-ID | sector-ID ]. The split
+# point is operator-configurable (22-32 bits) and is NOT broadcast, so we assume
+# a default and override per PLMN as carriers are confirmed.
+#
+# NOTE: 24 bits (24-bit gNB / 12-bit sector) is the common default; treat every
+# result as unconfirmed until checked. Confirm a carrier on CellMapper's map or
+# the CellInfo/HiCellTek NR tools, then add a (mcc, mnc) row below. Cheap sanity
+# check: a correct length makes the sector-ID a small number (a gNB has only a
+# few sectors) — e.g. our T-Mobile capture yields sector 3 at 24 bits.
+GNB_ID_LEN_DEFAULT = 24
+GNB_ID_LEN_BY_PLMN = {
+    # (mcc, mnc): gnb_id_bits,   # e.g. (310, 260): 24,  # T-Mobile US (to confirm)
+}
+
+
+def split_nci(nci, mcc, mnc):
+    """Split a 36-bit NCI into (gnb_id, sector_id) using the per-PLMN gNB-ID
+    length, or GNB_ID_LEN_DEFAULT for unlisted operators."""
+    gnb_bits = GNB_ID_LEN_BY_PLMN.get((mcc, mnc), GNB_ID_LEN_DEFAULT)
+    sector_bits = 36 - gnb_bits
+    return nci >> sector_bits, nci & ((1 << sector_bits) - 1)
+
+
+# --- V1 field extraction from a `sib1` record ------------------------------
+# Small standards tables (partial — extend as needed; unknown → None).
+# NR band → duplex mode (TS 38.101-1); FR1-common subset.
+BAND_DUPLEX = {
+    1: "FDD", 2: "FDD", 3: "FDD", 5: "FDD", 7: "FDD", 8: "FDD", 12: "FDD",
+    13: "FDD", 14: "FDD", 18: "FDD", 20: "FDD", 24: "FDD", 25: "FDD", 26: "FDD",
+    28: "FDD", 30: "FDD", 65: "FDD", 66: "FDD", 70: "FDD", 71: "FDD", 74: "FDD",
+    34: "TDD", 38: "TDD", 39: "TDD", 40: "TDD", 41: "TDD", 48: "TDD", 50: "TDD",
+    51: "TDD", 77: "TDD", 78: "TDD", 79: "TDD", 90: "TDD",
+    75: "SDL", 76: "SDL",
+    80: "SUL", 81: "SUL", 82: "SUL", 83: "SUL", 84: "SUL", 86: "SUL",
+}
+# (scs kHz, N_RB) → channel bandwidth MHz (TS 38.101-1 Table 5.3.2-1), FR1.
+NR_RB_TO_MHZ = {
+    15: {25: 5, 52: 10, 79: 15, 106: 20, 133: 25, 160: 30, 216: 40, 270: 50},
+    30: {11: 5, 24: 10, 38: 15, 51: 20, 65: 25, 78: 30, 106: 40, 133: 50,
+         162: 60, 189: 70, 217: 80, 245: 90, 273: 100},
+    60: {11: 10, 18: 15, 24: 20, 31: 25, 38: 30, 51: 40, 65: 50, 79: 60,
+         93: 70, 107: 80, 121: 90, 135: 100},
+}
+
+
+def _dig(d, *keys):
+    """Safe nested lookup through dicts (str keys) and lists (int indices)."""
+    for k in keys:
+        if isinstance(d, dict):
+            d = d.get(k)
+        elif isinstance(d, list) and isinstance(k, int) and 0 <= k < len(d):
+            d = d[k]
+        else:
+            return None
+        if d is None:
+            return None
+    return d
+
+
+def _plmn_to_int(digits):
+    """MCC/MNC digit array [3,1,0] → 310. (Loses a leading-zero MNC — fine for
+    the majors; revisit if a 2-digit-with-leading-zero MNC shows up.)"""
+    return int("".join(map(str, digits))) if digits else None
+
+
+def _bits_to_int(s):
+    """ASN.1 bit-string ('0101…') → int; None if not a bit-string."""
+    return int(s, 2) if isinstance(s, str) and s and set(s) <= {"0", "1"} else None
+
+
+def _scs_khz(s):
+    """srsRAN SCS enum 'kHz15' → 15."""
+    if isinstance(s, str) and s.startswith("kHz"):
+        try:
+            return int(s[3:])
+        except ValueError:
+            return None
+    return None
+
+
+def scm_record_from_sib1(rec):
+    """Build a V1 SCM record from one enveloped `sib1` record. Field names track
+    section 6 of the design doc (NR-clear where the LTE names were ambiguous).
+    Missing/undecodable fields come out as None rather than raising."""
+    r = rec.get("record", {})
+
+    # PLMN + cell identity. Note srsRAN's double-nested `plmn-IdentityList`:
+    # cellAccessRelatedInfo.plmn-IdentityList[0] is a PLMN-IdentityInfo, whose own
+    # plmn-IdentityList[0] holds the actual {mcc, mnc}; tac/NCI sit on the info.
+    info = _dig(r, "cellAccessRelatedInfo", "plmn-IdentityList", 0)
+    plmn = _dig(info, "plmn-IdentityList", 0)
+    mcc = _plmn_to_int(_dig(plmn, "mcc"))
+    mnc = _plmn_to_int(_dig(plmn, "mnc"))
+    tac = _bits_to_int(_dig(info, "trackingAreaCode"))
+    nci = _bits_to_int(_dig(info, "cellIdentity"))
+
+    # DL frequency info.
+    fdl = _dig(r, "servingCellConfigCommon", "downlinkConfigCommon", "frequencyInfoDL")
+    band = _dig(fdl, "frequencyBandList", 0, "freqBandIndicatorNR")
+    nprb = _dig(fdl, "scs-SpecificCarrierList", 0, "carrierBandwidth")
+    scs = _scs_khz(_dig(fdl, "scs-SpecificCarrierList", 0, "subcarrierSpacing"))
+    ss_pbch_power = _dig(r, "servingCellConfigCommon", "ss-PBCH-BlockPower")
+
+    # Derived.
+    gnb_id, sector_id = (None, None)
+    if nci is not None and mcc is not None and mnc is not None:
+        gnb_id, sector_id = split_nci(nci, mcc, mnc)
+
+    return {
+        # provenance / envelope
+        "sensor_id": rec.get("sensor_id"),
+        "measurement_time_ms": rec.get("mib_capture_ms"),
+        # identity
+        "mcc": mcc, "mnc": mnc, "tac": tac,
+        "nci": nci, "gnb_id": gnb_id, "sector_id": sector_id,  # gnb split: V1.5
+        "pci": rec.get("pci"),
+        # radio / spectrum
+        "center_freq_hz": rec.get("ssb_freq_hz"),
+        "band": band, "duplex": BAND_DUPLEX.get(band),
+        "nprb": nprb, "scs_khz": scs,
+        "bandwidth_mhz": NR_RB_TO_MHZ.get(scs, {}).get(nprb),
+        "ss_pbch_block_power_dbm": ss_pbch_power,
+    }
 
 
 def scan(path):
