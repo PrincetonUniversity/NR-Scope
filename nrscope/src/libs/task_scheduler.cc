@@ -182,7 +182,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
   task_scheduler_state.cs_ret = *cs_ret_;
   memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
 
-  scm_on_cell(cs_ret_->ssb_res.N_id, srsran_searcher_cfg_t_->ssb_freq_hz, task_scheduler_state.cell.mib);
+  scm_write_mib(cs_ret_->ssb_res.N_id, srsran_searcher_cfg_t_->ssb_freq_hz, task_scheduler_state.cell.mib);
 
   return SRSRAN_SUCCESS;
 }

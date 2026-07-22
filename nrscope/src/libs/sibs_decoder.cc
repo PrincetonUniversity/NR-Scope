@@ -244,7 +244,7 @@ int SIBsDecoder::DecodeandParseSIB1fromSlot(srsran_slot_cfg_t* slot,
       types_opts::sys_info != dlsch_msg.msg.c1().type())){
     result->found_sib1 = true;
     result->sib1 = dlsch_msg.msg.c1().sib_type1();
-    scm_on_sib1(result->sib1); // copy to scm (if enabled)
+    scm_write_sib1(result->sib1); // copy to scm (if enabled)
 
     std::cout << "SIB 1 Decoded." << std::endl;
 

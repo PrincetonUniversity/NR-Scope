@@ -453,7 +453,7 @@ int RachDecoder::DecodeandParseMS4fromSlot(srsran_slot_cfg_t* slot, WorkState* s
       ERROR("Could not unpack master cell group config.");
       return SRSRAN_ERROR;
     }
-    scm_on_master_cell_group(result->master_cell_group); // copy to scm (if enabled)
+    scm_write_mastercellgroup(result->master_cell_group); // copy to scm (if enabled)
 
     asn1::json_writer js;
     result->master_cell_group.to_json(js);
