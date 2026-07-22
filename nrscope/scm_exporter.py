@@ -23,7 +23,7 @@ import time
 
 DEFAULT_FILE = "raw_scm_data.jsonl"
 
-# Per-record processing, shared by scan and follow. THIS is the thing to modify.
+# record handler for MIB/SIB1/MCG records.
 # V1 export: emit one SCM record (JSON) per cell, built from the `sib1` record —
 # which, thanks to the envelope, already carries pci / freq / capture time too, so
 # no cross-record join is needed. `mib` / `master_cell_group` records add nothing
