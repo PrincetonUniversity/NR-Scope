@@ -232,9 +232,10 @@ int load_config(std::vector<Radio>& radios, std::string file_name)
     }
 
     if (config_yaml[setting_name]["scm"]) {
-      scm_enabled = config_yaml[setting_name]["scm"].as<bool>();
-      printf("    scm_mode: %d\n", scm_enabled);
-      std::cout << "    scm_mode: " << scm_enabled << std::endl;
+      bool scm_on = config_yaml[setting_name]["scm"].as<bool>();
+      scm_enable(scm_on);
+      printf("    scm_mode: %d\n", scm_on);
+      std::cout << "    scm_mode: " << scm_on << std::endl;
     }
 
     if (config_yaml[setting_name]["scm_sensor_id"]) {
