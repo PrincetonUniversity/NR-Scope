@@ -18,10 +18,21 @@
 
 import argparse
 import json
+import os
 import sys
 import time
+import urllib.error
+import urllib.request
 
 DEFAULT_FILE = "raw_scm_data.jsonl"
+
+# V2 geolocation (opt-in via --geolocate). The API key is read from a file kept
+# OUTSIDE the repo so it is never committed or pasted anywhere; main() loads it
+# only when --geolocate is passed. Override the path with --api-key-file or the
+# NRSCOPE_GAPI_KEY_FILE env var.
+DEFAULT_API_KEY_FILE = os.path.expanduser("~/private/gapi.txt")
+GEOLOCATE_URL = "https://www.googleapis.com/geolocation/v1/geolocate"
+_GEO_API_KEY = None  # set by main() when --geolocate is on
 
 # record handler for MIB/SIB1/MCG records.
 # V1 export: emit one SCM record (JSON) per cell, built from the `sib1` record —
@@ -29,8 +40,14 @@ DEFAULT_FILE = "raw_scm_data.jsonl"
 # no cross-record join is needed. `mib` / `master_cell_group` records add nothing
 # to the V1 field set, so we skip them.
 def process_record(rec):
-    if rec.get("type") == "sib1":
-        print(json.dumps(scm_record_from_sib1(rec)), flush=True)
+    if rec.get("type") != "sib1":
+        return
+    row = scm_record_from_sib1(rec)
+    if _GEO_API_KEY:  # V2: only when --geolocate is on
+        loc = geolocate(row["mcc"], row["mnc"], row["nci"], _GEO_API_KEY)
+        if loc:
+            row.update(loc)
+    print(json.dumps(row), flush=True)
 
 
 # --- gNB-ID / sector split (V1.5) ------------------------------------------
@@ -159,6 +176,50 @@ def scm_record_from_sib1(rec):
     }
 
 
+# --- V2 geolocation (opt-in) -----------------------------------------------
+
+def load_api_key(path):
+    """Read the Google API key from `path` (a one-line file kept outside the
+    repo). Returns the key string; the key is never logged."""
+    with open(os.path.expanduser(path)) as f:
+        return f.read().strip()
+
+
+def geolocate(mcc, mnc, nci, api_key, timeout=10):
+    """Look up a cell's location via the Google Geolocation API (5G NR). Returns
+    {'lat','lng','accuracy'} or None. Best-effort: Google's NR coverage is
+    spotty and considerIp=false means an unknown cell returns an error (not a
+    guess) — so None is a normal, common outcome. Neither the key nor the request
+    URL is ever printed."""
+    if None in (mcc, mnc, nci):
+        return None
+    body = json.dumps({
+        "considerIp": False,
+        "radioType": "nr",
+        "cellTowers": [{
+            "newRadioCellId": nci,          # the full 36-bit NCI, not the gNB-ID
+            "mobileCountryCode": mcc,
+            "mobileNetworkCode": mnc,
+        }],
+    }).encode()
+    req = urllib.request.Request(
+        f"{GEOLOCATE_URL}?key={api_key}", data=body,
+        headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as e:
+        note = "cell not found" if e.code == 404 else "error"
+        print(f"geolocate: HTTP {e.code} ({note}) for nci={nci}", file=sys.stderr)
+        return None
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        print(f"geolocate: {e}", file=sys.stderr)
+        return None
+    loc = data.get("location", {})
+    return {"lat": loc.get("lat"), "lng": loc.get("lng"),
+            "accuracy": data.get("accuracy")}
+
+
 def scan(path):
     """Non-live: process every record already in the file, then exit."""
     try:
@@ -219,12 +280,27 @@ def parse_line(line):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Read nrscope SCM-mode JSONL output.")
+    ap = argparse.ArgumentParser(description="Export nrscope SCM-mode JSONL records.")
     ap.add_argument("file", nargs="?", default=DEFAULT_FILE,
                     help=f"SCM JSONL file (default: {DEFAULT_FILE})")
     ap.add_argument("--live", action="store_true",
                     help="skip to end and follow new records (like tail -f)")
+    ap.add_argument("--geolocate", action="store_true",
+                    help="add lat/lng via Google Geolocation API (networked; needs a key)")
+    ap.add_argument("--api-key-file",
+                    default=os.environ.get("NRSCOPE_GAPI_KEY_FILE", DEFAULT_API_KEY_FILE),
+                    help=f"file holding the Google API key "
+                         f"(default: {DEFAULT_API_KEY_FILE}, or env NRSCOPE_GAPI_KEY_FILE)")
     args = ap.parse_args()
+
+    if args.geolocate:
+        global _GEO_API_KEY
+        try:
+            _GEO_API_KEY = load_api_key(args.api_key_file)
+        except OSError as e:
+            print(f"error: --geolocate needs an API key file: {e}", file=sys.stderr)
+            return 1
+
     return follow(args.file) if args.live else scan(args.file)
 
 
