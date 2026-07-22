@@ -14,7 +14,7 @@
 #include "srsran/phy/phch/pbch_msg_nr.h"
 
 // Assumes srsRAN's asn1_utils.h emits valid JSON (nrscope fixes a SetupRelease to_json bug).
-
+// Output writes are in append mode, not process safe (add flock for that)
 namespace scm_detail {
 
 inline uint64_t now_ms() {
@@ -35,7 +35,7 @@ struct State {
   double        ssb_freq_hz    = 0.0;
   uint32_t      pci            = 0;
   uint64_t      mib_capture_ms = 0;
-  std::ofstream file;                  // opened lazily on first write (trunc)
+  std::ofstream file;                  // opened lazily on first write (append)
 
   State() : scan_start_ms(now_ms()) {}
 };
@@ -85,7 +85,7 @@ inline std::string mib_to_json(const srsran_mib_nr_t& mib) {
 // line. Safe here — none of these ASN.1 string values contain a literal newline.
 inline void write_record_locked(const char* type, std::string json) {
   State& st = state();
-  if (!st.file.is_open()) st.file.open(st.filename, std::ios::trunc);
+  if (!st.file.is_open()) st.file.open(st.filename, std::ios::app);
   json.erase(std::remove(json.begin(), json.end(), '\n'), json.end());
   st.file << "{\"type\": \"" << type << "\""
           << ", \"sensor_id\": \"" << st.sensor_id << "\""
