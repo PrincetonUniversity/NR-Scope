@@ -9,12 +9,12 @@
 # A "capture" (one found cell) is the group of records sharing
 # (sensor_id, scan_start_ms, mib_capture_ms).
 #
-# Usage:
-#   scm_reader.py [FILE] [--live]
-#     FILE    SCM JSONL file (default: raw_scm_data.jsonl)
-#     --live  skip to the end of the file and follow new records as they are
-#             appended (like `tail -f`); without it, scan the existing file and
-#             exit.
+# Usage (see README.md for details):
+#   scm_exporter.py [FILE] [--live] [--geolocate] [--api-key-file PATH]
+#     FILE          SCM JSONL file (default: raw_scm_data.jsonl)
+#     --live        follow new records as they are appended (like `tail -f`)
+#     --geolocate   add lat/lng via the Google Geolocation API (networked)
+#     --api-key-file  file holding the Google API key (default ~/private/gapi.txt)
 
 import argparse
 import json

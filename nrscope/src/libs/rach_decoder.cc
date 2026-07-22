@@ -1,6 +1,6 @@
 #include "nrscope/hdr/rach_decoder.h"
 #include "nrscope/hdr/nrscope_print.h"
-#include "nrscope/hdr/nrscope_scm.h"
+#include "nrscope/scm/nrscope_scm.h"
 
 std::mutex lock_rach;
 

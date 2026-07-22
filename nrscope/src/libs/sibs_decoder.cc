@@ -1,6 +1,6 @@
 #include "nrscope/hdr/sibs_decoder.h"
 #include "nrscope/hdr/nrscope_print.h"
-#include "nrscope/hdr/nrscope_scm.h"
+#include "nrscope/scm/nrscope_scm.h"
 SIBsDecoder::SIBsDecoder(){
   data_pdcch = srsran_vec_u8_malloc(SRSRAN_SLOT_MAX_NOF_BITS_NR);
   if (data_pdcch == NULL) {

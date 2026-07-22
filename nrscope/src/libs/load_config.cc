@@ -18,7 +18,7 @@
 #include "nrscope/hdr/radio_nr.h"
 #include "nrscope/hdr/rrc_recfg_parse.h"
 #include "nrscope/hdr/nrscope_print.h"
-#include "nrscope/hdr/nrscope_scm.h"
+#include "nrscope/scm/nrscope_scm.h"
 
 #include "srsran/phy/ue/srsgui_plot.h"
 

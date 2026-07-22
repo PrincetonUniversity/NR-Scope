@@ -1,6 +1,6 @@
 #include "nrscope/hdr/task_scheduler.h"
 #include "nrscope/hdr/nrscope_print.h"
-#include "nrscope/hdr/nrscope_scm.h"
+#include "nrscope/scm/nrscope_scm.h"
 namespace NRScopeTask {
 
 TaskSchedulerNRScope::TaskSchedulerNRScope()
