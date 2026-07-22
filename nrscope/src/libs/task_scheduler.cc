@@ -182,12 +182,7 @@ int TaskSchedulerNRScope::DecodeMIB(cell_searcher_args_t*          args_t_,
   task_scheduler_state.cs_ret = *cs_ret_;
   memcpy(&task_scheduler_state.srsran_searcher_cfg_t, srsran_searcher_cfg_t_, sizeof(srsue::nr::cell_search::cfg_t));
 
-  // Hand the raw cell identity to SCM: detected PCI, the SSB tuning frequency
-  // (absolute-frequency anchor; band/duplex/DL-center derive from it), and the
-  // decoded MIB. All three are srsRAN types — no nrscope struct crosses over.
-  scm_on_cell(cs_ret_->ssb_res.N_id,
-              srsran_searcher_cfg_t_->ssb_freq_hz,
-              task_scheduler_state.cell.mib);
+  scm_on_cell(cs_ret_->ssb_res.N_id, srsran_searcher_cfg_t_->ssb_freq_hz, task_scheduler_state.cell.mib);
 
   return SRSRAN_SUCCESS;
 }
