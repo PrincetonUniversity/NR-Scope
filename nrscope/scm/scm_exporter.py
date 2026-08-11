@@ -62,7 +62,17 @@ def process_record(rec):
 # few sectors) — e.g. our T-Mobile capture yields sector 3 at 24 bits.
 GNB_ID_LEN_DEFAULT = 24
 GNB_ID_LEN_BY_PLMN = {
-    # (mcc, mnc): gnb_id_bits,   # e.g. (310, 260): 24,  # T-Mobile US (to confirm)
+    # Inferred from the finalfull2/cosmos-20260719 capture (see notes.md):
+    # pick the split whose sector IDs stay small/structured across all NCIs.
+    (310, 260): 24,  # T-Mobile US — 24 gives sectors {3,21,302,303,313} (decimal
+                     # carrier+sector pattern) and same-tower cells share a gNB-ID;
+                     # 22 gives 4117/8195. Good confidence.
+    (310, 410): 26,  # AT&T — 24 gives sectors ~3097-3099; >=26 gives {25,26,27,76}.
+                     # 26 vs 28 indistinguishable in this capture (sector bits 10-11
+                     # all zero); 26 = minimum consistent length. To confirm.
+    (311, 480): 22,  # Verizon — 22 bits per online sources (confirmed 2026-08-11);
+                     # only 1 NCI in this capture (gnb 799168 / sector 1431 at 22 —
+                     # large sectors are expected in VzW's 14-bit sector space).
 }
 
 
