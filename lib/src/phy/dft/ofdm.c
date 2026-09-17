@@ -1027,11 +1027,47 @@ int srsran_ofdm_set_phase_compensation_nrscope(srsran_ofdm_t* q, double center_f
 
   // Otherwise calculate the phase
   uint32_t count = 0;
+  /* Cyclic prefix layout per TS 38.211 5.3.1:
+   *
+   *   N_CP,l^mu = 144*kappa*2^-mu + 16*kappa   for l = 0 or l = 7*2^mu
+   *             = 144*kappa*2^-mu              otherwise          (kappa = 64, 4.1)
+   *
+   * i.e. the first symbol of every 0.5 ms carries the longer CP, so that the
+   * half-millisecond boundary stays aligned across all numerologies.
+   *
+   * srsRAN expresses CP lengths as a ratio of symbol_sz, which corresponds to
+   * 2048*kappa*2^-mu.  The short CP is c = 144 for every numerology; the long
+   * CP is c = 144 + 16*2^mu (160 at 15 kHz, 176 at 30 kHz).  Note that
+   * SRSRAN_CP_LEN_NORM(0, ...) hardcodes 160 and so is correct only for 15 kHz.
+   *
+   * The previous form was
+   *     cp1 = slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(cp) + cp2
+   * i.e. "whatever the slot has left over after 14 symbols".  That is exact for
+   * the 30 kHz init, which sets slot_sz = SRSRAN_SLOT_LEN_NR (a 14-symbol,
+   * 0.5 ms slot) -> 528 @184.32 Msps.  But the 15 kHz init keeps the LTE
+   * geometry, slot_sz = SRSRAN_SLOT_LEN (a 7-symbol, 0.5 ms slot) with
+   * nof_symbols = 7, so subtracting 14 symbols from a 7-symbol slot yields a
+   * NEGATIVE cp1 (-11388 @23.04 Msps, -15184 @30.72).  Added to the uint32_t
+   * `count` below that underflows to ~4.29e9, putting t_start at ~186 s and
+   * making every phase value arbitrary.
+   *
+   * The long-CP POSITIONS were already correct in both inits, because
+   * nof_symbols is 7 at 15 kHz and 14 at 30 kHz, so `l == q->nof_symbols`
+   * already meant l = 7 and l = 14 respectively.  Deriving them from mu here
+   * yields the same positions while no longer depending on that coupling.
+   *
+   * For mu = 1 this computes cp1 (528/264) and the long-CP positions (0, 14)
+   * identically to the previous code, so 30 kHz behaviour is bit-for-bit
+   * unchanged. */
+  const uint32_t mu            = (scs_idx > 0) ? (uint32_t)scs_idx : 0u;
+  const uint32_t long_cp_every = 7u << mu; /* l = 0, 7*2^mu, ... */
   int cp2 = SRSRAN_CP_ISNORM(q->cfg.cp) ? SRSRAN_CP_LEN_NORM(1, symbol_sz) : SRSRAN_CP_LEN_EXT(symbol_sz);
-  int cp1 = q->slot_sz - (cp2 + symbol_sz) * SRSRAN_CP_NSYMB_NR(q->cfg.cp) + cp2;
+  int cp1 = SRSRAN_CP_ISNORM(q->cfg.cp)
+                ? SRSRAN_CP_LEN(symbol_sz, SRSRAN_CP_NORM_LEN + 16 * (1u << mu))
+                : SRSRAN_CP_LEN_EXT(symbol_sz);
   for (uint32_t l = 0; l < q->nof_symbols * SRSRAN_NOF_SLOTS_PER_SF; l++) {
     int cp_len;
-    if (l == 0 || l == q->nof_symbols) {
+    if ((l % long_cp_every) == 0) {
       cp_len = cp1;
     } else {
       cp_len = cp2;

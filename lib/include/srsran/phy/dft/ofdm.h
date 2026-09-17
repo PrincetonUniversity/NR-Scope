@@ -86,7 +86,15 @@ typedef struct SRSRAN_API {
   uint32_t          window_offset_n;
   cf_t*             shift_buffer;
   cf_t*             window_offset_buffer;
-  cf_t              phase_compensation[SRSRAN_MAX_NSYMB * SRSRAN_NOF_SLOTS_PER_SF];
+  /* One entry per OFDM symbol in a 1 ms subframe.  SRSRAN_MAX_NSYMB is the LTE
+   * value (7 per 0.5 ms slot) and is too small for the NR paths: the 30 kHz
+   * init sets nof_symbols = SRSRAN_CP_NSYMB_NR = 14, so
+   * srsran_ofdm_set_phase_compensation_nrscope() fills 14 * 2 = 28 entries and
+   * ofdm_rx_slot() reads [slot_in_sf * nof_symbols + i] up to index 27.  Sized
+   * at 7 * 2 = 14 that overran the array by 112 bytes into tx_cfr; it happened
+   * to be harmless only because the writes and reads used the same
+   * out-of-bounds addresses and CFR is unused in this RX-only build. */
+  cf_t              phase_compensation[SRSRAN_CP_NORM_NSYMB_NR * SRSRAN_NOF_SLOTS_PER_SF];
   srsran_cfr_t      tx_cfr; ///< Tx CFR object
 } srsran_ofdm_t;
 
